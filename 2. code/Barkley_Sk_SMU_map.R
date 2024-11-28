@@ -1,9 +1,8 @@
-
 # Packages ----------------------------------------------------------------
 
 pkgs <- c(
   "tidyverse", "ggrepel", "here", 
-  "sf", "ggspatial", "ggoceanmaps", "cowplot"
+  "sf", "ggspatial", "ggOceanMaps", "cowplot", "geomtextpath"
   )
 #install.packages(pkgs)
 #remotes::install_github("MikkoVihtakari/ggOceanMaps") # Alt version
@@ -16,8 +15,8 @@ library(ggrepel)
 library(sf)
 library(ggspatial)
 library(ggOceanMaps)
+library(geomtextpath)
 library(cowplot)
-
 
 
 # Load spatial features ---------------------------------------------------
@@ -104,11 +103,25 @@ stream_lines <- read_sf(
 # Build plots -------------------------------------------------------------
 
 
+# Annotation data for "Gulf of Alaska" text
+goa_ann <- data.frame(
+  lon = -147:-137,
+  lat = 55
+) |> 
+  as.matrix() |> 
+  st_linestring() |> 
+  list() |> 
+  as_tibble_col("geometry") |> 
+  mutate(text = "Gulf of\nAlaska") |> 
+  st_as_sf(crs = 4326)
+
+
 # Zoomed out map showing the bounding box context
 (big_map <- basemap(
   limits = coords_big,
   land.col = "grey70",
   land.border.col = NA,
+  grid.col = "grey95",
   rotate = TRUE
   ) +
    geom_sf(
@@ -117,27 +130,42 @@ stream_lines <- read_sf(
      fill = NA,
      linewidth = 0.5
    ) +
+    geom_textsf(
+      data = goa_ann,
+      aes(label = text),
+      linecolour = NA,
+      size = 3
+    ) +
    theme(
      axis.ticks.x = element_blank(),
      axis.ticks.y = element_blank(),
      axis.text = element_blank(),
      axis.title = element_blank(),
      panel.background = element_rect(fill = "lightblue1"),
-     panel.ontop = FALSE
+     panel.ontop = FALSE,
+     panel.border = element_rect(
+       fill = NA, 
+       colour = "black", 
+       linewidth = 1
+     )
    )
 )
 
 
 # Small map showing Barkley Sound
 (small_map <- ggplot(vi_coastline) +
-    geom_sf(fill = "grey80") +
+    geom_sf(
+      fill = "grey80",
+      colour = "grey60"
+    ) +
     geom_sf(
       data = stream_lines,
       aes(colour = CU)
     ) +
     geom_sf(
       data = lakes,
-      aes(fill = CU)
+      aes(fill = CU),
+      colour = "grey60"
     ) +
     geom_text_repel(
       data = lakes,
@@ -151,14 +179,16 @@ stream_lines <- read_sf(
       hjust = "right",
       direction = "y",
       nudge_x = -0.2,
-      nudge_y = 0.05
+      nudge_y = 0.05,
+      bg.color = "white",
+      bg.r = 0.05
     ) +
     scale_colour_manual(
       values = c("deeppink3", "seagreen3", "black", "chocolate3"),
       aesthetics = c("colour", "fill")
     ) +
-    scale_x_continuous(breaks = c(-125, -125.5)) +
-    scale_y_continuous(breaks = c(48.8, 49, 49.2)) +
+    scale_x_continuous(breaks = c(-125, -126)) +
+    scale_y_continuous(breaks = c(48.8, 49, 49.2, 49.4)) +
     annotation_north_arrow(
       location = "tr",
       style = ggspatial::north_arrow_nautical(),
@@ -185,8 +215,8 @@ stream_lines <- read_sf(
 (smu_map <- ggdraw(small_map) +
   draw_plot(
     big_map,
-    x = 0.13,
-    y = -0.24,
+    x = 0.15,
+    y = -0.25,
     width = 0.25
   )
 )
