@@ -1,0 +1,13 @@
+
+BC Coastline
+	- Folder containing high resolution shapefile of the BC coastline
+
+FWA_LAKES_POLY
+	- Folder containing lake polygon files from the BC Freshwater Atlas https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/freshwater
+
+FWA_STREAM_NETWORKS_SP
+	- Folder containing stream linestring files from the BC Freshwater Atlas https://www2.gov.bc.ca/gov/content/data/geographic-data-services/topographic-data/freshwater
+
+WCVI_bathy_NOAA.tiff
+	- Data dump of bathymetry for the WCVI area from NOAA's NCEI database https://www.ncei.noaa.gov/maps/bathymetry/ 
+	- Used to 
