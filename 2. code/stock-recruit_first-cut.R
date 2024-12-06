@@ -1,17 +1,17 @@
 # Packages ----------------------------------------------------------------
 
 pkgs <- c(
-  "here", "tidyverse", "readxl", "writexl", "ggpmisc", "broom",
-  "janitor" 
+  "here", "tidyverse", "readxl", "writexl", "broom",
+  "geomtextpath"
 )
 #install.packages(pkgs)
 
 library(here)
 library(tidyverse); theme_set(theme_bw(base_size = 18))
-library(ggpmisc)
+library(geomtextpath)
 library(readxl)
 library(writexl)
-library(magrittr)
+library(broom)
 
 
 # Load and clean input data -----------------------------------------------
@@ -24,6 +24,7 @@ sk_ret0 <- read_xlsx(
   mutate(
     brood_year = return_year - ttl_age,
     smolt_year = brood_year + fw_age,
+    marine_age = ttl_age - fw_age,
     gr_age = paste0(ttl_age,"[", fw_age, "]"),
     return = escapement + catch
   )
@@ -35,6 +36,15 @@ by_spwns <- sk_ret0 |>
     .by = c(stock, return_year),
     by_spawners = sum(escapement),
     by_adult_spawners = sum(escapement[!gr_age %in% c("3[2]", "4[3]")])
+  ) |> 
+  rename("brood_year" = return_year)
+
+
+# Create age-specific lookup table for spawners by brood year
+by_spwns_age <- sk_ret0 |> 
+  summarize(
+    .by = c(stock, return_year, contains("age")),
+    by_spawners = sum(escapement)
   ) |> 
   rename("brood_year" = return_year)
 
@@ -158,17 +168,30 @@ smolts <- read_xlsx(
 fw_groups <- sk_ret |> 
   summarize(
     .by = c(stock, fw_age),
-    ttl_age = list(unique(ttl_age))
+    ttl_age = list(unique(ttl_age)),
+    marine_age = list(unique(marine_age))
   ) |> 
   mutate(
     across(contains("age"), as.list),
     age_group = "fw_age"
   )
+
+marine_groups <- sk_ret |> 
+  summarize(
+    .by = c(stock, marine_age),
+    fw_age = list(unique(fw_age)),
+    ttl_age = list(unique(ttl_age))
+  ) |> 
+  mutate(
+    across(contains("age"), as.list),
+    age_group = "marine_age"
+  )
   
 ttl_groups <- sk_ret |> 
   summarize(
     .by = c(stock, ttl_age),
-    fw_age = list(unique(fw_age))
+    fw_age = list(unique(fw_age)),
+    marine_age = list(unique(marine_age))
   ) |> 
   mutate(
     across(contains("age"), as.list),
@@ -176,7 +199,7 @@ ttl_groups <- sk_ret |>
   )
 
 all_groups <- sk_ret |> 
-  distinct(stock, ttl_age, fw_age) |> 
+  distinct(stock, ttl_age, fw_age, marine_age) |> 
   mutate(
     across(contains("age"), as.list),
     age_group = "gr_age"
@@ -186,7 +209,8 @@ no_groups <- sk_ret |>
   summarize(
     .by = stock,
     ttl_age = list(unique(ttl_age)),
-    fw_age = list(unique(fw_age))
+    fw_age = list(unique(fw_age)),
+    marine_age = list(unique(marine_age))
   ) |> 
   mutate(
     across(contains("age"), as.list),
@@ -194,7 +218,13 @@ no_groups <- sk_ret |>
   )
 
 
-data_groups <- bind_rows(fw_groups, ttl_groups, all_groups, no_groups) |> 
+data_groups <- bind_rows(
+  fw_groups, 
+  marine_groups, 
+  ttl_groups, 
+  all_groups, 
+  no_groups
+) |> 
   # Rename columns to disambiguate during data filtering
   rename(
     "total_age" = ttl_age,
@@ -207,26 +237,48 @@ data_groups <- bind_rows(fw_groups, ttl_groups, all_groups, no_groups) |>
 model_data <- data_groups |> 
   rowwise() |> 
   mutate(
-    sr_data = list(
+    return_data = list(
       sk_ret |> 
         filter(
           ttl_age %in% total_age,
           fw_age %in% freshwater_age,
           stock == cu
         ) |> 
-        rename("spawners" = by_spawners) |> 
         summarize(
-          .by = c(stock, brood_year, spawners),
+          .by = c(stock, brood_year),
           return = sum(return)
+        ) 
+    ),
+    spawner_data = list(
+      by_spwns_age |> 
+        filter(
+          ttl_age %in% total_age,
+          fw_age %in% freshwater_age,
+          stock == cu
         ) |> 
+        summarize(
+          .by = c(stock, brood_year),
+          spawners = sum(by_spawners)
+        )
+    ),
+    sr_data = list(
+      left_join(return_data, spawner_data) |> 
         # Remove all rows where return or spawners is NA or <= 0
         filter(
           !if_any(c(return, spawners), is.na),
           !if_any(c(return, spawners), \(x) x <= 0)
         ) |> 
         mutate(r_s = return/spawners)
+    ),
+    gr_age = paste0(
+      total_age, 
+      "[", 
+      freshwater_age,
+      "]",
+      collapse = "~~"
     )
   ) |> 
+  select(-return_data, -spawner_data) |> 
   ungroup()
 
 
@@ -239,12 +291,15 @@ sr_models <- model_data |>
   rowwise() |> 
   # Fit models
   mutate(
+    # Fix intercepts at 0? 
     linear_model = list(lm(return ~ spawners, data = sr_data)),
+    power_model = list(lm(log(return) ~ log(spawners), data = sr_data)),
     ricker_model = list(lm(log(r_s) ~ spawners, data = sr_data)),
     bevholt_model = list(
       glm(
         return ~ I(1/spawners), 
         family = gaussian(link = "inverse"), 
+        #start = c(0, 3), # Research how to choose appropriate starting values
         data = sr_data
       )
     )
@@ -269,7 +324,18 @@ sr_models <- model_data |>
         as_tibble() |> 
         bind_cols(newdata)
     ),
-    # Bootstrap predictions from Ricker model
+    # Back-transformed predictions from power model
+    power_pred = list(
+      predict(
+        power_model,
+        newdata, 
+        interval = "confidence"
+      ) |> 
+        as_tibble() |> 
+        mutate(across(c(fit, lwr, upr), exp)) |> 
+        bind_cols(newdata)
+    ),
+    # Bootstrapped predictions from Ricker model
     ricker_pred = list(
       MASS::mvrnorm(
         10000, 
@@ -313,185 +379,140 @@ sr_models <- model_data |>
     cols = matches("_(model|pred)$"),
     names_sep = "_",
     names_to = c("name", ".value")
-  )
+  ) |> 
+  rowwise() |> 
+  # Add model summary statistics
+  mutate(glance = list(broom::glance(model))) |> 
+  unnest(glance)
 
 
+# Plot fitted stock-recruit models ----------------------------------------
 
-# Plot stock-recruit data
-(sr_plots <- list(
-  # find a way to make this code more elegant
-  "observed" = select(sr_models, cu, contains("age"), name, sr_data) |> unnest(sr_data),
-  "pred" =  select(sr_models, cu, contains("age"), name, pred) |> unnest(pred)
-) |> 
-    # Doesn't quite work, yet...
-    pmap(
-      ~ggplot(..1, aes(x = spawners, y = return)) +
-        facet_grid(cu+freshwater_age+total_age~name) +
-        geom_point() +
-        geom_line(
-          data = ..2, 
-          aes(y = fit),
-          colour = "blue"
-        ) +
-        geom_ribbon(
-          data = ..2,
-          aes(y = fit, ymin = lwr, ymax = upr),
-          fill = "blue",
-          alpha = 0.3
-        ) +
-        scale_x_continuous(labels = scales::comma) +
-        scale_y_continuous(
-          labels = scales::comma,
-          breaks = seq(0, 1.5e6, by = 5e5),
-          expand = expansion(mult = c(0, 0.05))
-        )
-    )
+
+# Plot all models
+(sr_plots <- sr_models |> 
+   mutate(
+     #hjust = sample(40:95, 1)/100
+     hjust = case_when(
+       name == "linear" ~ 0.3,
+       name == "bevholt" ~ 0.5,
+       name == "ricker" ~ 0.7,
+       name == "power" ~ 0.9
+     )
+   ) |> 
+   unite("cu_age", cu, age_group) |> 
+   group_split(cu_age) |> 
+   map(
+     \(x) ggplot(x) +
+       facet_wrap(
+         ~ gr_age,
+         labeller = label_parsed,
+         scales = "free"
+       ) +
+       geom_abline(slope = 1, lty = 2, colour = "grey50") +
+       geom_point(
+         data = unnest(x, sr_data),
+         aes(x = spawners, y = return)
+       ) +
+       geom_line(
+         data = unnest(x, pred),
+         aes(x = spawners, y = fit, colour = name),
+       ) +
+       expand_limits(x = 0, y = 0) +
+       scale_x_continuous(
+         labels = scales::label_number(), 
+         expand = c(0, 0.05)
+       ) +
+       scale_y_continuous(
+         labels = scales::label_number(),
+         expand = c(0, 0.05)
+       ) +
+       #guides(colour = "none") +
+       ggtitle(label = unique(x$cu_age)) +
+       theme(
+         axis.text.x = element_text(angle = 45, hjust = 1)
+       )
+   )
 )
 
 
 # Save stock-recruit plots
 sr_plots |> 
   rlang::set_names(
-    nm = ricker_data |> 
-      select(population, col) |> 
+    nm = sr_models |> 
+      select(cu, age_group) |> 
       unite(col = "name") |> 
-      pull()
+      pull() |> 
+      unique()
   ) |> 
   iwalk(
     ~ggsave(
       plot = .x,
       filename = here(
-        "03-output figures",
-        paste0("R-PLOT_Ricker_pred", .y, ".png")
-      ),
-      height = 4,
-      width = 7,
-      units = "in"
+        "3. outputs",
+        "Stock-recruit modelling",
+        paste0("R-PLOT_", .y, "_first_cut_models.png")
+      )
     )
   )
 
 
 
+# Determine which age groupings and models are best fits ------------------
 
-# What about age-specific Ricker relationships? ---------------------------
-
-
-# Look-up table of brood-year spawners by age
-meta_by_spwns <- sk_ret0 |> 
-  filter(!gr_age %in% c("3[2]", "4[3]")) |> 
-  summarize(
-    .by = c(stock, return_year, gr_age),
-    by_meta_spawners = sum(escapement)
-  ) |> 
-  rename("brood_year" = return_year)
-
-
-# Plot basic stock-recruit relationship
-meta_ricker_data <- meta_by_spwns |> 
-  left_join(sk_ret) |> 
-  filter(!by_meta_spawners <= 0) |> 
-  select(stock, gr_age, brood_year, by_meta_spawners, return) |> 
-  mutate(r_s = return / by_meta_spawners) |> 
-  nest(.by = c(stock, gr_age)) |> 
-  rowwise() |> 
-  mutate(
-    model = list(lm(log(r_s) ~ by_meta_spawners, data = data)),
-    r2 = summary(model)$r.squared,
-    vcov_mat = list(as.matrix(vcov(model))),
-    bootstrap_pred = list(
-      MASS::mvrnorm(10000, mu = coef(model), Sigma = vcov_mat) |> 
-        as_tibble() |> 
-        rename("a" = 1, "b" = 2) |> 
-        expand_grid(
-          by_meta_spawners = seq(
-            min(data$by_meta_spawners, na.rm = TRUE), 
-            max(data$by_meta_spawners, na.rm = TRUE), 
-            length.out = 100
-          )
-        ) |> 
-        mutate(
-          a = exp(a),
-          b = -b,
-          pred_rec = a*by_meta_spawners*exp(-b*by_meta_spawners)
-        ) |> 
-        summarize(
-          .by = by_meta_spawners,
-          mean_rec = mean(pred_rec),
-          lci_rec = quantile(pred_rec, 0.025),
-          uci_rec = quantile(pred_rec, 0.975)
-        )
-    )
-  ) |> 
-  ungroup() 
-
-
-# Plot meta-population stock-recruit data
-(meta_plots <- meta_ricker_data |> 
-    select(1:3, r2, bootstrap_pred) |> 
-    rowwise() |> 
-    mutate(
-      r2_x = max(data$by_meta_spawners, na.rm = TRUE)*0.9,
-      r2_y = max(data$return, na.rm = TRUE)*0.95
-    ) |> 
-    ungroup() |> 
-    as.list() |> 
-    pmap(
-      ~ggplot(..3, aes(x = by_meta_spawners, y = return)) + 
-        geom_point() +
-        geom_line(
-          data = ..5, 
-          aes(y = mean_rec),
-          colour = "blue"
-        ) +
-        geom_ribbon(
-          data = ..5,
-          aes(y = mean_rec, ymin = lci_rec, ymax = uci_rec),
-          fill = "blue",
-          alpha = 0.3
-        ) +
-        annotate(
-          "text", 
-          label = paste0("R^2~`=`~", round(..4, 3)),
-          parse = TRUE,
-          x = ..6, 
-          y = ..7,
-          colour = "red",
-          size = 8,
-          hjust = 1
-        ) +
-        labs(
-          x = parse(text = paste0("Brood~year~age~", ..2, "~spawners")),
-          y = parse(text = paste0("Age~", ..2, "~return"))
-        ) +
-        scale_x_continuous(labels = scales::comma) +
-        scale_y_continuous(labels = scales::comma) +
-        ggtitle(..1)
-    )
-)
-
-
-# Save the plots 
-meta_plots |> 
-  rlang::set_names(
-    nm = meta_ricker_data |> 
-      select(stock, gr_age) |> 
-      unite(col = "name") |> 
-      pull()
-  ) |> 
-  iwalk(
-    ~ggsave(
-      plot = .x,
-      filename = here(
-        "03-output figures",
-        paste0("R-PLOT_metapop_Ricker_pred", .y, ".png")
-      ),
-      height = 5,
-      width = 5,
-      units = "in"
-    )
+# Update this...
+# Start with which age groupings are most instructive, then assess
+# which 
+# Subset data to best fitting model for each age grouping
+best_models <- sr_models |> 
+  filter(
+    .by = c(cu, contains("age")),
+    # Excludes all bev-holt fits
+    adj.r.squared == max(adj.r.squared, na.rm = TRUE) 
   )
 
 
+# Plot best-fitting models
+best_models |> 
+  unite("cu_age", cu, age_group) |> 
+  group_split(cu_age) |> 
+  map(
+    \(x) ggplot(x) +
+      facet_wrap(
+        ~ gr_age,
+        labeller = label_parsed,
+        scales = "free"
+      ) +
+      geom_abline(slope = 1, lty = 2, colour = "grey50") +
+      geom_point(
+        data = unnest(x, sr_data),
+        aes(x = spawners, y = return, colour = brood_year)
+      ) +
+      geom_textline(
+        data = unnest(x, pred),
+        aes(label = name, x = spawners, y = fit),
+        hjust = 0.9
+      ) +
+      geom_ribbon(
+        data = unnest(x, pred),
+        aes(x = spawners, y = fit, ymin = lwr, ymax = upr),
+        alpha = 0.25
+      ) +
+      expand_limits(x = 0, y = 0) +
+      scale_x_continuous(
+        labels = scales::label_number(), 
+        expand = c(0, 0.05)
+      ) +
+      scale_y_continuous(
+        labels = scales::label_number(),
+        expand = c(0, 0.05)
+      ) +
+      scale_colour_viridis_c() +
+      ggtitle(label = unique(x$cu_age)) +
+      theme(
+        axis.text.x = element_text(angle = 45, hjust = 1)
+      )
+  )
 
 
 # Smolts per spawner ------------------------------------------------------
