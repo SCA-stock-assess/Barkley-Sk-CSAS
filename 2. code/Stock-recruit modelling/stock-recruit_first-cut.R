@@ -460,6 +460,30 @@ sr_plots |>
 
 # Determine which age groupings and models are best fits ------------------
 
+
+# Crude method: average AIC value across age groupings by stock
+sr_models |> 
+  summarize(
+    .by = c(cu, age_group),
+    mean_AIC = mean(AIC, na.rm = FALSE)
+  ) |> 
+  arrange(cu, mean_AIC)
+# Suggests GR age might be best?
+
+
+# Look for best fitting models by stock and age group, then look at
+# which age group performs best by stock
+sr_models |> 
+  select(cu, contains("age"), name, adj.r.squared) |> 
+  filter(
+    .by = c(cu, contains("age")),
+    adj.r.squared == max(adj.r.squared, na.rm = TRUE) # Excludes bevholt
+  ) |> 
+  arrange(cu, desc(adj.r.squared)) |> 
+  print(n = 50)
+  
+
+
 # Update this...
 # Start with which age groupings are most instructive, then assess
 # which 
