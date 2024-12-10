@@ -75,9 +75,9 @@ make_stan_data <- function(stock) {
   A_obs <- fn_data |> 
     select(contains("age")) |> 
     as.matrix() |>
-    base::`*`(2500) |> 
+    base::`*`(1000) |> 
     round() 
-    # Using 2500/year as placeholder... would need to do considerable
+    # Using 1000/year as placeholder... would need to do considerable
     # data gathering from historic files to get the time series of 
     # number of samples going back to 1977. Does this actually 
     # matter enough to be worth doing so?
@@ -140,11 +140,11 @@ fit_stan_mod <- function(stan_data) {
     ),
     model_name = "SS-SR_AR1",
     data = stan_data,
-    chains = 2,
-    iter = 500,
-    seed = 42,
-    thin = 1,
-    control = list(adapt_delta = 0.99, max_treedepth = 20)
+    # chains = 2,
+    # iter = 500,
+    # seed = 42,
+    # thin = 1,
+    # control = list(adapt_delta = 0.99, max_treedepth = 20)
   )
 }
 
