@@ -1,14 +1,15 @@
+## Dylan comments preceded by "##"
+
 # Packages ----------------------------------------------------------------
 
-pkgs <- c("here", "tidyverse", "readxl", "rstan")
+pkgs <- c("here", "tidyverse", "readxl", "rstan", "bayesplot")
 #install.packages(pkgs)
 
 library(here)
 library(tidyverse); theme_set(theme_bw(base_size = 14))
 library(rstan)
 library(readxl)
-
-
+library(bayesplot)
 
 # Load and format data for STAN input -------------------------------------
 
@@ -75,9 +76,9 @@ make_stan_data <- function(stock) {
   A_obs <- fn_data |> 
     select(contains("age")) |> 
     as.matrix() |>
-    base::`*`(2500) |> 
+    base::`*`(100) |> 
     round() 
-    # Using 2500/year as placeholder... would need to do considerable
+    # Using 2500/year as placeholder... would need to do considerable ##DYLAN SWAPPED TO 100
     # data gathering from historic files to get the time series of 
     # number of samples going back to 1977. Does this actually 
     # matter enough to be worth doing so?
@@ -140,15 +141,39 @@ fit_stan_mod <- function(stan_data) {
     ),
     model_name = "SS-SR_AR1",
     data = stan_data,
-    chains = 2,
-    iter = 500,
-    seed = 42,
-    thin = 1,
-    control = list(adapt_delta = 0.99, max_treedepth = 20)
+    #chains = 2, ## I like using the default arguments for actual fitting. Brendan used these args just to speed things up in the example
+    #iter = 500,
+    #seed = 42,
+    #thin = 1,
+    #control = list(adapt_delta = 0.99, max_treedepth = 20)
   )
 }
 
 
 # Try stan model on GCL data
-GCL_fit <- fit_stan_mod(GCL_stan_data)
+  ## dropped the function for simplicity's sake
+GCL_AR1 <- stan(here("2. code/Stock-recruit modelling/SS-SR_AR1.stan"), data = GCL_stan_data)
 
+# some diagnostics
+AR1.model.summary <- as.data.frame(rstan::summary(GCL_AR1)$summary)
+model.pars.AR1 <- rstan::extract(GCL_AR1)
+
+# check the chains directly
+#leading pars
+mcmc_combo(GCL_AR1, pars = c("beta", "lnalpha", "sigma_R", "lnresid_0", "phi"),
+           combo = c("dens_overlay", "trace"),
+           gg_theme = legend_none())
+
+#age pars
+mcmc_combo(GCL_AR1, pars = c("D_scale", "D_sum"),
+           combo = c("dens_overlay", "trace"),
+           gg_theme = legend_none())
+
+mcmc_combo(GCL_AR1, pars = c("Dir_alpha[1]", "Dir_alpha[2]", 
+                             "Dir_alpha[3]", "Dir_alpha[4]"),
+           combo = c("dens_overlay", "trace"),
+           gg_theme = legend_none())
+
+
+# how do correlations in leading parameters look?
+pairs(GCL_AR1, pars = c("beta", "lnalpha", "sigma_R", "lnresid_0", "phi"))
