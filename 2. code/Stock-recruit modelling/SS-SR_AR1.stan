@@ -108,8 +108,8 @@ model{
   lnalpha ~ normal(0,3);
   beta ~ normal(0,1);
   sigma_R ~ normal(0,2);
-  lnresid_0 ~ normal(0,20);
-  mean_ln_R0 ~ normal(0,20);
+  lnresid_0 ~ normal(0,10);
+  mean_ln_R0 ~ normal(0,10);
   sigma_R0 ~ inv_gamma(2,1); 
   prob[1] ~ beta(1,1);
   prob[2] ~ beta(1,1);
