@@ -1,15 +1,14 @@
-## Dylan comments preceded by "##"
-
 # Packages ----------------------------------------------------------------
 
 pkgs <- c("here", "tidyverse", "readxl", "rstan", "bayesplot")
 #install.packages(pkgs)
 
 library(here)
-library(tidyverse); theme_set(theme_bw(base_size = 14))
+library(tidyverse); theme_set(theme_bw())
 library(rstan)
 library(readxl)
 library(bayesplot)
+
 
 # Load and format data for STAN input -------------------------------------
 
@@ -151,29 +150,221 @@ fit_stan_mod <- function(stan_data) {
 
 
 # Try stan model on GCL data
-  ## dropped the function for simplicity's sake
-GCL_AR1 <- stan(here("2. code/Stock-recruit modelling/SS-SR_AR1.stan"), data = GCL_stan_data)
+# `FALSE` disables the code from running
+# Switch to `TRUE` to run
+if(FALSE) {
+  GCL_AR1 <- fit_stan_mod(GCL_stan_data)
+  
+  # Save the fitted model object
+  saveRDS(
+    GCL_AR1,
+    file = here(
+      "3. outputs",
+      "stock-recruit modelling",
+      "GCL_AR1.rds"
+    )
+  )      
+}
+
+
+# Try stan model on SPR data
+# `FALSE` disables the code from running
+# Switch to `TRUE` to run
+if(FALSE) {
+  SPR_AR1 <- fit_stan_mod(SPR_stan_data)
+  
+  # Save the fitted model object
+  saveRDS(
+    SPR_AR1,
+    file = here(
+      "3. outputs",
+      "stock-recruit modelling",
+      "SPR_AR1.rds"
+    )
+  )      
+}
+
+
+# Load fitted models from files (if the code above wasn't run)
+if(!exists("GCL_AR1")) {
+  GCL_AR1 <- readRDS(
+    here(
+      "3. outputs",
+      "stock-recruit modelling",
+      "GCL_AR1.rds"
+    )
+  )
+}
+
+
+# Load fitted models from files (if the code above wasn't run)
+if(!exists("SPR_AR1")) {
+  SPR_AR1 <- readRDS(
+    here(
+      "3. outputs",
+      "stock-recruit modelling",
+      "SPR_AR1.rds"
+    )
+  )
+}
+
+
+# Combine the models into a list for diagnostics
+AR1_mods <- list(
+  "GCL" = GCL_AR1,
+  "SPR" = SPR_AR1
+)
+
+
+# Save summary data from the fitted models
+AR1_models_summary <- AR1_mods |> 
+  map(rstan::summary) |> 
+  map(\(x) x$summary) |> 
+  map(as.data.frame) |> 
+  list_rbind(names_to = "stock") |> 
+  nest(.by = stock, .key = "model_summary")
+
+
+model_pars_AR1 <- AR1_mods |> 
+  map(rstan::extract) |> 
+  enframe(name = "stock", value = "model_pars")
+
 
 # some diagnostics
-AR1.model.summary <- as.data.frame(rstan::summary(GCL_AR1)$summary)
-model.pars.AR1 <- rstan::extract(GCL_AR1)
 
 # check the chains directly
-#leading pars
-mcmc_combo(GCL_AR1, pars = c("beta", "lnalpha", "sigma_R", "lnresid_0", "phi"),
-           combo = c("dens_overlay", "trace"),
-           gg_theme = legend_none())
+# leading pars
+lead_pars <- c("beta", "lnalpha", "sigma_R", "lnresid_0", "phi")
 
-#age pars
-mcmc_combo(GCL_AR1, pars = c("D_scale", "D_sum"),
-           combo = c("dens_overlay", "trace"),
-           gg_theme = legend_none())
+AR1_mods |> 
+  map(
+    \(x) mcmc_combo(
+      x, 
+      pars = lead_pars,
+      combo = c("dens_overlay", "trace"),
+      gg_theme = legend_none()
+    ) 
+  )
 
-mcmc_combo(GCL_AR1, pars = c("Dir_alpha[1]", "Dir_alpha[2]", 
-                             "Dir_alpha[3]", "Dir_alpha[4]"),
-           combo = c("dens_overlay", "trace"),
-           gg_theme = legend_none())
+
+# age pars
+AR1_mods |> 
+  map(
+    \(x) mcmc_combo(
+      x, 
+      pars = c("D_scale", "D_sum"),
+      combo = c("dens_overlay", "trace"),
+      gg_theme = legend_none()
+    )
+  )
+
+AR1_mods |> 
+  map(
+    \(x) mcmc_combo(
+      x, 
+      pars = paste0("Dir_alpha[", 1:4, "]"),
+      combo = c("dens_overlay", "trace"),
+      gg_theme = legend_none()
+    )
+  )
 
 
 # how do correlations in leading parameters look?
-pairs(GCL_AR1, pars = c("beta", "lnalpha", "sigma_R", "lnresid_0", "phi"))
+AR1_mods |> 
+  map(\(x) pairs(x, pars = lead_pars))
+
+
+
+
+# Inference from fitted models --------------------------------------------
+
+
+# Create dataframe of spawner abundances and predicted recruitment
+sr_years <- GCL_stan_data$nyrs
+max_samples <- dim(model_pars_AR1$lnalpha)
+
+spwn <- exp(model_pars_AR1$lnS)
+spwn.quant <- apply(spwn, 2, quantile, probs=c(0.05,0.5,0.95))[,1:(sr_years-4)]
+
+rec <-exp(model_pars_AR1$lnR)
+rec.quant <- apply(rec, 2, quantile, probs=c(0.05,0.5,0.95))[,8:dim(model_pars_AR1$R)[2]]
+
+brood_t <- as.data.frame(cbind(1:(sr_years-4),t(spwn.quant), t(rec.quant)))
+colnames(brood_t) <- c("BroodYear","S_lwr","S_med","S_upr","R_lwr","R_med","R_upr")
+
+brood_t <- as.data.frame(brood_t) |> 
+  mutate(BroodYear = BroodYear + min(sr[sr$stock == "GCL",]$year) - 1)
+
+# SR relationship
+spw <- seq(0,max(brood_t[,4]),length.out=100)
+SR_pred <- matrix(NA,100,max_samples)
+
+for(i in 1:max_samples){
+  r <- sample(seq(1,max_samples),1,replace=T)
+  a <- model_pars_AR1$lnalpha[r]
+  b <- model_pars_AR1$beta[r]
+  SR_pred[,i] <- (exp(a)*spw*exp(-b*spw))
+}
+
+SR_pred <- cbind(spw,t(apply(SR_pred,c(1),quantile,probs=c(0.05,0.5,0.95),na.rm=T)))
+colnames(SR_pred) <- c("Spawn", "Rec_lwr","Rec_med","Rec_upr")
+SR_pred <- as.data.frame(SR_pred)
+
+
+# Plot
+ggplot() +
+  geom_errorbar(
+    data = brood_t, 
+    aes(x= S_med, y = R_med, ymin = R_lwr, ymax = R_upr),
+    colour="grey", 
+    width = 0,
+    size = 0.3
+  ) +
+  geom_errorbarh(
+    data = brood_t, 
+    aes(y = R_med, xmin = S_lwr, xmax = S_upr),
+    height = 0, 
+    colour = "grey", 
+    size = 0.3
+  ) +
+  geom_point(
+    data = brood_t, 
+    aes(x = S_med, y = R_med, color=BroodYear), 
+    size = 3
+  ) +
+  geom_abline(intercept = 0, slope = 1,col="dark grey") +
+  geom_ribbon(
+    data = SR_pred, 
+    aes(x = Spawn, ymin = Rec_lwr, ymax = Rec_upr),
+    fill = "grey80", 
+    alpha = 0.5, 
+    linetype = 2, 
+    colour = "gray46"
+  ) +
+  geom_line(
+    data = SR_pred, 
+    aes(x = Spawn, y = Rec_med), 
+    color = "black", 
+    size = 1
+  ) +
+  scale_x_continuous(
+    limits = c(0, max(brood_t[,4])),
+    labels = scales::label_number(),
+    expand = expansion(c(0, 0.05))
+  ) +
+  scale_y_continuous(
+    limits = c(0, max(brood_t[,6])),
+    labels = scales::label_number(),
+    expand = expansion(c(0, 0.05)),
+    oob = scales::oob_keep
+  ) +
+  scale_colour_viridis_c()+
+  xlab("Spawners") +
+  ylab("Recruits") +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.key.size = unit(0.4, "cm"),
+    legend.title = element_text(size=9),
+    legend.text = element_text(size=8)
+  )
