@@ -121,9 +121,10 @@ make_stan_data <- function(stock) {
 }
 
 
-# Save STAN data for GCL and SPR
-GCL_stan_data <- make_stan_data("GCL")
-SPR_stan_data <- make_stan_data("SPR")
+# Save STAN data for GCL and SPR (more useful as a list?)
+stocks_stan_data <- unique(sr$stock) |> 
+  purrr::set_names() |> 
+  map(make_stan_data)
 
 
 
@@ -153,7 +154,15 @@ fit_stan_mod <- function(stan_data) {
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
 if(FALSE) {
-  GCL_AR1 <- fit_stan_mod(GCL_stan_data)
+  GCL_AR1 <- stan(
+    file = here(
+      "2. code",
+      "Stock-recruit modelling",
+      "SS-SR_AR1.stan"
+    ),
+    model_name = "SS-SR_AR1",
+    data = stocks_stan_data$GCL
+  )
   
   # Save the fitted model object
   saveRDS(
@@ -171,7 +180,15 @@ if(FALSE) {
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
 if(FALSE) {
-  SPR_AR1 <- fit_stan_mod(SPR_stan_data)
+  SPR_AR1 <- stan(
+    file = here(
+      "2. code",
+      "Stock-recruit modelling",
+      "SS-SR_AR1.stan"
+    ),
+    model_name = "SS-SR_AR1",
+    data = stocks_stan_data$SPR
+  )
   
   # Save the fitted model object
   saveRDS(
@@ -226,8 +243,13 @@ AR1_models_summary <- AR1_mods |>
 
 
 model_pars_AR1 <- AR1_mods |> 
-  map(rstan::extract) |> 
-  enframe(name = "stock", value = "model_pars")
+  map(
+    \(x) x |> 
+      rstan::extract() |> 
+      map(as.data.frame) |> 
+      enframe()
+  ) |> 
+  list_rbind(names_to = "stock")
 
 
 # some diagnostics
@@ -279,92 +301,124 @@ AR1_mods |>
 # Inference from fitted models --------------------------------------------
 
 
-# Create dataframe of spawner abundances and predicted recruitment
-sr_years <- GCL_stan_data$nyrs
-max_samples <- dim(model_pars_AR1$lnalpha)
-
-spwn <- exp(model_pars_AR1$lnS)
-spwn.quant <- apply(spwn, 2, quantile, probs=c(0.05,0.5,0.95))[,1:(sr_years-4)]
-
-rec <-exp(model_pars_AR1$lnR)
-rec.quant <- apply(rec, 2, quantile, probs=c(0.05,0.5,0.95))[,8:dim(model_pars_AR1$R)[2]]
-
-brood_t <- as.data.frame(cbind(1:(sr_years-4),t(spwn.quant), t(rec.quant)))
-colnames(brood_t) <- c("BroodYear","S_lwr","S_med","S_upr","R_lwr","R_med","R_upr")
-
-brood_t <- as.data.frame(brood_t) |> 
-  mutate(BroodYear = BroodYear + min(sr[sr$stock == "GCL",]$year) - 1)
-
-# SR relationship
-spw <- seq(0,max(brood_t[,4]),length.out=100)
-SR_pred <- matrix(NA,100,max_samples)
-
-for(i in 1:max_samples){
-  r <- sample(seq(1,max_samples),1,replace=T)
-  a <- model_pars_AR1$lnalpha[r]
-  b <- model_pars_AR1$beta[r]
-  SR_pred[,i] <- (exp(a)*spw*exp(-b*spw))
+# Create dataframes of spawner abundances and predicted recruitment
+make_srplot_data <- function(stock, stan_mod, stan_data) {
+  
+  model_pars <- stan_mod |> 
+    rstan::extract()
+  
+  sr_years <- stan_data$nyrs # nRyrs doesn't work...
+  max_samples <- dim(model_pars$lnalpha)
+  
+  spwn <- exp(model_pars$lnS)
+  spwn.quant <- apply(spwn, 2, quantile, probs=c(0.05,0.5,0.95))[,1:(sr_years-4)]
+  
+  rec <-exp(model_pars$lnR)
+  rec.quant <- apply(rec, 2, quantile, probs=c(0.05,0.5,0.95))[,8:dim(model_pars$R)[2]]
+  
+  brood_t <- as.data.frame(cbind(1:(sr_years-4),t(spwn.quant), t(rec.quant)))
+  colnames(brood_t) <- c("BroodYear","S_lwr","S_med","S_upr","R_lwr","R_med","R_upr")
+  
+  brood_t <- as.data.frame(brood_t) |> 
+    mutate(BroodYear = BroodYear + min(sr[sr$stock == stock,]$year) - 1)
+  
+  # SR relationship
+  spw <- seq(0,max(brood_t[,4]),length.out=100)
+  SR_pred <- matrix(NA,100,max_samples)
+  
+  for(i in 1:max_samples){
+    r <- sample(seq(1,max_samples),1,replace=T)
+    a <- model_pars$lnalpha[r]
+    b <- model_pars$beta[r]
+    SR_pred[,i] <- (exp(a)*spw*exp(-b*spw))
+  }
+  
+  SR_pred <- cbind(spw,t(apply(SR_pred,c(1),quantile,probs=c(0.05,0.5,0.95),na.rm=T)))
+  colnames(SR_pred) <- c("Spawn", "Rec_lwr","Rec_med","Rec_upr")
+  SR_pred <- as.data.frame(SR_pred)
+  
+  output <- list(
+    "SR_pred" = SR_pred,
+    "brood_t" = brood_t
+  )
+  
+  return(output)
+  
 }
 
-SR_pred <- cbind(spw,t(apply(SR_pred,c(1),quantile,probs=c(0.05,0.5,0.95),na.rm=T)))
-colnames(SR_pred) <- c("Spawn", "Rec_lwr","Rec_med","Rec_upr")
-SR_pred <- as.data.frame(SR_pred)
+
+# Make data for plotting
+plot_data <- unique(sr$stock) |> 
+  purrr::set_names() |> 
+  map(
+    \(x) make_srplot_data(
+      stock = x,
+      stan_mod = AR1_mods[[x]],
+      stan_data = stocks_stan_data[[x]]
+    )
+  )
 
 
 # Plot
-ggplot() +
-  geom_errorbar(
-    data = brood_t, 
-    aes(x= S_med, y = R_med, ymin = R_lwr, ymax = R_upr),
-    colour="grey", 
-    width = 0,
-    size = 0.3
-  ) +
-  geom_errorbarh(
-    data = brood_t, 
-    aes(y = R_med, xmin = S_lwr, xmax = S_upr),
-    height = 0, 
-    colour = "grey", 
-    size = 0.3
-  ) +
-  geom_point(
-    data = brood_t, 
-    aes(x = S_med, y = R_med, color=BroodYear), 
-    size = 3
-  ) +
-  geom_abline(intercept = 0, slope = 1,col="dark grey") +
-  geom_ribbon(
-    data = SR_pred, 
-    aes(x = Spawn, ymin = Rec_lwr, ymax = Rec_upr),
-    fill = "grey80", 
-    alpha = 0.5, 
-    linetype = 2, 
-    colour = "gray46"
-  ) +
-  geom_line(
-    data = SR_pred, 
-    aes(x = Spawn, y = Rec_med), 
-    color = "black", 
-    size = 1
-  ) +
-  scale_x_continuous(
-    limits = c(0, max(brood_t[,4])),
-    labels = scales::label_number(),
-    expand = expansion(c(0, 0.05))
-  ) +
-  scale_y_continuous(
-    limits = c(0, max(brood_t[,6])),
-    labels = scales::label_number(),
-    expand = expansion(c(0, 0.05)),
-    oob = scales::oob_keep
-  ) +
-  scale_colour_viridis_c()+
-  xlab("Spawners") +
-  ylab("Recruits") +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.key.size = unit(0.4, "cm"),
-    legend.title = element_text(size=9),
-    legend.text = element_text(size=8)
+plot_data |> 
+  imap(
+    \(x, idx) ggplot() +
+      geom_errorbar(
+        data = x$brood_t, 
+        aes(x= S_med, y = R_med, ymin = R_lwr, ymax = R_upr),
+        colour="grey", 
+        width = 0,
+        size = 0.3
+      ) +
+      geom_errorbarh(
+        data = x$brood_t, 
+        aes(y = R_med, xmin = S_lwr, xmax = S_upr),
+        height = 0, 
+        colour = "grey", 
+        size = 0.3
+      ) +
+      geom_point(
+        data = x$brood_t, 
+        aes(x = S_med, y = R_med, color=BroodYear), 
+        size = 3
+      ) +
+      geom_abline(intercept = 0, slope = 1,col="dark grey") +
+      geom_ribbon(
+        data = x$SR_pred, 
+        aes(x = Spawn, ymin = Rec_lwr, ymax = Rec_upr),
+        fill = "grey80", 
+        alpha = 0.5, 
+        linetype = 2, 
+        colour = "gray46"
+      ) +
+      geom_line(
+        data = x$SR_pred, 
+        aes(x = Spawn, y = Rec_med), 
+        color = "black", 
+        size = 1
+      ) +
+      scale_x_continuous(
+        limits = c(0, max(x$brood_t[,4])),
+        labels = scales::label_number(),
+        expand = expansion(c(0, 0.05))
+      ) +
+      scale_y_continuous(
+        limits = c(0, max(x$brood_t[,6])),
+        labels = scales::label_number(),
+        expand = expansion(c(0, 0.05)),
+        oob = scales::oob_keep
+      ) +
+      scale_colour_viridis_c()+
+      labs(
+        x = "Spawners",
+        y = "Recruits",
+        title = paste("Stock:", idx)
+      ) +
+      theme(
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        legend.key.size = unit(0.4, "cm"),
+        legend.title = element_text(size=9),
+        legend.text = element_text(size=8)
+      )
   )
