@@ -83,19 +83,11 @@ make_stan_data <- function(stock) {
     # matter enough to be worth doing so?
     
   
-  S_obs <- rnorm(
-    length(fn_data$S),
-    fn_data$S,
-    0.05
-  )
+  S_obs <- fn_data$S
   
-  H_obs <- rnorm(
-    length(fn_data$S),
-    (fn_data$N-fn_data$S),
-    0.05
-  )
+  H_obs <- (fn_data$N-fn_data$S)
   
-  H_obs[H_obs<=0] <- 0.01 # Replace negative values with 0.01
+  #H_obs[H_obs<=0] <- 0.01 # Replace negative values with 0.01
   
   a_min <- min(run_ts$ttl_age) # youngest age at maturity
   a_max <- max(run_ts$ttl_age) # oldest age at maturity
@@ -370,18 +362,6 @@ plot_data |>
         width = 0,
         size = 0.3
       ) +
-      geom_errorbarh(
-        data = x$brood_t, 
-        aes(y = R_med, xmin = S_lwr, xmax = S_upr),
-        height = 0, 
-        colour = "grey", 
-        size = 0.3
-      ) +
-      geom_point(
-        data = x$brood_t, 
-        aes(x = S_med, y = R_med, color=BroodYear), 
-        size = 3
-      ) +
       geom_abline(intercept = 0, slope = 1,col="dark grey") +
       geom_ribbon(
         data = x$SR_pred, 
@@ -396,6 +376,18 @@ plot_data |>
         aes(x = Spawn, y = Rec_med), 
         color = "black", 
         size = 1
+      ) +
+      geom_errorbarh(
+        data = x$brood_t, 
+        aes(y = R_med, xmin = S_lwr, xmax = S_upr),
+        height = 0, 
+        colour = "grey", 
+        size = 0.3
+      ) +
+      geom_point(
+        data = x$brood_t, 
+        aes(x = S_med, y = R_med, color=BroodYear), 
+        size = 3
       ) +
       scale_x_continuous(
         limits = c(0, max(x$brood_t[,4])),
