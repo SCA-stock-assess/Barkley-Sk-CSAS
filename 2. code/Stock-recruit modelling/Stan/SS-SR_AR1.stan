@@ -105,7 +105,7 @@ transformed parameters{
 
 model{
   // Priors
-  lnalpha ~ normal(0,3);
+  lnalpha ~ normal(1,2);
   beta ~ normal(0,1);
   sigma_R ~ normal(0,2);
   lnresid_0 ~ normal(0,10);

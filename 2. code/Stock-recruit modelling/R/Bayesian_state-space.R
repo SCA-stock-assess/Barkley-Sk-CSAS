@@ -10,7 +10,7 @@ library(readxl)
 library(bayesplot)
 
 
-# Load and format data for STAN input -------------------------------------
+# Load and format data for Stan input -------------------------------------
 
 
 # Load stock-recruit time series by return year
@@ -66,7 +66,7 @@ sr <- run_ts |>
 
 
 # Declare a function that transforms data for 1 stock into correct 
-# STAN input format. Need to do this because will be required for both
+# Stan input format. Need to do this because will be required for both
 # SPR and GCL.
 make_stan_data <- function(stock) {
   
@@ -74,29 +74,23 @@ make_stan_data <- function(stock) {
   
   A_obs <- fn_data |> 
     select(contains("age")) |> 
-    base::`*`(1000) |>  
-    round() |>
-    as.matrix()
-    
+    as.matrix() |>
+    base::`*`(1000) |> 
+    round() 
     # Using 1000/year as placeholder... would need to do considerable
     # data gathering from historic files to get the time series of 
     # number of samples going back to 1977. Does this actually 
     # matter enough to be worth doing so?
     
-  A_obs <- ifelse(A_obs<50, 50, A_obs) #hack to try and "balance out" low sample size
-  
-  S_obs <- fn_data$S/1000
-  
-  H_obs <- (fn_data$N-fn_data$S)/1000
-  
-  #H_obs[H_obs<=0] <- 0.01 # Replace negative values with 0.01
+  S_obs <- fn_data$S
+  H_obs <- fn_data$N-fn_data$S
+  H_obs[H_obs<=0] <- 0.01 # Replace 0's with 0.01, otherwise you get ln(0) which breaks
   
   a_min <- min(run_ts$ttl_age) # youngest age at maturity
   a_max <- max(run_ts$ttl_age) # oldest age at maturity
   nyrs <- length(S_obs) # number of spawning years
   A <- a_max - a_min + 1 # total age classes
   nRyrs <- nyrs + A - 1 # number of recruitment years 
-  
   
   stan.data <- list(
     "nyrs" = nyrs,
@@ -114,27 +108,24 @@ make_stan_data <- function(stock) {
   return(stan.data)
 }
 
-
-# Save STAN data for GCL and SPR (more useful as a list?)
+# Save Stan data for GCL and SPR (more useful as a list?)
 stocks_stan_data <- unique(sr$stock) |> 
   purrr::set_names() |> 
   map(make_stan_data)
 
+# Fit Stan models for both stocks -----------------------------------------
 
-
-# Fit STAN models for both stocks -----------------------------------------
-
-
-# Embrace STAN model in a function call to iterate over stocks
+# Embrace Stan model in a function call to iterate over stocks
 fit_stan_mod <- function(stan_data) {
   stan(
     file = here(
       "2. code",
       "Stock-recruit modelling",
+      "Stan",
       "SS-SR_AR1.stan"
     ),
     model_name = "SS-SR_AR1",
-    data = stan_data,
+    data = stan_data
   )
 }
 
@@ -147,9 +138,11 @@ if(FALSE) {
     file = here(
       "2. code",
       "Stock-recruit modelling",
-      "SS-SR_AR1-2.stan"
+      "Stan",
+      "SS-SR_AR1.stan"
     ),
-    model_name = "SS-SR_AR1",
+    #model_name = "SS-SR_AR1", #toggle which version of model you want 
+    model_name = "SS-SR_AR1_semi_beta",
     data = stocks_stan_data$GCL
   )
   
@@ -173,6 +166,7 @@ if(FALSE) {
     file = here(
       "2. code",
       "Stock-recruit modelling",
+      "Stan",
       "SS-SR_AR1.stan"
     ),
     model_name = "SS-SR_AR1",
