@@ -74,14 +74,16 @@ make_stan_data <- function(stock) {
   
   A_obs <- fn_data |> 
     select(contains("age")) |> 
-    as.matrix() |>
-    base::`*`(100) |>  ## DG scaled down to 100/yr because scaled down S and H
-    round() 
+    base::`*`(1000) |>  
+    round() |>
+    as.matrix()
+    
     # Using 1000/year as placeholder... would need to do considerable
     # data gathering from historic files to get the time series of 
     # number of samples going back to 1977. Does this actually 
     # matter enough to be worth doing so?
     
+  A_obs <- ifelse(A_obs<50, 50, A_obs) #hack to try and "balance out" low sample size
   
   S_obs <- fn_data$S/1000
   
@@ -133,11 +135,6 @@ fit_stan_mod <- function(stan_data) {
     ),
     model_name = "SS-SR_AR1",
     data = stan_data,
-    #chains = 2, ## I like using the default arguments for actual fitting. Brendan used these args just to speed things up in the example
-    #iter = 500,
-    #seed = 42,
-    #thin = 1,
-    #control = list(adapt_delta = 0.99, max_treedepth = 20)
   )
 }
 
@@ -150,7 +147,7 @@ if(FALSE) {
     file = here(
       "2. code",
       "Stock-recruit modelling",
-      "SS-SR_AR1.stan"
+      "SS-SR_AR1-2.stan"
     ),
     model_name = "SS-SR_AR1",
     data = stocks_stan_data$GCL
