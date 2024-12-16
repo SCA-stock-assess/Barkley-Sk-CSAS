@@ -14,83 +14,50 @@ library(bayesplot)
 
 
 # Load stock-recruit time series by return year
-run_ts <- here("1. data", "return by age time series.xlsx") |> 
-  read_xlsx() |> 
-  mutate(
-    run = catch + escapement,
-    brood_year = return_year - ttl_age
-  )
-
-
-# Calculate brood year returns
-brood_ts <- run_ts |> 
-  summarize(
-    .by = c(brood_year, stock),
-    return = sum(catch, escapement)
-  )
-
-
-# Build stock-recruit table
-sr <- run_ts |> 
-  mutate(
-    .by = c(return_year, stock),
-    spawners = sum(escapement)
+sr <- here(
+  "3. outputs", 
+  "Stock-recruit data",
+  'Barkley_Sockeye_stock-recruit_infilled.xlsx'
   ) |> 
-  pivot_wider(
-    id_cols = c(return_year, stock, spawners),
-    names_from = ttl_age,
-    names_prefix = "N.age.",
-    values_from = run,
-    values_fn = sum
-  ) |> 
-  rowwise() |> 
-  mutate(
-    run = sum(c_across(contains("age"))),
-    # Convert age #s to proportions
-    across(contains("age"), \(x) x/run),
-  ) |> 
-  ungroup() |> 
-  left_join(
-    brood_ts,
-    by = join_by(
-      stock, 
-      return_year == brood_year
-    )
-  ) |> 
-  rename(
-    "year" = return_year,
-    "S" = spawners,
-    "N" = run,
-    "R" = return
-  )
+  read_xlsx(sheet = "S-R data")
 
 
 # Declare a function that transforms data for 1 stock into correct 
 # Stan input format. Need to do this because will be required for both
 # SPR and GCL.
-make_stan_data <- function(stock) {
+make_stan_data <- function(stock_name) {
   
-  fn_data <- sr[sr$stock == stock, ]
+  fn_data <- sr |> 
+    filter(
+      stock == stock_name,
+      !if_any(c(S, H), is.na)
+    )
   
   A_obs <- fn_data |> 
-    select(contains("age")) |> 
-    as.matrix() |>
-    base::`*`(1000) |> 
+    mutate(across(contains("N.age"), ~.x*age.samples)) |> 
+    select(contains("N.age")) |> 
+    as.matrix() |> 
     round() 
-    # Using 1000/year as placeholder... would need to do considerable
-    # data gathering from historic files to get the time series of 
-    # number of samples going back to 1977. Does this actually 
-    # matter enough to be worth doing so?
     
   S_obs <- fn_data$S
-  H_obs <- fn_data$N-fn_data$S
+  H_obs <- fn_data$H
   H_obs[H_obs<=0] <- 0.01 # Replace 0's with 0.01, otherwise you get ln(0) which breaks
+  H_cv <- fn_data$H_cv
+  S_cv <- fn_data$S_cv
   
-  a_min <- min(run_ts$ttl_age) # youngest age at maturity
-  a_max <- max(run_ts$ttl_age) # oldest age at maturity
+  # Extract a list of the observed total ages
+  a_years <- fn_data |> 
+    select(matches("N\\.age\\.\\d")) |> 
+    colnames() |> 
+    str_extract("\\d") |> 
+    as.integer()
+  
+  a_min <- min(a_years) # youngest age at maturity
+  a_max <- max(a_years) # oldest age at maturity
   nyrs <- length(S_obs) # number of spawning years
   A <- a_max - a_min + 1 # total age classes
-  nRyrs <- nyrs + A - 1 # number of recruitment years 
+  nRyrs <- nyrs + A - 1 # number of recruitment years
+  
   
   stan.data <- list(
     "nyrs" = nyrs,
@@ -101,8 +68,8 @@ make_stan_data <- function(stock) {
     "A_obs" = A_obs,
     "S_obs" = S_obs,
     "H_obs" = H_obs,
-    "S_cv" = rep(0.05,length(S_obs)),
-    "H_cv" = rep(0.05,length(H_obs)), 
+    "S_cv" = S_cv,
+    "H_cv" = H_cv, 
     "Smax_p" = 0.75*max(fn_data$S), #what do we think Smax is? 
     "Smax_p_sig" = 1*max(fn_data$S) #can tinker with these values making the factor smaller mean's you've observed density dependence (i.e. the ricker "hump")
   )
@@ -110,10 +77,12 @@ make_stan_data <- function(stock) {
   return(stan.data)
 }
 
+
 # Save Stan data for GCL and SPR (more useful as a list?)
 stocks_stan_data <- unique(sr$stock) |> 
   purrr::set_names() |> 
   map(make_stan_data)
+
 
 # Fit Stan models for both stocks -----------------------------------------
 
