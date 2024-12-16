@@ -49,8 +49,12 @@ Som_sr <- Som_run_ts |>
     run = sum(c_across(contains("age"))),
     # Convert age #s to proportions
     across(contains("age"), \(x) x/run),
-    C = run - spawners,
-    age.samples = 1000
+    H = run - spawners,
+    age.samples = 1000 # Number of age samples per stock per year. 
+    # Using 1000/year as placeholder... would need to do considerable
+    # data gathering from historic files to get the time series of 
+    # number of samples going back to 1977. Does this actually 
+    # matter enough to be worth doing so?
   ) |> 
   ungroup() |> 
   left_join(
@@ -338,7 +342,7 @@ Hed_sr <- Hed_run_ts_infill |>
     "year" = return_year,
     "S" = escapement,
     "N" = run,
-    "C" = catch,
+    "H" = catch,
     "age.samples" = age_sample_size
   ) |> 
   select(-Somass_hr) |> 
@@ -355,7 +359,17 @@ Hed_sr <- Hed_run_ts_infill |>
 
 
 # Collate the two dataframes
-Barkley_sk_sr <- bind_rows(Som_sr, Hed_sr)
+Barkley_sk_sr <- bind_rows(Som_sr, Hed_sr) |> 
+  mutate(
+    # State CVs for catch and escapement
+    H_cv = if_else(is.na(hr_pred_cv), 0.05, hr_pred_cv),
+    S_cv = case_when(
+      stock != "HED" ~ 0.05,
+      stock == "HED" & year < 2012 ~ 0.2,
+      stock == "HED" & year >= 2012 ~ 0.1
+    )
+  ) |> 
+  select(-contains("hr_pred"))
 
 
 # Save metadata for solumn names
@@ -374,7 +388,7 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
         "Proportion of the run at the given total age (in years)"
       ),
       column_name == "N" ~ "Annual terminal run size. Equal to S +  C",
-      column_name == "C" ~ "Annual terminal catch",
+      column_name == "H" ~ "Annual terminal harvest (i.e. catch)",
       column_name == "age.samples" ~ paste(
         "Number of fish sampled to calculate the age compositions",
         "given in columns labeled 'N.age.#'"
@@ -388,11 +402,16 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
         "based on a linear model with Somass Sockeye harvest rate as a",
         "predictor. Used to estimate Hucuktlis catch in years with missing data"
       ),
-      column_name == "hr_pred_cv" ~ paste(
-        "Coefficient of variation of Hucuktlis Sockeye harvest rate predictions",
-        "derived from the linear model. Calculated as RMSE of the model",
+      column_name == "H_cv" ~ paste(
+        "Coefficient of variation on harvest data. Historical (prior to 2011)",
+        "Hucuktlis Sockeye harvest rate predictions were derived from a",
+        "linear model. CV for these data is calculated as RMSE of the model",
         "residuals divided by the mean of the observed Hucuktlis Sockeye harvest",
-        "rates that informed the model fit (i.e. the dependent variable)"
+        "rates that informed the model fit (i.e. the dependent variable).",
+        "Harvest data for Somass and Hucuktlis post-2011 are assumed to be precise."
+      ),
+      column_name == "S_cv" ~ paste(
+        "Coefficient of variation on spawner data. Currently based on ____"
       ),
       TRUE ~ "!definition required!"
     )
