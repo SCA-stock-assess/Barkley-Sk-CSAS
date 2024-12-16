@@ -51,7 +51,7 @@ sr_age_infill <- sr |>
 # SPR and GCL.
 make_stan_data <- function(stock_name) {
   
-  fn_data <- sr |> 
+  fn_data <- sr_age_infill |> 
     filter(
       stock == stock_name,
       !if_any(c(S, H), is.na)
@@ -103,7 +103,7 @@ make_stan_data <- function(stock_name) {
 
 
 # Save Stan data for GCL and SPR (more useful as a list?)
-stocks_stan_data <- unique(sr$stock) |> 
+stocks_stan_data <- unique(sr_age_infill$stock) |> 
   purrr::set_names() |> 
   map(make_stan_data)
 
@@ -197,7 +197,7 @@ if(FALSE) {
   
   # Save the fitted model object
   saveRDS(
-    SPR_AR1,
+    HED_AR1,
     file = here(
       "3. outputs",
       "stock-recruit modelling",
@@ -233,7 +233,7 @@ if(!exists("SPR_AR1")) {
 
 # Load fitted models from files (if the code above wasn't run)
 if(!exists("HED_AR1")) {
-  SPR_AR1 <- readRDS(
+  HED_AR1 <- readRDS(
     here(
       "3. outputs",
       "stock-recruit modelling",
@@ -246,8 +246,8 @@ if(!exists("HED_AR1")) {
 # Combine the models into a list for diagnostics
 AR1_mods <- list(
   "GCL" = GCL_AR1,
- "SPR" = SPR_AR1,
- "HED" = HED_AR1
+  "SPR" = SPR_AR1,
+  "HED" = HED_AR1
 )
 
 
