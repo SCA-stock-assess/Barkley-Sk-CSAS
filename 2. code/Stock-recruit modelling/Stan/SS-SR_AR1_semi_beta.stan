@@ -11,22 +11,22 @@ data{
   vector[nyrs] H_obs; // observed harvest
   vector[nyrs] S_cv;  // spawner observation error CV
   vector[nyrs] H_cv;  // harvest observation error CV
-  real pSmax_mean;    // mean on prior for Smax
-  real pSmax_sig;     // SD on prior for Smax
+  real Smax_p;        // prior for Smax
+  real Smax_p_sig;    // prior for Smax
+
 }
 
 transformed data{
-real ln_beta_pr;
-real ln_beta_pr_sig;
+  real Smax_p_corr;
+  real Smax_p_sig_corr;
 
-ln_beta_pr_sig=sqrt(log(1+((1/pSmax_sig)*(1/pSmax_sig))/((1/pSmax_mean)*(1/pSmax_mean)))); //this converts sigma on the untransformed scale to a log scale
-ln_beta_pr=log(1/pSmax_mean)-0.5*ln_beta_pr_sig*ln_beta_pr_sig; //convert smax prior to per capita slope - transform to log scale with bias correction
+  Smax_p_sig_corr = sqrt(log(1+(Smax_p_sig^2)/(Smax_p^2))); //this converts sigma on the untransformed scale to a log scale
+  Smax_p_corr = log(Smax_p)-0.5*(Smax_p_sig_corr)^2; //convert smax prior to per capita slope - transform to log scale with bias correction
 }
-
 parameters{
   vector<lower=0>[nRyrs] lnR;             // log recruitment states
   real<lower=0> lnalpha;                  // log Ricker a
-  real lnbeta;                           // Ricker b - let it go negative
+  real<lower=0> Smax;                     // Smax (to get beta)
   real<lower=0> sigma_R;                  // process error
   real<lower=0> sigma_R0;                 // process error for first a.max years with no spawner link
   real<lower=-1,upper=1> phi;             // lag-1 correlation in process error
@@ -45,6 +45,7 @@ transformed parameters{
   vector<lower=0>[nyrs] C;              // catch states
   vector[nyrs] lnC;                     // log catch states
   vector<lower=0>[nRyrs] R;             // recruitment states
+  real<lower=0> sigma_R_corr;           // log-normal bias-corrected process error
   vector[nRyrs] lnresid;                // log recruitment residuals
   vector[nRyrs] lnRm_1;                 // log recruitment states in absence of lag-one correlation
   vector[nRyrs] lnRm_2;                 // log recruitment states after accounting for lag-one correlation
@@ -71,8 +72,8 @@ transformed parameters{
   }
 
   R = exp(lnR);
-  beta = exp(lnbeta);
-
+  beta = 1/Smax;
+  sigma_R_corr = (sigma_R*sigma_R)/2;
 
   // Calculate the numbers at age matrix as brood year recruits at age (proportion that matured that year)
   for (t in 1:nyrs) {
@@ -119,7 +120,7 @@ transformed parameters{
 model{
   // Priors
   lnalpha ~ normal(1,2);
-  lnbeta ~ normal(ln_beta_pr,ln_beta_pr_sig); //per capita capacity parameter - wide prior
+  Smax ~ lognormal(Smax_p_corr, Smax_p_sig_corr);
   sigma_R ~ normal(0,2);
   lnresid_0 ~ normal(0,10);
   mean_ln_R0 ~ normal(0,10);
@@ -142,7 +143,7 @@ model{
   lnR[1:a_max] ~ normal(mean_ln_R0, sigma_R0);
 
   // State model
-  lnR[(A+a_min):nRyrs] ~ normal(lnRm_2[(A+a_min):nRyrs], sigma_R);
+  lnR[(A+a_min):nRyrs] ~ normal(lnRm_2[(A+a_min):nRyrs], sigma_R_corr);
 
   // Observation model
   for(t in 1:nyrs){
