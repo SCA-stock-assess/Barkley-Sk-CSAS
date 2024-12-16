@@ -22,6 +22,30 @@ sr <- here(
   read_xlsx(sheet = "S-R data")
 
 
+# Create dataframe of historical average age compositions
+stock_age_averages <- sr |> 
+  summarize(
+    .by = stock,
+    across(contains("N.age"), \(x) sum(x, na.rm = TRUE))
+  ) |> 
+  rowwise() |> 
+  mutate(total = sum(c_across(contains("N.age")))) |> 
+  mutate(
+    across(contains("N.age"), \(x) x/total),
+    .keep = "unused"
+  )
+
+
+# Infill missing ages with historical averages 
+sr_age_infill <- sr |> 
+  filter(if_all(contains("N.age"), is.na)) |> 
+  select(-contains("N.age")) |> 
+  left_join(stock_age_averages) |> 
+  mutate(age.samples = 1) |> 
+  bind_rows(sr) |> 
+  filter(!if_all(contains("N.age"), is.na))
+  
+  
 # Declare a function that transforms data for 1 stock into correct 
 # Stan input format. Need to do this because will be required for both
 # SPR and GCL.
