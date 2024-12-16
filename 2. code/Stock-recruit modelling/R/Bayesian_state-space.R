@@ -156,6 +156,33 @@ if(FALSE) {
 }
 
 
+# Try stan model on HED data
+# `FALSE` disables the code from running
+# Switch to `TRUE` to run
+if(FALSE) {
+  HED_AR1 <- stan(
+    file = here(
+      "2. code",
+      "Stock-recruit modelling",
+      "Stan",
+      "SS-SR_AR1.stan"
+    ),
+    model_name = "SS-SR_AR1",
+    data = stocks_stan_data$HED
+  )
+  
+  # Save the fitted model object
+  saveRDS(
+    SPR_AR1,
+    file = here(
+      "3. outputs",
+      "stock-recruit modelling",
+      "HED_AR1.rds"
+    )
+  )      
+}
+
+
 # Load fitted models from files (if the code above wasn't run)
 if(!exists("GCL_AR1")) {
   GCL_AR1 <- readRDS(
@@ -180,10 +207,23 @@ if(!exists("SPR_AR1")) {
 }
 
 
+# Load fitted models from files (if the code above wasn't run)
+if(!exists("HED_AR1")) {
+  SPR_AR1 <- readRDS(
+    here(
+      "3. outputs",
+      "stock-recruit modelling",
+      "HED_AR1.rds"
+    )
+  )
+}
+
+
 # Combine the models into a list for diagnostics
 AR1_mods <- list(
   "GCL" = GCL_AR1,
- "SPR" = SPR_AR1
+ "SPR" = SPR_AR1,
+ "HED" = HED_AR1
 )
 
 
