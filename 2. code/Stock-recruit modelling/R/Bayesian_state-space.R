@@ -102,7 +102,9 @@ make_stan_data <- function(stock) {
     "S_obs" = S_obs,
     "H_obs" = H_obs,
     "S_cv" = rep(0.05,length(S_obs)),
-    "H_cv" = rep(0.05,length(H_obs))
+    "H_cv" = rep(0.05,length(H_obs)), 
+    "Smax_p" = 0.75*max(fn_data$S), #what do we think Smax is? 
+    "Smax_p_sig" = 1*max(fn_data$S) #can tinker with these values making the factor smaller mean's you've observed density dependence (i.e. the ricker "hump")
   )
   
   return(stan.data)
@@ -140,9 +142,9 @@ if(FALSE) {
       "Stock-recruit modelling",
       "Stan",
       "SS-SR_AR1.stan"
-    ),
-    #model_name = "SS-SR_AR1", #toggle which version of model you want 
-    model_name = "SS-SR_AR1_semi_beta",
+      #"SS-SR_AR1_semi_beta.stan #toggle which to fit 
+     ),
+    model_name = "SS-SR_AR1", #toggle which version of model you want 
     data = stocks_stan_data$GCL
   )
   
@@ -212,7 +214,7 @@ if(!exists("SPR_AR1")) {
 # Combine the models into a list for diagnostics
 AR1_mods <- list(
   "GCL" = GCL_AR1,
-  "SPR" = SPR_AR1
+ "SPR" = SPR_AR1
 )
 
 
