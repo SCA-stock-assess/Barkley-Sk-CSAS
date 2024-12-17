@@ -117,9 +117,12 @@ fit_stan_mod <- function(stan_data) {
       "2. code",
       "Stock-recruit modelling",
       "Stan",
-      "SS-SR_AR1.stan"
+      # toggle which model to fit
+      #"SS-SR_AR1.stan"
+      "SS-SR_AR1_semi_beta.stan" 
     ),
-    model_name = "SS-SR_AR1",
+    #model_name = "SS-SR_AR1",
+    model_name = "SS-SR_AR1_semi_beta",
     data = stan_data
   )
 }
@@ -129,17 +132,7 @@ fit_stan_mod <- function(stan_data) {
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
 if(FALSE) {
-  GCL_AR1 <- stan(
-    file = here(
-      "2. code",
-      "Stock-recruit modelling",
-      "Stan",
-      "SS-SR_AR1.stan"
-      #"SS-SR_AR1_semi_beta.stan #toggle which to fit 
-     ),
-    model_name = "SS-SR_AR1", #toggle which version of model you want 
-    data = stocks_stan_data$GCL
-  )
+  GCL_AR1 <- fit_stan_mod(stocks_stan_data$GCL)
   
   # Save the fitted model object
   saveRDS(
@@ -157,16 +150,7 @@ if(FALSE) {
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
 if(FALSE) {
-  SPR_AR1 <- stan(
-    file = here(
-      "2. code",
-      "Stock-recruit modelling",
-      "Stan",
-      "SS-SR_AR1.stan"
-    ),
-    model_name = "SS-SR_AR1",
-    data = stocks_stan_data$SPR
-  )
+  SPR_AR1 <- fit_stan_mod(stocks_stan_data$SPR)
   
   # Save the fitted model object
   saveRDS(
@@ -184,16 +168,7 @@ if(FALSE) {
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
 if(FALSE) {
-  HED_AR1 <- stan(
-    file = here(
-      "2. code",
-      "Stock-recruit modelling",
-      "Stan",
-      "SS-SR_AR1.stan"
-    ),
-    model_name = "SS-SR_AR1",
-    data = stocks_stan_data$HED
-  )
+  HED_AR1 <- fit_stan_mod(stocks_stan_data$HED)
   
   # Save the fitted model object
   saveRDS(
@@ -255,7 +230,7 @@ AR1_mods <- list(
 AR1_models_summary <- AR1_mods |> 
   map(rstan::summary) |> 
   map(\(x) x$summary) |> 
-  map(as.data.frame) |> 
+  map(\(x) as_tibble(x, rownames = "parameter")) |> 
   list_rbind(names_to = "stock") |> 
   nest(.by = stock, .key = "model_summary")
 
@@ -395,7 +370,7 @@ plot_data |>
         fill = "grey80", 
         alpha = 0.5, 
         linetype = 2, 
-        colour = "gray46"
+        colour = "grey46"
       ) +
       geom_line(
         data = x$SR_pred, 
