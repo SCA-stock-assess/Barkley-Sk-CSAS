@@ -140,7 +140,10 @@ hr_ts <- list(
       names_from = stock,
       values_from = hr
     ) |> 
-    filter(!if_any(c(Somass, Hucuktlis), c(is.na, is.nan))) |> 
+    filter(
+      !if_any(c(Somass, Hucuktlis), c(is.na, is.nan)),
+      return_year > 2011
+    ) |> 
     ggplot(aes(x = Somass, y = Hucuktlis)) +
     geom_abline(
       slope = 1,
@@ -184,6 +187,7 @@ hr_ts <- list(
 
 # Fit various models to predict the Hucuktlis harvest rate
 hr_mods <- hr_ts |> 
+  filter(return_year > 2011) |> 
   mutate(esc = run - catch) |> 
   pivot_wider(
     names_from = stock,
