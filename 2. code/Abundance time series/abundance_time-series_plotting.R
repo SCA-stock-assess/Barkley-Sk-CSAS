@@ -1,4 +1,3 @@
-
 # Packages ----------------------------------------------------------------
 
 pkgs <- c("tidyverse", "here", "readxl")
@@ -34,10 +33,14 @@ abun_data <- here(
   ) |> 
   mutate(
     data_quality = case_when(
-      year < 1990 ~ "moderate",
-      year >= 1990 ~ "high",
+      stock == "HED" & year < 1970 ~ "low",
+      stock == "HED" & between(year, 1970, 1980) ~ "moderate",
+      stock == "HED" & year > 1980 ~ "high",
+      stock != "HED" & year < 1990 ~ "moderate",
+      stock != "HED" & year >= 1990 ~ "high",
       TRUE ~ "FIX"
-    ),
+    ) |> 
+      factor(levels = c("high", "moderate", "low")),
     stock = case_when(
       stock == "GCL" ~ "Great Central",
       stock == "SPR" ~ "Sproat",
@@ -69,17 +72,17 @@ abun_data <- here(
     expand = expansion(mult = c(0, 0.05))
   ) +
   scale_fill_viridis_d(option = "mako", direction = -1, end = 0.8) +
-  scale_alpha_discrete(range = c(1, 0.5)) +
+  scale_alpha_discrete(range = c(1, 0.4)) +
   labs(
     y = "Number of Sockeye",
     x = "Adult return year",
     fill = "Category",
-    alpha = "Data source"
+    alpha = "Data quality"
   ) +
   theme(
     legend.position = "inside",
-    legend.position.inside = c(0.98, 0.98),
-    legend.justification.inside = c(1, 1),
+    legend.position.inside = c(0.02, 0.98),
+    legend.justification.inside = c(0, 1),
     legend.box = "horizontal",
     legend.background = element_rect(colour = "black", fill = alpha("white", 0.8)),
     legend.key.size = unit(0.8, "lines"),
@@ -99,5 +102,6 @@ abun_p |>
     ),
     width = 7.5,
     height = 8,
-    units = "in"
+    units = "in",
+    dpi = "print"
   )
