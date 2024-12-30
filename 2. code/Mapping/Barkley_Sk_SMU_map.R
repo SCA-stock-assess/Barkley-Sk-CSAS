@@ -100,7 +100,7 @@ stream_lines <- read_sf(
   
 
 
-# Build plots -------------------------------------------------------------
+# Build plot with small inset --------------------------------------------
 
 
 # Annotation data for "Gulf of Alaska" text
@@ -235,3 +235,100 @@ ggsave(
 
 
   
+
+# Build plot with large inset ---------------------------------------------
+
+
+(pnw <- basemap(
+  limits = c(-165, -125, 40, 62),
+  rotate = TRUE,
+  land.border.col = NA
+) +
+  geom_sf(
+    data = st_as_sfc(bb_small),
+    colour = "red",
+    linewidth = 1,
+    fill = NA
+  ) +
+  theme_minimal()
+)
+
+
+# Lakes to show on new map
+lakes2 <- # Shapefile with lake polygons from Freshwater Atlas
+  lakes <- read_sf(
+    here(
+      "1. data",
+      "FWA_LAKES_POLY",
+      "FWLKSPL_polygon.shp"
+    )
+  ) |> 
+  rename_with(str_to_lower) |> 
+  filter(
+    str_detect(
+      gnsnm1, 
+      "(?i)hucuktlis|great\\scentral|sproat|dickson|ash|elsie|oshinow|nahmint"
+      )
+    ) |> 
+  st_transform(crs = "NAD83")
+
+
+# Stream lines for new map
+stream_lines2 <- read_sf(
+  here(
+    "1. data",
+    "FWA_STREAM_NETWORKS_SP",
+    "FWSTRMNTWR_line.shp"
+  )
+) |> 
+  rename_with(str_to_lower) |> 
+  filter(
+    str_detect(
+      gnis_name, 
+      "(?i)sproat|stamp|somass|hucuktlis|clemens|^ash\\s|nahmint"
+      )
+    )
+
+
+
+# Barkley Sound Map
+(bs <- ggplot(vi_coastline) +
+    geom_sf(
+      fill = NA,
+      colour = "grey60"
+    ) +
+    geom_textsf(
+      data = stream_lines2,
+      aes(label = gnis_name),
+      vjust = 1.5,
+      hjust = 0.9,
+      text_smoothing = 65,
+      remove_long = FALSE,
+      size = 3
+    ) +
+     geom_textsf(
+       data = lakes2,
+       aes(label = gnsnm1),
+       #fill = NA,
+       size = 3,
+       vjust = 2
+     ) +
+    # scale_colour_manual(
+    #   values = c("deeppink3", "seagreen3", "black", "chocolate3"),
+    #   aesthetics = c("colour", "fill")
+    # ) +
+    annotation_north_arrow(
+      location = "tr",
+      style = ggspatial::north_arrow_nautical(),
+      height = unit(3, "lines"),
+      width = unit(3, "lines")
+    ) +
+    annotation_scale(location = "bl") +
+    coord_sf(
+      expand = FALSE,
+      xlim = c(-125.7, -124.75),
+      ylim = c(48.8, 49.48)
+    ) +
+    guides(fill = "none", colour = "none") +
+    theme_void()
+)
