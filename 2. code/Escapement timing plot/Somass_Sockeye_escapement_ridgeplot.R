@@ -119,50 +119,54 @@ escday <- som_hist |>
 
 # Plot using calculated stats
 base_p1 <- escday |> 
-   filter(!is.na(sockeye)) |> 
-   mutate(sockeye = round(sockeye, 0)) |> 
-   uncount(sockeye) |> 
-   # Subsample rows down to 500000 random draws
-   # Useful when toying with plot parameters
-   slice_sample(n = 5e5) |> # deactivate when saving full version of plot
-   ggplot(
-     aes(
-       y = year, 
-       x = as.Date(d_m, format = "%d-%b"),
-       group = year
-     )
-   ) +
-   geom_density_ridges(
-     aes(fill = method, colour = method),
-     quantile_lines = TRUE,
-     quantiles = 2,
-     alpha = 0.6,
-     vline_colour = "red",
-     rel_min_height = 1e-4
-   ) 
+  filter(
+    #year > 1974,
+    !is.na(sockeye)
+  ) |> 
+  mutate(sockeye = round(sockeye, 0)) |> 
+  uncount(sockeye) |> 
+  # Subsample rows down to 500000 random draws
+  # Useful when toying with plot parameters
+  slice_sample(n = 5e5) |> # deactivate when saving full version of plot
+  ggplot(
+    aes(
+      y = year, 
+      x = as.Date(d_m, format = "%d-%b"),
+      group = year
+    )
+  ) +
+  geom_density_ridges(
+    aes(fill = method, colour = method),
+    quantile_lines = TRUE,
+    quantiles = 2,
+    alpha = 0.6,
+    vline_colour = "red",
+    rel_min_height = 1e-4
+  ) 
 
 
 # Ridgeline plot where values are mapped to curve height directly
 base_p2 <- escday |> 
-    mutate(
-      .by = c(system, year),
-      ttl = sum(sockeye, na.rm = TRUE),
-      prop = sockeye/ttl
-    ) |> 
-    ggplot(
-      aes(
-        y = year,
-        x = as.Date(d_m, format = "%d-%b"),
-        height = prop,
-        group = year
-      )
-    ) +
-    geom_density_ridges(
-      stat = "identity",
-      aes(fill = method, colour = method),
-      alpha = 0.6,
-      scale = 1.5
-    ) 
+  #filter(year > 1974) |> 
+  mutate(
+    .by = c(system, year),
+    ttl = sum(sockeye, na.rm = TRUE),
+    prop = sockeye/ttl
+  ) |> 
+  ggplot(
+    aes(
+      y = year,
+      x = as.Date(d_m, format = "%d-%b"),
+      height = prop,
+      group = year
+    )
+  ) +
+  geom_density_ridges(
+    stat = "identity",
+    aes(fill = method, colour = method),
+    alpha = 0.6,
+    scale = 1.5
+  ) 
 
 
 # Apply consistent formatting to both plots
