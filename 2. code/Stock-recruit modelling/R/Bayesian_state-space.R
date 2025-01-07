@@ -19,7 +19,9 @@ sr <- here(
   "Stock-recruit data",
   'Barkley_Sockeye_stock-recruit_infilled.xlsx'
   ) |> 
-  read_xlsx(sheet = "S-R data")
+  read_xlsx(sheet = "S-R data") |> 
+  # Remove earlier years in the time series
+  filter(!year < 1972)
 
 
 # Create dataframe of historical average age compositions
@@ -110,6 +112,7 @@ stocks_stan_data <- unique(sr_age_infill$stock) |>
 
 # Fit Stan models for both stocks -----------------------------------------
 
+
 # Embrace Stan model in a function call to iterate over stocks
 fit_stan_mod <- function(stan_data) {
   stan(
@@ -122,6 +125,8 @@ fit_stan_mod <- function(stan_data) {
       "SS-SR_AR1_semi_beta.stan" 
     ),
     #model_name = "SS-SR_AR1",
+    iter = 3000,
+    control = list(max_treedepth = 15),
     model_name = "SS-SR_AR1_semi_beta",
     data = stan_data
   )
@@ -297,8 +302,7 @@ AR1_mods |>
 # Create dataframes of spawner abundances and predicted recruitment
 make_srplot_data <- function(stock, stan_mod, stan_data) {
   
-  model_pars <- stan_mod |> 
-    rstan::extract()
+  model_pars <- rstan::extract(stan_mod)
   
   sr_years <- stan_data$nyrs # nRyrs doesn't work...
   max_samples <- dim(model_pars$lnalpha)
@@ -353,7 +357,7 @@ plot_data <- unique(sr$stock) |>
 
 
 # Plot
-plot_data |> 
+(sr_plots <- plot_data |> 
   imap(
     \(x, idx) ggplot() +
       geom_errorbar(
@@ -415,3 +419,24 @@ plot_data |>
         legend.text = element_text(size=8)
       )
   )
+)
+  
+
+# Save plots
+sr_plots |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        paste0(
+          "State-space_stock-recruit_predictions_",
+          idx,
+          ".png"
+        )
+      ),
+      dpi = "print"
+    )
+  )
+
