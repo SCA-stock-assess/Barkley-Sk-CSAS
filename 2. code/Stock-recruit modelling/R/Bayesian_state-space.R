@@ -478,6 +478,7 @@ plot_data <- unique(sr$stock) |>
       scale_x_continuous(
         limits = c(0, max(x$brood_t[,4])),
         labels = scales::label_number(),
+        breaks = scales::pretty_breaks(n = 3),
         expand = expansion(c(0, 0.05))
       ) +
       scale_y_continuous(
@@ -486,7 +487,8 @@ plot_data <- unique(sr$stock) |>
         expand = expansion(c(0, 0.05)),
         oob = scales::oob_keep
       ) +
-      scale_colour_viridis_c()+
+      scale_colour_viridis_c() +
+      #coord_equal(ratio = 1) +
       labs(
         x = "Spawners",
         y = "Recruits",
@@ -497,7 +499,8 @@ plot_data <- unique(sr$stock) |>
         panel.grid.minor = element_blank(),
         legend.key.size = unit(0.4, "cm"),
         legend.title = element_text(size=9),
-        legend.text = element_text(size=8)
+        legend.text = element_text(size=8),
+        axis.text.x = element_text(angle = 45, hjust = 1)
       )
   )
 )
@@ -520,4 +523,108 @@ sr_plots |>
       dpi = "print"
     )
   )
+
+
+
+# Faceted plot
+plot_data_combined <- plot_data |> 
+  map(enframe) |> 
+  map(pivot_wider) |> 
+  list_transpose() |> 
+  map(\(x) list_rbind(x, names_to = "cu")) |> 
+  map(\(x) mutate(x, cu = factor(cu, levels = c("GCL", "SPR", "HED"))))
+  
+
+facet_sr_p <- ggplot() +
+  facet_wrap(
+    ~cu, 
+    ncol = 1,
+    scales = "free",
+    strip.position = "right",
+    labeller = labeller(
+      cu = c(
+        "Great Central" = "GCL",
+        "Sproat" = "SPR",
+        "Hucuktlis" = "HED"
+      )
+    )
+  ) +
+  geom_errorbar(
+    data = plot_data_combined$brood_t, 
+    aes(x= S_med, y = R_med, ymin = R_lwr, ymax = R_upr),
+    colour="grey", 
+    width = 0,
+    size = 0.3
+  ) +
+  geom_abline(intercept = 0, slope = 1,col="dark grey") +
+  geom_ribbon(
+    data = plot_data_combined$SR_pred, 
+    aes(x = Spawn, ymin = Rec_lwr, ymax = Rec_upr),
+    fill = "grey80", 
+    alpha = 0.5, 
+    linetype = 2, 
+    colour = "grey46"
+  ) +
+  geom_line(
+    data = plot_data_combined$SR_pred, 
+    aes(x = Spawn, y = Rec_med), 
+    color = "black", 
+    size = 1
+  ) +
+  geom_errorbarh(
+    data = plot_data_combined$brood_t, 
+    aes(y = R_med, xmin = S_lwr, xmax = S_upr),
+    height = 0, 
+    colour = "grey", 
+    size = 0.3
+  ) +
+  geom_point(
+    data = plot_data_combined$brood_t, 
+    aes(x = S_med, y = R_med, color=BroodYear), 
+    size = 2,
+    alpha = 0.7
+  ) +
+  scale_x_continuous(
+    #limits = c(0, max(plot_data_combined$brood_t[,4])),
+    labels = scales::label_number(),
+    breaks = scales::pretty_breaks(n = 3),
+    expand = expansion(c(0, 0.05))
+  ) +
+  scale_y_continuous(
+    #limits = c(0, max(plot_data_combined$brood_t[,6])),
+    labels = scales::label_number(),
+    expand = expansion(c(0, 0.05)),
+    oob = scales::oob_keep
+  ) +
+  scale_colour_viridis_c() +
+  #coord_equal(ratio = 1) +
+  guides(colour = guide_colorbar(title.position = "top")) +
+  labs(
+    x = "Spawners",
+    y = "Recruits"
+  ) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.key.width = unit(2, "lines"),
+    legend.title = element_text(size=9),
+    legend.text = element_text(size=8),
+    legend.position = "top"
+  )
+
+
+# Save the faceted plot
+ggsave(
+  facet_sr_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "State-space_stock-recruit_predictions_combined.png"
+  ),
+  width = 4,
+  height = 8,
+  units = "in",
+  dpi = "print"
+)
+
 
