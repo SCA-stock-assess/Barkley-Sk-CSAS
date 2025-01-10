@@ -110,7 +110,7 @@ stocks_stan_data <- unique(sr_age_infill$stock) |>
   map(make_stan_data)
 
 
-# Fit Stan models for both stocks -----------------------------------------
+# Fit Stan models for both stocks and examine model fits -------------------
 
 
 # Embrace Stan model in a function call to iterate over stocks
@@ -377,7 +377,76 @@ corr_p |>
 
 
 
-# Inference from fitted models --------------------------------------------
+
+# Time series plots of model residuals ------------------------------------
+
+
+# Residuals from fitted models
+resids <- model_pars_AR1 |> 
+  filter(name == "lnresid") |> 
+  select(-name) |> 
+  rowwise() |> 
+  mutate(value = list(pivot_longer(value, everything()))) |> 
+  ungroup() |> 
+  unnest(value) |> 
+  summarize(
+    .by = c(stock, name),
+    probs = list(quantile(value, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)))
+  ) |> 
+  unnest_wider(probs) |> 
+  mutate(
+    .by = stock,
+    n_year = str_extract(name, "\\d+") |> as.integer(),
+    # Not sure these years are being calculated correctly... 
+    year = n_year - max(n_year) + max(sr_age_infill$year),
+    # Currently sets max n_year = 2023 and back-calculates from there...
+    stock = factor(stock, levels = c("GCL", "SPR", "HED"))
+  ) |> 
+  rename(
+    "lwr" = 3,
+    "midlwr" = 4,
+    "mid" = 5,
+    "midupr" = 6,
+    "upr" = 7
+  )
+  
+
+# Plot
+ggplot(resids, aes(x=year, y = mid)) +
+  facet_wrap(
+    ~stock, 
+    ncol = 1, 
+    strip.position = "right", 
+    scales = "free_y"
+  ) +
+  geom_abline(
+    intercept = 0, 
+    slope = 0, 
+    col = "dark grey", 
+    lty = 2
+  ) +
+  geom_ribbon(
+    aes(ymin = lwr, ymax = upr),  
+    fill = "darkgrey", 
+    alpha = 0.5
+  ) +
+  geom_ribbon(
+    aes(ymin = midlwr, ymax = midupr),  
+    fill = "black", 
+    alpha=0.2
+  ) + 
+  geom_line(lwd = 1.1) +
+  labs(
+    x = "Return year",
+    y = "Recruitment residuals", 
+  ) +
+  theme(
+    legend.position = "none",
+    panel.grid = element_blank()
+  ) 
+
+
+# Plot stock-recruit curves with observed data ---------------------------
 
 
 # Create dataframes of spawner abundances and predicted recruitment
