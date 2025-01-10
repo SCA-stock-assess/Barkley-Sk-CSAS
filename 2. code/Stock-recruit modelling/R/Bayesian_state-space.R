@@ -256,7 +256,7 @@ model_pars_AR1 <- AR1_mods |>
 # leading pars
 lead_pars <- c("beta", "lnalpha", "sigma_R", "lnresid_0", "phi")
 
-AR1_mods |> 
+(lead_pars_p <- AR1_mods |> 
   map(
     \(x) mcmc_combo(
       x, 
@@ -265,10 +265,30 @@ AR1_mods |>
       gg_theme = legend_none()
     ) 
   )
+)
 
+
+# Save the plots
+lead_pars_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Leading_parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
+  
 
 # age pars
-AR1_mods |> 
+(age_pars_p <- AR1_mods |> 
   map(
     \(x) mcmc_combo(
       x, 
@@ -277,8 +297,30 @@ AR1_mods |>
       gg_theme = legend_none()
     )
   )
+)
 
-AR1_mods |> 
+
+# Save the plots
+age_pars_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Age_parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
+
+  
+# Dirichlet parameters  
+(Dir_pars_p <- AR1_mods |> 
   map(
     \(x) mcmc_combo(
       x, 
@@ -287,12 +329,51 @@ AR1_mods |>
       gg_theme = legend_none()
     )
   )
+)
 
+
+# Save the plots
+Dir_pars_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Dirichlet_parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
+  
 
 # how do correlations in leading parameters look?
-AR1_mods |> 
+(corr_p <- AR1_mods |> 
   map(\(x) pairs(x, pars = lead_pars))
+)
 
+
+# Save the correlation plots
+corr_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Correlation_leading-parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
 
 
 
