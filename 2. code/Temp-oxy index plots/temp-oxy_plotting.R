@@ -1,13 +1,16 @@
 # Packages ----------------------------------------------------------------
 
-pkgs <- c("tidyverse", "MBA","reshape2","magrittr","RColorBrewer", "readxl", "here")
+pkgs <- c(
+  "tidyverse", "MBA","reshape2", "cowplot", "magick",
+  "magrittr","RColorBrewer", "readxl", "here"
+)
 #install.packages(pkgs)
 
 library(here)
 library(readxl)
-library(tidyverse); theme_set(theme_bw(base_size=15))
-library(fuzzyjoin)
-library(gganimate)
+library(tidyverse); theme_set(theme_bw(base_size=12))
+library(cowplot)
+library(magick)
 library(RColorBrewer)
 library(magrittr)
 library(MBA)
@@ -105,19 +108,18 @@ max_depths <- hs0 |>
 
 
 
-# Define plotting function and interpolate time series --------------------
-
+# Interpolate values across dates and depths  --------------------
 
 
 # set date range for plots.
 max_jul <- max(hs$julian) 
-min_jul <- min(hs$julian)
+min_jul <- 80
 
 
 # Create function that interpolates values between surveys
 intp_fn <- function(station, var) {
   
-  no <- max_jul - min_jul
+  resolution <- max_jul - min_jul
   
   xyz <- hs |> 
     filter(site == station, !is.na({{var}})) |> 
@@ -125,8 +127,8 @@ intp_fn <- function(station, var) {
   
   df <- xyz |> 
     mba.surf(
-      no.X = no, 
-      no.Y = no, 
+      no.X = resolution, 
+      no.Y = resolution, 
       extend = T,
       # Parameters to control the stretch along the x axis,
       # Higher n:m ratio means more x stretch, less y stretch
@@ -139,69 +141,13 @@ intp_fn <- function(station, var) {
   melt(
     df$xyz.est$z, 
     varnames = c('julian', 'depth')
-    ) |> 
+  ) |> 
     mutate(
-      #julian = round(julian, 0),
-      date = as.POSIXct.numeric(julian*24*3600, origin = paste0(curr_yr-1, "-12-31"))
-    ) |>  
-    summarize(
-      .by = c(date, julian, depth),
-      value = mean(value)
+      date = as.POSIXct.numeric(
+        julian*24*3600, 
+        origin = paste0(curr_yr-1, "-12-31")
+      )
     )
-}
-
-
-# Raster plot for time series data (based on temp data, tweaks needed for DO and salinity)
-ts_p_fn <- function(df, hs_var, min_julian, max_julian) {
-  
-  point_data <- hs0 |> 
-    filter(between(julian, min_julian, max_julian)) |> # Truncate raw data
-    drop_na(salinity:do_sat)
-  
-  plot <- df |> 
-    filter(between(julian, min_julian, max_julian)) |> # Truncate interpolated data to desired time period
-    ggplot(aes(x = date, y = depth)) +
-    facet_grid(site~., scales = "free_y", space = "free_y") +
-    geom_raster(aes(fill = value), interpolate = TRUE, alpha = 0.75) +
-    geom_point(
-      data = point_data, 
-      aes(x = as.POSIXct(date), y = depth, colour = idx_cat),
-      size = 1, 
-      #alpha = 0.15,
-      #shape = 3
-    ) +
-    # Custom colour scale based on the index and Howard Stiff's suggestions
-    scale_fill_gradientn(
-      colours = idx_pal,
-      name = "Temp-oxy\nindex",
-      limits = c(0,5),
-      aesthetics = c("colour", "fill")
-    ) +
-    geom_contour(
-      aes(z = value), 
-      binwidth = 1, 
-      colour = "black", 
-      alpha = 0.2
-    ) +
-    labs(y = "Depth (m)", x = NULL) +
-    scale_y_reverse(expand = c(0,0), labels = as.integer) +
-    scale_x_datetime(
-      expand = c(0,0), 
-      breaks = "2 weeks", 
-      date_labels = "%d %b"
-    ) +
-    theme(
-      strip.background = element_rect(fill = "white"),
-      legend.position = "inside",
-      legend.position.inside = c(0.98,0.60),
-      legend.justification.inside = c("right", "bottom"),
-      legend.direction = "horizontal",
-      legend.background = element_rect(colour = "black",fill = alpha("white",0.75)),
-      panel.spacing.y = unit(1, "lines"),
-      axis.title.y = element_text(vjust = 2)
-    )
-  
-  return(plot)
 }
 
 
@@ -221,8 +167,62 @@ idx <- sites |>
   )
 
 
-# Plot from the continuous index 
-(idx_p <- ts_p_fn(idx, "hold_idx", min_jul, max_jul))
+
+
+  
+
+# Plot holding conditions index ------------------------------------------------
+
+
+# Data frame with observed points from the raw data
+point_data <- hs0 |> 
+  filter(between(julian, min_jul, max_jul)) |> # Truncate raw data
+  drop_na(salinity:do_sat)
+
+
+# Plot with interpolated values overlaid with raw points
+(idx_ts_p <- idx |> 
+  filter(between(julian, min_jul, max_jul)) |> # Truncate interpolated data to desired time period
+  ggplot(aes(x = date, y = depth)) +
+  facet_grid(site~., scales = "free_y", space = "free_y") +
+  geom_raster(aes(fill = value), interpolate = TRUE, alpha = 0.75) +
+  geom_point(
+    data = point_data, 
+    aes(x = as.POSIXct(date), y = depth, colour = idx_cat),
+    size = 0.3, 
+    #shape = 3
+  ) +
+  # Custom colour scale based on the index and Howard Stiff's suggestions
+  scale_fill_gradientn(
+    colours = idx_pal,
+    name = "Temp-oxy\nindex",
+    limits = c(0,5),
+    aesthetics = c("colour", "fill")
+  ) +
+  geom_contour(
+    aes(z = value), 
+    binwidth = 1, 
+    colour = "black", 
+    alpha = 0.2
+  ) +
+  labs(y = "Depth (m)", x = NULL) +
+  scale_y_reverse(expand = c(0,0), labels = as.integer) +
+  scale_x_datetime(
+    expand = c(0,0), 
+    breaks = "1 month", 
+    date_labels = "%b"
+  ) +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    legend.position = "inside",
+    legend.position.inside = c(0.98,0.62),
+    legend.justification.inside = c("right", "bottom"),
+    legend.direction = "horizontal",
+    legend.background = element_rect(colour = "black",fill = alpha("white",0.75)),
+    panel.spacing.y = unit(1, "lines"),
+    axis.title.y = element_text(vjust = 2)
+  )
+)
 
 
 # Save the plot
@@ -232,98 +232,192 @@ ggsave(
     "Plots",
     "Temp-oxy-index_time-series_2021.png"
   ),
-  plot = idx_p,
-  height = 8,
+  plot = idx_ts_p,
+  height = 7,
   width = 6.5,
   units = "in",
   dpi = "print"
 )
 
 
+# Load in-river migration data for 2021
+esc_data <- here(
+  "1. data",
+  "Somass_Sockeye_daily_escapement_data.xlsx"
+) |> 
+  read_xlsx() |> 
+  filter(year == 2021) |> 
+  mutate(ttl = `Adjusted net Adult up count` + `Adjusted net Jack up count`) |> 
+  select(year, month, day, system, ttl) |> 
+  mutate(date = as.POSIXct(paste(year, month, day, sep = "-"))) |> 
+  summarize(
+    .by = date,
+    ttl = sum(ttl, na.rm = TRUE)
+  ) |> 
+  filter(
+    date <= as.POSIXct.numeric(
+      max_jul*24*3600, 
+      origin = paste0(curr_yr-1, "-12-31")
+    )
+  )
 
-  
-
-# Plot holding conditions index ------------------------------------------------
-
-
-# Interpolate time series of the continuous index
-idx <- map_df(sites, ~intp_fn(.x, hold_idx, stretch = (1/1)), .id = "site") |> 
-  mutate(site = factor(site, levels = site_order))
-
-
-
-
-
-
-
-
-
-# Plot from the categorical index
-idx_c <- map_df(sites, ~intp_fn(.x, idx_cat, stretch = (1/1)), .id = "site") |> 
-
-
-
-idxcat_p <- ts_p_fn(idx_c, "idx_cat", min_jul, max_jul) + 
-  
-
-idxcat_p[["layers"]][[3]][["stat_params"]][["binwidth"]] <- 1 # Change contour spacing
-
-idxcat_p
+comp_site <- "Estuary"
+ratio <- max(idx[idx$site == comp_site,]$depth)/max(esc_data$ttl)
 
 
-# Save time series plot
-ggsave(
-  filename = paste0(
-    here("Harbour Survey", "plots"),
-    "/R-PLOT_time series temp-oxy index",
-    Sys.Date(),
-    ".png"
-  ),
-  plot = idxcat_p,
-  height = 7,
-  width = 9,
-  units = "in"
+# Plot just Estuary for comparison of in-river migration curves
+heat_dome_plot <- idx |> 
+  filter(
+    between(julian, min_jul, max_jul),
+    site == comp_site
+  ) |> 
+  mutate(depth = -depth + max(depth)) |> 
+  ggplot(aes(x = date, y = depth)) +
+  geom_raster(aes(fill = value), interpolate = TRUE, alpha = 0.75) +
+  geom_contour(
+    aes(z = value), 
+    binwidth = 1, 
+    colour = "black", 
+    alpha = 0.2
+  ) +
+  annotate(
+    geom = "rect",
+    xmin = as.POSIXct("2021-06-25"),
+    xmax = as.POSIXct("2021-07-07"),
+    ymin = -Inf,
+    ymax = Inf,
+    lty = 2,
+    fill = "grey",
+    alpha = 0.3,
+    colour = "grey60"
+  ) +
+  annotate(
+    "text",
+    x = as.POSIXct("2021-07-02"),
+    y = 8,
+    label = "Heat dome",
+    angle = 270
+  ) +
+  geom_area(
+    data = esc_data,
+    aes(
+      x = date - 4,
+      y = ttl*ratio
+    ),
+    colour = "black",
+    fill = "black",
+    alpha = 0.3,
+    linewidth = 0.8
+  ) +
+  # Custom colour scale based on the index and Howard Stiff's suggestions
+  scale_fill_gradientn(
+    colours = idx_pal,
+    name = "Temp-oxy\nindex",
+    limits = c(0,5),
+    aesthetics = c("colour", "fill")
+  ) +
+  labs(
+    title = "Somass Estuary temperature-oxygen profile in 2021",
+    y = "Depth (m)",
+    x = NULL
+    ) +
+  scale_y_continuous(
+    expand = c(0,0), 
+    labels = function(x) -(x - max(idx[idx$site == comp_site,]$depth)),
+    sec.axis = sec_axis(
+      transform = ~./ratio,
+      name = "Daily Somass Sockeye Escapement",
+      labels = scales::label_number()
+    )
+  ) +
+  scale_x_datetime(
+    expand = c(0,0), 
+    breaks = "1 month", 
+    date_labels = "%b"
+  ) +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    legend.position = "inside",
+    legend.position.inside = c(0.98,0.98),
+    legend.justification.inside = c("right", "top"),
+    legend.direction = "horizontal",
+    legend.background = element_rect(colour = "black",fill = alpha("white",0.75)),
+    panel.spacing.y = unit(1, "lines"),
+    axis.title.y = element_text(vjust = 2)
+  )
+
+
+# Add heat dome map image
+image <- image_read( 
+  here(
+    "1. data",
+    "WNA_Heat_Wave_Temp_Anomaly.jpg"
+  )
 )
 
 
-# Clean up the workspace
-rm(idx, idx_c, idx_p, idxcat_p)
-gc()
+# Add image
+heat_dome_plot2 <- heat_dome_plot +
+  annotate(
+    "rect",
+    xmin = as.POSIXct("2021-03-28"),
+    xmax = as.POSIXct("2021-05-25"),
+    ymin = 6, 
+    ymax = 11,
+    colour = "black",
+    linewidth = 2
+  ) +
+  annotation_raster(
+    image,
+    xmin = as.POSIXct("2021-03-28.5"),
+    xmax = as.POSIXct("2021-05-25.5"),
+    ymin = 6, 
+    ymax = 11
+  ) +
+  annotate(
+    "text",
+    label = "Image source: NASA Earth Observatory",
+    x = as.POSIXct("2021-03-29"),
+    hjust = 0,
+    y = 6.15,
+    size = 2,
+    colour = "grey30"
+  )
 
 
 
-# Cross-section of the Inlet from most recent survey ----------------------
+# Cross-section of the Inlet during heat dome ----------------------
 
 
-# Create function that interpolates values spatially between sites
-intp_dist_fn <- function(var, day_of_year) {
-  df <- hs |> 
-    filter(julian == day_of_year) |> 
-    #Add some rows to extend interpolated values down to 60 m. 
-    #Assumes linear water column below bottom deepest measurement at 5km site
-    add_row(depth = c(55,60), site = rep("5km Center", 2)) |> 
-    #add_row(depth = c(25,30), site = rep("Polly's Pt.", 2)) |> # Hacky fix for 7 July 
-    #filter(!(site %in% site_order[-1] & is.na(.data[[var]]))) |> #.data[[]] for when variable names are given in quotes
-    arrange(site, depth) |> 
-    group_by(site) |> 
-    fill(everything(), .direction = "down") |> 
-    ungroup() |> 
-    # Now keep only the columns needed for interpolation
-    select(dist_km, depth, .data[[var]]) |> 
-    #add_row(depth = c(30,40), idx_cat = c(2, 0.5), dist_km = c(3.45, 3.45)) |> # Hacky fix for 16 June
-    filter(!is.na(.data[[var]])) |>  # Added step on 21 June 2023. Might help when one site missing data?
-    mba.surf(
-      no.X = 61, no.Y = 61, 
-      extend = T,
-      n = 6, m = 1 # Parameters to control the stretch along the x axis
-    ) 
-  
-  dimnames(df$xyz.est$z) <- list(df$xyz.est$x, df$xyz.est$y)
-  
-  melt(df$xyz.est$z, varnames = c('dist_km', 'depth')) |> 
-    mutate(julian = day_of_year)
-}
+# Day to interpolate cross section data for
+intp_day <- 181
 
+
+# Interpolates values spatially between sites
+xs_intp <- hs |> 
+  filter(julian == intp_day) |> 
+  # Remove the 5km site, which was not surveyed due to the extreme heat
+  filter(
+    .by = site,
+    !all(is.na(idx_cat))
+  ) |> 
+  arrange(site, depth) |> 
+  group_by(site) |> 
+  # Fill down observed values to deeper waters (i.e. assume uniform conditions)
+  # Might not be accurate but it's the best option we have
+  fill(everything(), .direction = "down") |> 
+  ungroup() |> 
+  select(dist_km, depth, idx_cat) |> 
+  mba.surf(
+    no.X = 61, no.Y = 61, 
+    extend = T,
+    n = 6, m = 1 
+  ) 
+
+dimnames(xs_intp$xyz.est$z) <- list(xs_intp$xyz.est$x, xs_intp$xyz.est$y)
+
+xs_xyz <- melt(xs_intp$xyz.est$z, varnames = c('dist_km', 'depth')) |> 
+  mutate(julian = intp_day)
 
 
 # Manually input bathymetric data from web application: https://data.chs-shc.ca/map
@@ -332,186 +426,81 @@ bathy <- data.frame(
   depth = c(61,10,12, 15, 18, 20, 24, 30, 33, 33, 35, 35,46,55,61)
 )
 
-# Plotting function
-xs_p_fn <- function(df, date_tag, ...) {
-  df %>% 
-    # Merge in columns delineating where actual observations occurred
-    difference_left_join(
-      hs0 |> 
-        drop_na(salinity:do_sat) |> 
-        select(julian, depth, dist_km, plotting_shift) |> 
-        mutate(depth_sample = depth),
-      by = c("julian", "depth", "dist_km"),
-      max_dist = 0.2
-    ) |>
-    select(-contains(".y")) |> 
-    rename_with(~ gsub(".x", "", .x)) |> 
-    ggplot(aes(x = dist_km, y = depth), ...) +
+
+# Plot cross section data
+(heat_dome_xs_p <- xs_xyz |> 
+    mutate(value = (5-0)*((value - min(value))/(max(value)-min(value)))+0) |> 
+    ggplot(aes(x = dist_km, y = depth)) +
     geom_raster(aes(fill = value), interpolate = TRUE, alpha = 0.75) +
     geom_point(
-      aes(x = plotting_shift, y = depth_sample),
-      size = 0.2, 
-      alpha = 0.05,
+      data = filter(hs, julian == intp_day, !is.na(idx_cat)),
+      aes(x = plotting_shift),
+      size = 0.5,
+      alpha = 0.6,
       shape = 8
     ) +
-    #geom_contour(aes(z = value), binwidth = 1, colour = "black", alpha = 0.2) +
+    geom_contour(
+      aes(z = value), 
+      binwidth = 1, 
+      colour = "black", 
+      alpha = 0.2
+    ) +
     geom_polygon(data = bathy, fill = "grey80", colour = "black") +
     labs(
       y = "Depth (m)", 
       x = "Distance from river mouth (km)",
-      title = paste("Survey date:", date_tag)
+      title = paste(
+        "Inlet cross-section", 
+        as.POSIXct.numeric(
+          intp_day*24*3600, 
+          origin = paste0(curr_yr-1, "-12-31")
+        ) |> 
+          format("%d %b %Y")
+      )
     ) +
     coord_cartesian(
-      xlim = c(0, max(filter(hs, !is.na(salinity), julian == max(julian))$dist_km)) + 0.01, 
-      ylim = c(60, 0), 
+      xlim = c(0, max(xs_xyz$dist_km)) + 0.01, 
+      ylim = c(max(xs_xyz$depth), 0), 
       expand = F
     ) +
-    scale_y_reverse(labels = as.integer) +
-    theme(
-      strip.background = element_rect(fill = "white"),
-      legend.position = c(0.02,0.02),
-      legend.direction = "horizontal",
-      legend.justification = c("left", "bottom"),
-      legend.background = element_rect(colour = "black"),
-      panel.spacing.y = unit(1, "lines"),
-      axis.title.y = element_text(vjust = 2)
-    )
-}
-
-# Take maximum date where all sites have data:
-complete_survey <- hs |> 
-  group_by(julian, site) |>
-  filter(!all(is.na(idx_cat))) |> 
-  group_by(julian) |> 
-  filter(!length(unique(site)) < 4) |> 
-  ungroup() %>% 
-  select(julian) |> 
-  max()
-
-
-# Plot for temp-oxy index
-(xs_plot_idx <- xs_p_fn(
-  intp_dist_fn("idx_cat", max_jul) %>% 
-    # Squish the interpolated index values into [0,5]
-    mutate(value = (5-0)*((value - min(value))/(max(value)-min(value)))+0),
-  date_tag = as.Date(
-    max_jul, 
-    format = "%j", 
-    origin = as.Date(paste0(curr_yr-1, "-12-31"))
-  ) |> 
-    format("%d-%b")
-) +
     scale_fill_gradientn(
       colours = idx_pal,
-      name = "Temp-oxy\nindex", 
+      name = "Temp-\noxy\nindex", 
       limits = c(0,5)
-    ) 
+    ) +
+    scale_y_reverse(labels = as.integer) +
+    guides(colour = "none") +
+    theme(axis.title.y = element_text(vjust = 2))
 )
 
 
-# Plot for Dissolved Oxygen
-(xs_plot_do <- xs_p_fn(
-  intp_dist_fn("do_mgl", 208),
-  date_tag = as.Date(
-    208, 
-    format = "%j", 
-    origin = as.Date(paste0(curr_yr-1, "-12-31"))
-  ) |> 
-    format("%d-%b")
-) +
-    scale_fill_gradientn(
-      colours = do_pal$colour, 
-      name = "DO (mg/L)",
-      labels = as.integer, 
-      breaks = c(0, 4, 8, 12),
-      values = scales::rescale(do_pal$value, to = c(0, 1)),
-    )
+
+
+
+# Build combined time series and cross section plot from heat dome --------
+
+
+# Lay plots in grid
+(layout1 <- plot_grid(
+  heat_dome_plot2 + theme(legend.position = "none"),
+  heat_dome_xs_p,
+  labels = c("A", "B"),
+  rel_heights = c(1, 0.7),
+  ncol = 1
+)
 )
 
 
-# Save plots
-list(xs_plot_do, xs_plot_idx) |> 
-  set_names(c("DO", "Index")) |> 
-  iwalk(
-    ~ggsave(
-      plot = .x, 
-      filename = paste0(
-        here("Harbour Survey", "plots"),
-        "/R-PLOT_Inlet cross section",
-        .y,
-        Sys.Date(),
-        ".png"
-      ),
-      height = 3,
-      width = 8,
-      units = "in"
-    )
-  )
-
-
-# Animated time series of Inlet cross-section -----------------------------
-
-
-
-# Apply function to all dates in the data and combine into single df
-anim_data <- hs |> 
-  filter(
-    between(
-      date, 
-      as.Date(paste0(curr_yr, "-03-31")),
-      as.Date(paste0(curr_yr, "-10-31"))
-    )
-  ) |> 
-  distinct(julian) |> 
-  pull() |> 
-  as.list() |> 
-  purrr::set_names() |> 
-  map_dfr(
-    ~ intp_dist_fn("idx_cat", .x) |> 
-      mutate(value = (5-0) * ((value - min(value)) / (max(value) - min(value))) + 0),
-    .id = "julian"
-  ) |> 
-  mutate(
-    julian = as.numeric(julian),
-    date = as.Date(
-      julian, 
-      format = "%j", 
-      origin = as.Date(paste0(curr_yr-1, "-12-31"))
-    )
-  ) |> 
-  filter(is.finite(value)) # Drop NaN values
-
-
-# Save the plot as an animation with frames for each date
-anim <- xs_p_fn(
-  anim_data, 
-  aes(group = date, frame = date)
-) +
-  scale_fill_gradientn(
-    colours = idx_pal,
-    name = "Temp-oxy\nindex", 
-    limits = c(0,5)
-  ) +
-  transition_time(date) +
-  labs(title = "{frame_time}")
-
-
-# Customize the animation
-animate(
-  anim, 
-  width = 800, height = 400,
-  fps = 20, 
-  duration = 45,
-  renderer = gifski_renderer()
+# Save the heat dome plot
+ggsave(
+  plot = layout1,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Heat_Dome_temp-oxy_plot.png"
+  ),
+  width = 8,
+  height = 7,
+  units = "in",
+  dpi = "print"
 )
-
-
-# Save
-anim_save(
-  here(
-    "Harbour Survey", 
-    "plots", 
-    "inlet_cross-section_animation.gif"
-    )
-  )
-
