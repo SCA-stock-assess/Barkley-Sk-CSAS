@@ -17,78 +17,61 @@ library(readxl)
 # run the script under 2. code/Stock-recruit data preparation
 abun_data <- here(
   "3. outputs",
-  "Stock-recruit data",
-  "Barkley_Sockeye_stock-recruit_infilled.xlsx"
+  "Total return time series",
+  "Barkley Sockeye total annual returns by CU_collated.xlsx"
 ) |> 
-  read_xlsx(sheet = "S-R data") |> 
-  rename(
-    "Escapement" = S,
-    "Catch" = H
-  ) |> 
-  select(year, stock, Escapement, Catch) |> 
-  pivot_longer(
-    c(Escapement, Catch),
-    names_to = "source",
-    values_to = "sockeye"
-  ) |> 
+  read_xlsx() |> 
   mutate(
-    data_quality = case_when(
-      stock == "HED" & year < 1970 ~ "low",
-      stock == "HED" & between(year, 1970, 1980) ~ "moderate",
-      stock == "HED" & year > 1980 ~ "high",
-      stock != "HED" & year < 1990 ~ "moderate",
-      stock != "HED" & year >= 1990 ~ "high",
-      TRUE ~ "FIX"
+    CU = case_when(
+      CU == "GCL" ~ "Great Central",
+      CU == "SPR" ~ "Sproat",
+      CU == "HUC" ~ "Hucuktlis",
+      CU == "GCL + SPR" ~ "Somass aggregate"
     ) |> 
-      factor(levels = c("high", "moderate", "low")),
-    stock = case_when(
-      stock == "GCL" ~ "Great Central",
-      stock == "SPR" ~ "Sproat",
-      stock == "HED" ~ "Hucuktlis"
-    ) |> 
-      factor(levels = c("Great Central", "Sproat", "Hucuktlis"))
+      factor(levels = c("Great Central", "Sproat", "Hucuktlis", "Somass aggregate"))
   )
 
 
 
-# Make time series plots --------------------------------------------------
+# Make time series plot for SMU aggregate --------------------------------------
 
 
-# Plot separate panel for each CU
-(abun_p <- ggplot(
-  abun_data,
-  aes(x = year, y = sockeye)
-) +
-  facet_grid(
-    stock ~ .,
-    scales = "free_y", 
-    space = "free"
-  ) +
-  geom_col(
-    aes(fill = source, alpha = data_quality)
-  ) +
-  scale_y_continuous(
-    labels = scales::label_number(big.mark = " "), # Hair space pasted from word
-    expand = expansion(mult = c(0, 0.05))
-  ) +
-  scale_fill_viridis_d(option = "mako", direction = -1, end = 0.8) +
-  scale_alpha_discrete(range = c(1, 0.4)) +
-  labs(
-    y = "Number of Sockeye",
-    x = "Adult return year",
-    fill = "Category",
-    alpha = "Data quality"
-  ) +
-  theme(
-    legend.position = "inside",
-    legend.position.inside = c(0.02, 0.98),
-    legend.justification.inside = c(0, 1),
-    legend.box = "horizontal",
-    legend.background = element_rect(colour = "black", fill = alpha("white", 0.8)),
-    legend.key.size = unit(0.8, "lines"),
-    panel.grid.minor = element_blank(),
-    strip.background = element_rect(fill = NA)
-  )
+# Plot total returns broken out between catch and escapement
+(abun_p <- abun_data |> 
+   pivot_longer(contains("annual")) |> 
+   distinct(year, name, value) |> 
+   mutate(name = str_remove(name, "annual_Barkley_")) |> 
+   ggplot(aes(x = year, y = value/1000)) +
+   geom_vline(
+     xintercept = 1969, 
+     lty = 2, 
+     colour = "grey50"
+   ) +
+   geom_col(aes(fill = name), colour = "black") +
+   annotate(
+     "text",
+     x = 1968,
+     y = 600,
+     label = "Lake Fertilization Program begins",
+     angle = 90,
+     colour = "grey50",
+     vjust = 0,
+     hjust = 0
+   ) +
+   scale_y_continuous(
+     name = "Barkley Sockeye abundance (1000s)",
+     labels = scales::label_number(),
+     expand = expansion(mult = c(0, 0.05))
+   ) +
+   scale_fill_manual(values = c("grey", "black")) +
+   labs(x = "Return year") +
+   theme(
+     legend.position = "inside",
+     legend.position.inside = c(0.02, 0.98),
+     legend.justification.inside = c(0, 1),
+     legend.background = element_rect(colour = "black", fill = "white"),
+     legend.title = element_blank()
+   )
 )
 
 
@@ -98,10 +81,104 @@ abun_p |>
     filename = here(
       "3. outputs",
       "Plots",
-      "Barkley-Sk_abundance_time-series_CU.png"
+      "Barkley-Sk_total_abundance_time-series.png"
     ),
     width = 7.5,
-    height = 8,
+    height = 4,
     units = "in",
     dpi = "print"
   )
+
+
+# Plot CU-specific time series --------------------------------------------
+
+
+# Annotation data frame stating when CU-specific catch data are not provided
+cu_catch <- tribble(
+  ~CU, ~year_start, ~year_end, ~ymin, ~ymax, ~y, ~label,
+  "Hucuktlis", 1908, 1924.5, -Inf, Inf, 125, "CU-specific catch\nunavailable",
+  "Hucuktlis", 1934, 1969.5, -Inf, Inf, 125, "CU-specific catch\nunavailable",
+  "Great Central", 1908, 1976.5, -Inf, Inf, 600, "CU-specific catch\nunavailable",
+  "Sproat", 1908, 1976.5, -Inf, Inf, 500, "CU-specific catch\nunavailable"
+) |> 
+  mutate(CU = factor(CU, levels = c("Great Central", "Sproat", "Hucuktlis"))) 
+
+
+
+# The time series plot
+(cu_abun_p <- abun_data |> 
+    filter(!CU == "Somass aggregate") |> 
+    pivot_longer(c(catch, escapement)) |> 
+    ggplot(aes(year, value/1000)) +
+    facet_wrap(
+      ~CU,
+      strip.position = "right",
+      ncol = 1,
+      scales = "free_y"
+    ) +
+    geom_rect(
+      data = cu_catch,
+      aes(
+        y = ymax,
+        x = year_start,
+        xmin = year_start,
+        xmax = year_end,
+        ymin = ymin,
+        ymax = ymax
+      ),
+      fill = "grey",
+      alpha = 0.5,
+      colour = NA
+    ) +
+    geom_text(
+      data = cu_catch,
+      aes(
+        x = (year_end - year_start)/2+year_start,
+        y = y,
+        label = label
+      ),
+      size = 2,
+      colour = "grey40"
+    ) +
+    geom_col(
+      aes(fill = name),
+      colour = "black"
+    ) +
+    scale_y_continuous(
+      name = "Sockeye abundance (1000s)",
+      labels = scales::label_number(),
+      expand = expansion(mult = c(0, 0.05))
+    ) +
+    scale_x_continuous(
+      name = "Return year",
+      limits = c(1908, max(abun_data$year) +2),
+      expand = c(0, 0)
+    ) +
+    scale_fill_manual(
+      values = c("grey", "black")
+    ) +
+    theme(
+      legend.position = "inside",
+      legend.position.inside = c(0.02, 0.98),
+      legend.justification.inside = c(0, 1),
+      legend.background = element_rect(colour = "black", fill = "white"),
+      legend.title = element_blank(),
+      strip.background = element_rect(colour = "black", fill = "white")
+    )
+)
+
+
+# Save the CU-specific plot
+cu_abun_p |> 
+  ggsave(
+    filename = here(
+      "3. outputs",
+      "Plots",
+      "Barkley-Sk_CU_abundance_time-series.png"
+    ),
+    width = 7.5,
+    height = 6,
+    units = "in",
+    dpi = "print"
+  )
+
