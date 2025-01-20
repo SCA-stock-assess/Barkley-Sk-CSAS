@@ -15,9 +15,12 @@ library(broom)
 
 
 # Load stock-recruit time series by return year
-Som_run_ts <- here("1. data", "return by age time series.xlsx") |> 
+Som_run_ts <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |> 
   read_xlsx(sheet = "Somass") |> 
   mutate(
+    # Move categorical escapement estimates to a new column
+    esc_cat = if_else(str_detect(escapement, "\\d+"), NA, escapement),
+    escapement = as.double(escapement),
     run = catch + escapement,
     brood_year = return_year - ttl_age
   )
@@ -25,6 +28,7 @@ Som_run_ts <- here("1. data", "return by age time series.xlsx") |>
 
 # Calculate brood year returns
 Som_brood_ts <- Som_run_ts |> 
+  filter(!is.na(brood_year)) |> 
   summarize(
     .by = c(brood_year, stock),
     return = sum(catch, escapement)
@@ -33,6 +37,7 @@ Som_brood_ts <- Som_run_ts |>
 
 # Build stock-recruit table
 Som_sr <- Som_run_ts |> 
+  filter(!is.na(brood_year)) |> 
   mutate(
     .by = c(return_year, stock),
     spawners = sum(escapement)
@@ -77,11 +82,12 @@ Som_sr <- Som_run_ts |>
 
 
 # Load raw Henderson returns table
-Hed_run_ts <- here("1. data", "return by age time series.xlsx") |> 
-  read_xlsx(sheet = "Henderson") |> 
+Huc_run_ts <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |> 
+  read_xlsx(sheet = "Hucuktlis") |> 
+  rename_with(\(x) str_replace_all(x, "\\s", "_")) |> 
   mutate(
     run = catch + escapement,
-    stock = "HED"
+    stock = "HUC"
   ) |> 
   rename("return_year" = year) |> 
   # flatten age samples across years
@@ -104,7 +110,7 @@ Hed_run_ts <- here("1. data", "return by age time series.xlsx") |>
 
 
 # Confirm all age composition columns sum to 1
-Hed_run_ts |> 
+Huc_run_ts |> 
   rowwise() |> 
   mutate(sum = sum(c_across(matches("^age_\\d+")))) |> 
   count(sum)
@@ -117,7 +123,7 @@ Hed_run_ts |>
 # Build time series of harvest rates on both stocks
 hr_ts <- list(
   "Somass" = Som_run_ts, 
-  "Hucuktlis" = Hed_run_ts
+  "Hucuktlis" = Huc_run_ts
   ) |> 
   imap(
     \(x, idx) summarize(
@@ -142,7 +148,7 @@ hr_ts <- list(
     ) |> 
     filter(
       !if_any(c(Somass, Hucuktlis), c(is.na, is.nan)),
-      return_year > 2011
+      return_year > 2011 # use only years when DNA data are available
     ) |> 
     ggplot(aes(x = Somass, y = Hucuktlis)) +
     geom_abline(
@@ -277,7 +283,7 @@ hr_p +
 
 
 # Stipulate which model will be used for the hindcast
-Hed_hr_pred_model <- hr_mods[hr_mods$model_type=="lm",]$model[[1]]
+Huc_hr_pred_model <- hr_mods[hr_mods$model_type=="lm",]$model[[1]]
 
 
 # Function to calculate coefficient of variation from a fitted model
@@ -294,7 +300,7 @@ get_lm_cv <- function(lm_obj) {
 
 
 # Hindcast Henderson harvest rates using Somass harvest rates
-Hed_run_ts_infill <- hr_ts |> 
+Huc_run_ts_infill <- hr_ts |> 
   filter(stock == "Somass") |> 
   select(return_year, hr) |> 
   rename("Somass_hr" = hr) |> 
@@ -303,7 +309,7 @@ Hed_run_ts_infill <- hr_ts |>
   mutate(
     pred = list(
       predict(
-        object = Hed_hr_pred_model,
+        object = Huc_hr_pred_model,
         newdata = data,
         interval = "pred",
       ) |> 
@@ -311,26 +317,31 @@ Hed_run_ts_infill <- hr_ts |>
     )
   ) |> 
   unnest(c(data, pred)) |> 
-  mutate(Hed_hr_pred = if_else(fit < 0, 0, fit)) |> 
+  mutate(Huc_hr_pred = if_else(fit < 0, 0, fit)) |> 
   select(return_year, contains("hr")) |> 
-  right_join(Hed_run_ts) |> 
+  right_join(Huc_run_ts) |> 
   mutate(
     # Only show predicted HRs and CVs in rows without catch data
-    Hed_hr_pred_cv = if_else(
+    Huc_hr_pred_cv = if_else(
       is.na(catch), 
-      get_lm_cv(Hed_hr_pred_model), 
+      get_lm_cv(Huc_hr_pred_model), 
       NA
     ),
-    Hed_hr_pred = if_else(
+    Huc_hr_pred = if_else(
       is.na(catch),
-      Hed_hr_pred,
+      Huc_hr_pred,
       NA
     ),
     # Add new catch data based on hindcast harvest rates
     catch = if_else(
       is.na(catch),
-      (escapement*Hed_hr_pred)/(1-Hed_hr_pred),
+      (escapement*Huc_hr_pred)/(1-Huc_hr_pred),
       catch
+    ),
+    catch_data_source = if_else(
+      is.na(catch_data_source) & !is.na(Huc_hr_pred),
+      "HR model hindcast",
+      catch_data_source
     ),
     run = catch + escapement
   )
@@ -341,7 +352,8 @@ Hed_run_ts_infill <- hr_ts |>
 
 
 # Get Hucuktlis data reformatted properly
-Hed_sr <- Hed_run_ts_infill |> 
+Huc_sr <- Huc_run_ts_infill |> 
+  filter(!if_all(matches("age_\\d+"), is.na)) |> 
   rename(
     "year" = return_year,
     "S" = escapement,
@@ -350,7 +362,7 @@ Hed_sr <- Hed_run_ts_infill |>
     "age.samples" = age_sample_size
   ) |> 
   select(-Somass_hr) |> 
-  rename_with(\(x) str_remove(x, "Hed_")) |> 
+  rename_with(\(x) str_remove(x, "Huc_")) |> 
   # Combine age compositions by total age
   rowwise() |> 
   mutate(
@@ -363,7 +375,7 @@ Hed_sr <- Hed_run_ts_infill |>
 
 
 # Collate the two dataframes
-Barkley_sk_sr <- bind_rows(Som_sr, Hed_sr) |> 
+Barkley_sk_sr <- bind_rows(Som_sr, Huc_sr) |> 
   mutate(
     # State CVs for catch and escapement
     H_cv = if_else(is.na(hr_pred_cv), 0.05, hr_pred_cv),
@@ -373,7 +385,18 @@ Barkley_sk_sr <- bind_rows(Som_sr, Hed_sr) |>
       stock == "HED" & year >= 2012 ~ 0.1
     )
   ) |> 
-  select(-contains("hr_pred"))
+  select(
+    year,
+    stock, 
+    S,
+    N,
+    H,
+    age.samples,
+    R,
+    hr_pred,
+    H_cv,
+    S_cv
+  )
 
 
 # Save metadata for solumn names
@@ -385,7 +408,7 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
       column_name == "year" ~ "Run (i.e. observation) year",
       column_name == "stock" ~ paste(
       "Conservation Unit. Either 'Great Central' (GCL),",
-      "'Sproat' (SPR), or 'Hucuktlis' (formerly 'Henderson'; HED)"
+      "'Sproat' (SPR), or 'Hucuktlis' (formerly 'Henderson'; HUC)"
       ),
       column_name == "S" ~ "Spawners a.k.a escapement",
       str_detect(column_name, "N.age.\\d") ~ paste(
@@ -437,3 +460,89 @@ list(
       "Barkley_Sockeye_stock-recruit_infilled.xlsx"
     )
   )
+
+
+
+# Aggregate and save the Barkley Sockeye total returns by year data -------
+
+
+# Load and reformat historic catch data
+historic_catch <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |> 
+  read_xlsx(sheet = "Barkley agg") |> 
+  mutate(
+    total_catch = if_else(
+      !is.na(Somass_catch) & !is.na(Hucuktlis_catch), 
+      NA, 
+      total_catch
+    )
+  ) |> 
+  rename("catch_data_source" = data_source) |> 
+  pivot_longer(
+    matches(".*_catch$"),
+    names_pattern = "(.*)_catch",
+    names_to = "stock",
+    values_to = "catch"
+  ) |> 
+  mutate(
+    stock = case_when(
+      stock == "Hucuktlis" ~ "HUC",
+      stock == "Somass" ~ "GCL + SPR",
+      stock == "total" ~ "TTL"
+    )
+  )
+
+
+# Modern time series of catch and escapement for Somass stocks
+Somass_catch_esc <- Som_run_ts |> 
+  summarize(
+    .by = c(return_year, stock, matches("(catch|escapement)_data_source"), esc_cat),
+    across(c(catch, escapement), sum)
+  )
+
+
+# Collate all the data and reformat for export
+Barkley_catch_esc <- Huc_run_ts |> 
+  select(return_year, stock, matches("(catch|escapement)_data_source"), catch, escapement) |> 
+  bind_rows(Somass_catch_esc) |> 
+  rename("year" = return_year) |> 
+  full_join(
+    historic_catch,
+    by = c("year", "stock")
+  ) |> 
+  mutate(
+    catch = coalesce(catch.x, catch.y),
+    catch_data_source = coalesce(catch_data_source.x, catch_data_source.y)
+  ) |> 
+  select(-matches("\\.(x|y)")) |> 
+  filter(!if_all(c(catch, escapement, esc_cat), is.na)) |> 
+  mutate(
+    .by = year,
+    Barkley_catch = sum(catch, na.rm = TRUE),
+    Barkley_escapement = sum(escapement, na.rm = TRUE)
+  ) |> 
+  filter(!stock == "TTL") |> 
+  mutate(Barkley_escapement = if_else(Barkley_escapement == 0, NA, Barkley_escapement)) |> 
+  rename_with(\(x) paste0("annual_", x), .cols = contains("Barkley_")) |> 
+  rename(
+    "qualitative_escapement" = esc_cat,
+    "CU" = stock
+  ) |> 
+  relocate(
+    escapement,
+    qualitative_escapement,
+    catch,
+    escapement_data_source,
+    catch_data_source,
+    .after = CU
+  )
+
+
+# Save the formatted table
+write_xlsx(
+  list(data = Barkley_catch_esc),
+  path = here(
+    "3. outputs",
+    "Total return time series",
+    "Barkley Sockeye total annual returns by CU_collated.xlsx"
+  )
+)
