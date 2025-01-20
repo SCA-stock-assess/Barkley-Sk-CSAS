@@ -347,7 +347,7 @@ heat_dome_plot <- idx |>
   )
 
 
-# Add heat dome map image
+# Load heat dome map image
 image <- image_read( 
   here(
     "1. data",
@@ -473,6 +473,9 @@ bathy <- data.frame(
     theme(axis.title.y = element_text(vjust = 2))
 )
 
+
+# Note: would be interesting to add a map of Alberni Harbour
+# along the x-axis
 
 
 
