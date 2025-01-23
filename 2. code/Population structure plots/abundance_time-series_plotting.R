@@ -194,7 +194,8 @@ agg_abun_data <- abun_data |>
        fill = colour
      ),
      position = "stack",
-     colour = "black"
+     colour = "black",
+     linewidth = 0.25
    ) +
    scale_fill_identity(
      name = "Catch (grey) and\nescapement (colour)\ndata sources",
@@ -239,10 +240,42 @@ cu_catch <- tribble(
   ~CU, ~year_start, ~year_end, ~ymin, ~ymax, ~y, ~label,
   "Hucuktlis", 1908, 1924.5, -Inf, Inf, 125, "CU-specific catch\nunavailable",
   "Hucuktlis", 1934, 1969.5, -Inf, Inf, 125, "CU-specific catch\nunavailable",
-  "Great Central", 1908, 1976.5, -Inf, Inf, 600, "CU-specific catch\nunavailable",
-  "Sproat", 1908, 1976.5, -Inf, Inf, 500, "CU-specific catch\nunavailable"
+  "Great Central", 1908, 1969.5, -Inf, Inf, 600, "CU-specific catch\nunavailable",
+  "Sproat", 1908, 1969.5, -Inf, Inf, 500, "CU-specific catch\nunavailable"
 ) |> 
   mutate(CU = factor(CU, levels = c("Great Central", "Sproat", "Hucuktlis"))) 
+
+
+# Max abundances per CU
+max_CU_run <- abun_data |>
+  mutate(
+    .by = c(CU, year),
+    run = sum(catch, escapement, na.rm = TRUE)
+  ) |> 
+  summarize(
+    .by = CU,
+    max_run = max(run)
+  )
+
+
+# Dataframe for when fertilizer was applied to each lake
+cu_fertilizer <- tribble(
+    ~CU, ~year_start, ~year_end,
+    "Great Central", 1970, 1973,
+    "Great Central", 1977, max(abun_data$year),
+    "Sproat", 1985, 1985,
+    "Hucuktlis", 1976, 1997,
+    "Hucuktlis", 1999, 1999,
+    "Hucuktlis", 2007, 2007
+  ) |> 
+  rowwise() |> 
+  mutate(
+    year = list(seq.int(year_start, year_end)),
+    y = max_CU_run[max_CU_run$CU == CU,]$max_run * 1.05,
+    CU = factor(CU, levels = c("Great Central", "Sproat", "Hucuktlis"))
+  ) |> 
+  unnest_longer(year) |> 
+  select(-contains("year_"))
 
 
 # Prepare CU-level data for plotting
@@ -288,6 +321,14 @@ cu_abun_data <- abun_data |>
       ncol = 1,
       scales = "free_y"
     ) +
+    # Add points showing fertilization years
+     geom_point(
+       data = cu_fertilizer,
+       aes(y = y/1000),
+       shape = "|",
+       size = 2
+     ) +
+    # Add shaded area showing where catch wasn't broken out by CU
     geom_rect(
       data = cu_catch,
       aes(
@@ -302,6 +343,7 @@ cu_abun_data <- abun_data |>
       alpha = 0.5,
       colour = NA
     ) +
+    # Add text to shaded years without CU-specific catch
     geom_text(
       data = cu_catch,
       aes(
@@ -312,13 +354,15 @@ cu_abun_data <- abun_data |>
       size = 2,
       colour = "grey40"
     ) +
+    # Add the abundance data
     geom_col(
       aes(
         group = data_source,
         fill = colour
       ),
       position = "stack",
-      colour = "black"
+      colour = "black",
+      linewidth = 0.25
     ) +
     scale_fill_identity(
       name = "Catch (grey) and\nescapement (colour)\ndata sources",
@@ -337,9 +381,6 @@ cu_abun_data <- abun_data |>
     ) +
     theme(
       legend.position = "right",
-      # legend.position.inside = c(0.02, 0.98),
-      # legend.justification.inside = c(0, 1),
-      # legend.background = element_rect(colour = "black", fill = alpha("white", 0.7)),
       strip.background = element_rect(colour = "black", fill = "white")
     )
 )
