@@ -68,13 +68,13 @@ som_esc <- read_xlsx(
     across(
       c(adj_adults, adj_jacks),
       \(x) if_else(x < 0, 0, x)
-    )
+    ),
+    method = if_else(year < 2000, "resistivity counter", "video counter"),
   ) |> 
-  select(d_m, system, year, contains("adj_")) |> 
+  select(d_m, system, year, method, contains("adj_")) |> 
   rowwise() |> 
   mutate(
     sockeye = sum(c_across(c(adj_adults, adj_jacks)), na.rm = TRUE),
-    method = "video analysis",
     .keep = "unused"
   ) 
 
@@ -111,7 +111,13 @@ escday <- som_hist |>
     huc_esc,
     som_esc
   ) |> 
-  mutate(system = factor(system, levels = c("GCL", "SPR", "HUC")))
+  mutate(
+    system = factor(system, levels = c("GCL", "SPR", "HUC")),
+    method = factor(
+      method,
+      levels = c("fence count", "resistivity counter", "video counter")
+    )
+  )
 
 
 # Ridgeline plots --------------------------------------------------------
@@ -196,7 +202,7 @@ ridge_plots <- list(
         expand = c(0, 0)
       ) +
       scale_fill_manual(
-        values = c("black", "grey70"),
+        values = c("grey75", "grey35", "grey5"),
         aesthetics = c("fill", "colour"),
         name = "Counting\nmethod"
       ) +
