@@ -35,15 +35,74 @@ Som_brood_ts <- Som_run_ts |>
   )
 
 
+# Load data on age samples
+Somass_age_samples <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |> 
+  read_xlsx(sheet = "Age_samples")
+
+
+# Use annual proportions of GCL/SPR in the return to back-calculate 
+# stock-specific age samples
+Somass_age_samples_spread <- Som_run_ts |> 
+  filter(return_year >= min(Somass_age_samples$year)) |> 
+  summarize(
+    .by = c(return_year, stock),
+    run = sum(run)
+  ) |> 
+  mutate(
+    .by = return_year,
+    ttl = sum(run),
+    prop = run/ttl
+  ) |> 
+  pivot_wider(
+    id_cols = return_year,
+    names_from = stock,
+    values_from = prop
+  ) |> 
+  right_join(
+    Somass_age_samples,
+    by = c("return_year" = "year")
+  ) |> 
+  pivot_longer(
+    c(GCL, SPR),
+    names_to = "prob_stock",
+    values_to = "prob"
+  ) |> 
+  mutate(
+    age.samples = if_else(stock == "Somass aggregate", round(N * prob, 0), N),
+    stock = if_else(stock == "Somass aggregate", prob_stock, stock)
+  ) |> 
+  select(return_year, stock, source, age.samples) |> 
+  distinct()
+
+
+# Historic average # age samples per stock to infill 1977-1979
+mean_age_samples <- Somass_age_samples_spread |> 
+  # Use only 1980s period when sampling was most similar
+  filter(return_year < 1990) |> 
+  summarize(
+    .by = stock,
+    age.samples = round(mean(age.samples), 0)
+  ) |> 
+  pull(age.samples, name = stock)
+
+
+
 # Build stock-recruit table
 Som_sr <- Som_run_ts |> 
   filter(!is.na(brood_year)) |> 
+  # Add age sample number data
+  left_join(select(Somass_age_samples_spread, -source)) |>
   mutate(
     .by = c(return_year, stock),
-    spawners = sum(escapement)
+    spawners = sum(escapement),
+    age.samples = case_when(
+      is.na(age.samples) & stock == "GCL" ~ mean_age_samples[["GCL"]],
+      is.na(age.samples) & stock == "SPR" ~ mean_age_samples[["SPR"]],
+      TRUE ~ age.samples
+    )
   ) |> 
   pivot_wider(
-    id_cols = c(return_year, stock, spawners),
+    id_cols = c(return_year, stock, spawners, age.samples),
     names_from = ttl_age,
     names_prefix = "N.age.",
     values_from = run,
@@ -53,13 +112,8 @@ Som_sr <- Som_run_ts |>
   mutate(
     run = sum(c_across(contains("age"))),
     # Convert age #s to proportions
-    across(contains("age"), \(x) x/run),
+    across(contains("age\\.\\d"), \(x) x/run),
     H = run - spawners,
-    age.samples = 1000 # Number of age samples per stock per year. 
-    # Using 1000/year as placeholder... would need to do considerable
-    # data gathering from historic files to get the time series of 
-    # number of samples going back to 1977. Does this actually 
-    # matter enough to be worth doing so?
   ) |> 
   ungroup() |> 
   left_join(
@@ -92,10 +146,9 @@ Huc_run_ts <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |>
   rename("return_year" = year) |> 
   # flatten age samples across years
   mutate(across(matches("^age_\\d+"), \(x) x * age_sample_size)) |> 
-  select(-sample_type) |> 
   summarize(
-    .by = !contains("age"),
-    across(contains("age"), \(x) sum(x, na.rm = TRUE))
+    .by = !matches("age_(\\d+|sample)"),
+    across(c(age_sample_size, matches("age_\\d+")), \(x) sum(x, na.rm = TRUE))
   ) |> 
   mutate(
     across(
@@ -338,10 +391,10 @@ Huc_run_ts_infill <- hr_ts |>
       (escapement*Huc_hr_pred)/(1-Huc_hr_pred),
       catch
     ),
-    catch_data_source = if_else(
-      is.na(catch_data_source) & !is.na(Huc_hr_pred),
+    stockid_source = if_else(
+      is.na(stockid_source) & !is.na(Huc_hr_pred),
       "HR model hindcast",
-      catch_data_source
+      stockid_source
     ),
     run = catch + escapement
   )
@@ -469,6 +522,7 @@ list(
 # Load and reformat historic catch data
 historic_catch <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |> 
   read_xlsx(sheet = "Barkley agg") |> 
+  rename("catch_data_source" = data_source) |> 
   mutate(
     total_catch = if_else(
       !is.na(Somass_catch) & !is.na(Hucuktlis_catch), 
@@ -476,7 +530,6 @@ historic_catch <- here("1. data", "Barkley Sockeye time series of returns.xlsx")
       total_catch
     )
   ) |> 
-  rename("catch_data_source" = data_source) |> 
   pivot_longer(
     matches(".*_catch$"),
     names_pattern = "(.*)_catch",
@@ -495,14 +548,14 @@ historic_catch <- here("1. data", "Barkley Sockeye time series of returns.xlsx")
 # Modern time series of catch and escapement for Somass stocks
 Somass_catch_esc <- Som_run_ts |> 
   summarize(
-    .by = c(return_year, stock, matches("(catch|escapement)_data_source"), esc_cat),
+    .by = c(return_year, stock, contains("_source"), esc_cat),
     across(c(catch, escapement), sum)
   )
 
 
 # Collate all the data and reformat for export
 Barkley_catch_esc <- Huc_run_ts |> 
-  select(return_year, stock, matches("(catch|escapement)_data_source"), catch, escapement) |> 
+  select(return_year, stock, contains("_source"), catch, escapement) |> 
   bind_rows(Somass_catch_esc) |> 
   rename("year" = return_year) |> 
   full_join(
