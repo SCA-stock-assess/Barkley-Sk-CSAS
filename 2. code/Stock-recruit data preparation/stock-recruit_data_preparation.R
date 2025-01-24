@@ -444,6 +444,7 @@ Barkley_sk_sr <- bind_rows(Som_sr, Huc_sr) |>
     S,
     N,
     H,
+    contains("N.age"),
     age.samples,
     R,
     hr_pred,
