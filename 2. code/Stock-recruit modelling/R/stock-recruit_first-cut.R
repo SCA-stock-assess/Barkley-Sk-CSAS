@@ -19,13 +19,15 @@ library(broom)
 
 # Returning abundance by age time series
 sk_ret0 <- read_xlsx(
-  here("1. data", "return by age time series.xlsx")
+  here("1. data", "Barkley Sockeye time series of returns.xlsx"),
+  sheet = "Somass"
 ) |> 
   mutate(
     brood_year = return_year - ttl_age,
     smolt_year = brood_year + fw_age,
     marine_age = ttl_age - fw_age,
     gr_age = paste0(ttl_age,"[", fw_age, "]"),
+    escapement = as.numeric(escapement),
     return = escapement + catch
   )
 
@@ -113,8 +115,7 @@ fw_age_4y_avg <- by_fw_age_props |>
 
 # Smolt time series data 
 smolts <- read_xlsx(
-  here("1. data", "lake smolts time series.xlsx"),
-  sheet = "abundance"
+  here("1. data", "Barkley-Sk_smolt_abundances.xlsx")
 ) |> 
   pivot_longer(
     cols = !smolt_year,
@@ -160,12 +161,146 @@ smolts <- read_xlsx(
 
 
 
+# Simple S-R model for Hucuktlis ------------------------------------------
 
+
+# Use prepared data
+huc_sr_data0 <- here(
+  "3. outputs",
+  "Stock-recruit data",
+  "Barkley_Sockeye_stock-recruit_infilled.xlsx"
+) |> 
+  read_xlsx(sheet = "S-R data") |> 
+  filter(stock == "HUC")
+
+
+# Make a dataframe with different filtered versions of the data
+huc_sr_data <- tibble(
+  filter = c(0, 1),
+  data = list(huc_sr_data0)
+) |> 
+  rowwise() |> 
+  mutate(
+    data = case_when(
+      filter == 0 ~ list(data),
+      filter == 1 ~ list(filter(data, S < 1e5))
+    )
+  ) |> 
+  ungroup()
+
+
+# Plot log(R/S) versus S
+huc_sr_data |> 
+  pull(data) |> 
+  map(
+    \(x) x |> 
+      ggplot(aes(x = S, y = log(R/S))) +
+      geom_point() +
+      geom_smooth(method = "lm")
+  )
+
+
+# Fit simple Ricker model
+Huc_ricker <- huc_sr_data |> 
+  rowwise() |> 
+  mutate(
+    model = list(lm(log(R/S) ~ S, data = data)),
+    pred_frame = list(
+      tibble(
+        S = seq(
+          0,
+          max(data$S),
+          length.out = 100
+        )
+      )
+    ),
+    pred = list(
+      MASS::mvrnorm(
+        10000, 
+        mu = coef(model), 
+        Sigma = as.matrix(vcov(model))
+      ) |> 
+        as_tibble() |> 
+        rename("a" = 1, "b" = 2) |> 
+        expand_grid(pred_frame) |> 
+        mutate(
+          a = exp(a),
+          b = -b,
+          pred_rec = a*S*exp(-b*S)
+        ) |> 
+        summarize(
+          .by = S,
+          fit = mean(pred_rec),
+          lwr = quantile(pred_rec, 0.025),
+          upr = quantile(pred_rec, 0.975)
+        )
+    ),
+    label = case_when(
+      filter == 0 ~ "Hucuktlis Ricker based on all points",
+      filter == 1 ~ "Hucuktlis Ricker excluding 1993 (180k spawners)"
+    ),
+    pred_plot = list(
+      ggplot(data, aes(x = S, y = R)) +
+        geom_point() +
+        geom_ribbon(
+          data = pred,
+          aes(
+            y = fit,
+            ymin = lwr,
+            ymax = upr
+          ),
+          alpha = 0.25
+        ) +
+        geom_line(
+          data = pred,
+          aes(y = fit)
+        ) +
+        scale_x_continuous(
+          expand = expansion(mult = c(0, 0.05)),
+          labels = scales::label_number()
+        ) +
+        scale_y_continuous(
+          expand = expansion(mult = c(0, 0.05)),
+          labels = scales::label_number()
+        ) +
+        coord_equal(ratio = 0.5) +
+        ggtitle(label) +
+        theme_bw(base_size = 8)
+    )
+  ) |> 
+  ungroup()
+
+
+# Prediction data frame
+pull(Huc_ricker, pred_plot)
+
+
+# Save the plots
+pull(Huc_ricker, pred_plot, name = label) |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        paste0(idx, ".png")
+      ),
+      dpi = "print",
+      width = 6.5,
+      height = 6,
+      units = "in"
+    )
+  )
+
+
+ 
+ 
 # Prepare data for stock-recruit modelling --------------------------------
 
 
 # Build data frame with data categories to be summarized for modelling
 fw_groups <- sk_ret |> 
+  filter(!if_any(c(fw_age, ttl_age), is.na)) |> 
   summarize(
     .by = c(stock, fw_age),
     ttl_age = list(unique(ttl_age)),
@@ -177,6 +312,7 @@ fw_groups <- sk_ret |>
   )
 
 marine_groups <- sk_ret |> 
+  filter(!if_any(c(fw_age, ttl_age), is.na)) |> 
   summarize(
     .by = c(stock, marine_age),
     fw_age = list(unique(fw_age)),
@@ -188,6 +324,7 @@ marine_groups <- sk_ret |>
   )
   
 ttl_groups <- sk_ret |> 
+  filter(!if_any(c(fw_age, ttl_age), is.na)) |> 
   summarize(
     .by = c(stock, ttl_age),
     fw_age = list(unique(fw_age)),
@@ -199,6 +336,7 @@ ttl_groups <- sk_ret |>
   )
 
 all_groups <- sk_ret |> 
+  filter(!if_any(c(fw_age, ttl_age), is.na)) |> 
   distinct(stock, ttl_age, fw_age, marine_age) |> 
   mutate(
     across(contains("age"), as.list),
@@ -206,6 +344,7 @@ all_groups <- sk_ret |>
   )
 
 no_groups <- sk_ret |> 
+  filter(!if_any(c(fw_age, ttl_age), is.na)) |> 
   summarize(
     .by = stock,
     ttl_age = list(unique(ttl_age)),
