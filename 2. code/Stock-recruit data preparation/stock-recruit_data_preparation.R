@@ -31,8 +31,11 @@ Som_brood_ts <- Som_run_ts |>
   filter(!is.na(brood_year)) |> 
   summarize(
     .by = c(brood_year, stock),
-    return = sum(catch, escapement)
-  )
+    return = sum(catch, escapement),
+    n = n()
+  ) |> 
+  # Remove incomplete brood years
+  filter(n > 5)
 
 
 # Load data on age samples
@@ -404,14 +407,55 @@ Huc_run_ts_infill <- hr_ts |>
 # Reformat and collate Somass and Hucuktlis data --------------------------
 
 
+# Hucuktlis brood year returns lookup
+Huc_brood_ts <- Huc_run_ts_infill |> 
+  mutate(
+    across(matches("^age_\\d+"), \(x) x*run, .names = "run_{.col}"),
+    across(matches("^age_\\d+"), \(x) x*run, .names = "esc_{.col}")
+  ) |> 
+  pivot_longer(
+    matches("(run|esc)_age_\\d+"),
+    names_pattern = "(.*)_age_(.*)",
+    names_to = c("cat", "age")
+  ) |> 
+  pivot_wider(
+    id_cols = c(return_year, age, age_sample_size),
+    names_from = cat,
+    values_from = value
+  ) |> 
+  mutate(
+    ttl_age = as.numeric(str_sub(age, 1, 1)),
+    brood_year = return_year - ttl_age
+  ) |> 
+  filter(
+    # Remove years without spawner or catch data
+    !if_any(c(run, esc), is.na),
+    # Don't calculate recruits when <10 age samples available
+    age_sample_size >= 10 
+  ) |> 
+  summarize(
+    .by = brood_year,
+    return = sum(run),
+    n = n()
+  ) |> 
+  # Remove brood years with incomplete returns
+  filter(n > 5)
+
+
 # Get Hucuktlis data reformatted properly
 Huc_sr <- Huc_run_ts_infill |> 
   filter(!if_all(matches("age_\\d+"), is.na)) |> 
+  # Add recruitment data
+  left_join(
+    Huc_brood_ts,
+    by = c("return_year" = "brood_year")
+  ) |> 
   rename(
     "year" = return_year,
     "S" = escapement,
     "N" = run,
     "H" = catch,
+    "R" = return,
     "age.samples" = age_sample_size
   ) |> 
   select(-Somass_hr) |> 
