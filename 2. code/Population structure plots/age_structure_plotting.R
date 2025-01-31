@@ -16,7 +16,7 @@ library(ggstream)
 # Need raw data, which contains fw and marine ages
 som_data <- here(
   "1. data",
-  "return by age time series.xlsx"
+  "Barkley Sockeye time series of returns.xlsx"
 ) |> 
   read_xlsx(sheet = "Somass") |> 
   rename("year" = return_year) |> 
@@ -27,36 +27,37 @@ som_data <- here(
       fw_age,
       "]"
     ),
-    sockeye = escapement + catch
+    sockeye = as.numeric(escapement) + catch
   ) |> 
-  select(year, stock, sockeye, age)
+  mutate(
+    .by = c(year, stock),
+    ttl = sum(sockeye),
+    prop = sockeye/sum(sockeye)
+  ) |> 
+  select(year, stock, prop, age)
   
 
 huc_data <- here(
   "1. data",
-  "return by age time series.xlsx"
+  "Barkley Sockeye time series of returns.xlsx"
 ) |> 
-  read_xlsx(sheet = "Henderson") |> 
+  read_xlsx(sheet = "Hucuktlis") |> 
   mutate(across(matches("age_\\d+"), \(x) x * age_sample_size)) |> 
   summarize(
     .by = c(year, escapement, catch),
-    across(contains("age_"), sum)
+    across(matches("age_(sample_size|\\d+)"), sum)
   ) |> 
-  mutate(
-    across(matches("age_\\d+"), \(x) x / age_sample_size),
-    run = escapement + catch,
-    across(matches("age_\\d+"), \(x) x * run)
-  ) |> 
+  mutate(across(matches("age_\\d+"), \(x) x / age_sample_size)) |> 
   pivot_longer(
     matches("age_\\d+"),
     names_prefix = "age_",
     names_to = "age",
-    values_to = "sockeye"
+    values_to = "prop"
   ) |> 
-  select(year, age, sockeye) |> 
+  select(year, age, prop) |> 
   filter(
     .by = year, 
-    !if_any(sockeye, is.na)
+    !any(is.na(prop))
   ) |> 
   mutate(    
     stock = "HUC",
@@ -70,7 +71,8 @@ huc_data <- here(
 
 
 run_ages <- bind_rows(huc_data, som_data) |> 
-  mutate(stock = factor(stock, levels = c("GCL", "SPR", "HUC")))
+  mutate(stock = factor(stock, levels = c("GCL", "SPR", "HUC"))) |> 
+  filter(!str_detect(age, "NA"))
 
 
 # Plot age composition time series for each stock -------------------------
@@ -78,11 +80,11 @@ run_ages <- bind_rows(huc_data, som_data) |>
 
 # Formatted base plot
 (ages_base_p <- run_ages |> 
-   filter(sockeye > 1) |> 
+   complete(stock, age, year, fill = list(prop = 0)) |> 
    ggplot(
      aes(
        year, 
-       sockeye,
+       prop,
        fill = fct_rev(age)
      )
    ) +
@@ -119,13 +121,14 @@ run_ages <- bind_rows(huc_data, som_data) |>
 
 
 # Version using stream chart
-(ages_stream_p <- ages_base_p +
-    geom_stream(
-      type = "proportional",
-      bw = 0.4
-    )
-)
-
+ # (ages_stream_p <- ages_base_p +
+ #     geom_stream(
+ #       aes(y = prop*100),
+ #       type = "proportional",
+ #       bw = 0.4
+ #     )
+ # )
+# Can't get Hucuktlis data to fill correctly--ggstream glitch?
 
 # Version using column chart
 (ages_col_p <- ages_base_p +
@@ -144,10 +147,10 @@ run_ages <- bind_rows(huc_data, som_data) |>
 )
 
 
-# Save the column and stream charts
+# Save the column and area charts
 list(
   "column" = ages_col_p,
-  "stream" = ages_stream_p
+  "area" = ages_area_p
 ) |> 
   iwalk(
     \(x, idx) ggsave(
