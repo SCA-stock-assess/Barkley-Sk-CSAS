@@ -171,19 +171,23 @@ huc_sr_data0 <- here(
   "Barkley_Sockeye_stock-recruit_infilled.xlsx"
 ) |> 
   read_xlsx(sheet = "S-R data") |> 
-  filter(stock == "HUC")
+  filter(stock == "HUC") |> 
+  mutate(
+    fert = if_else(year %in% c(1976:2000, 2008), "fert", "no")
+  )
 
 
 # Make a dataframe with different filtered versions of the data
 huc_sr_data <- tibble(
-  filter = c(0, 1),
+  filter = c(0, 1, 2),
   data = list(huc_sr_data0)
 ) |> 
   rowwise() |> 
   mutate(
     data = case_when(
       filter == 0 ~ list(data),
-      filter == 1 ~ list(filter(data, S < 1e5))
+      filter == 1 ~ list(filter(data, S < 1e5)), # Remove 1993 obs
+      filter == 2 ~ list(filter(data, year > 2000)) # Remove fertilized yrs
     )
   ) |> 
   ungroup()
@@ -237,11 +241,12 @@ Huc_ricker <- huc_sr_data |>
     ),
     label = case_when(
       filter == 0 ~ "Hucuktlis Ricker based on all points",
-      filter == 1 ~ "Hucuktlis Ricker excluding 1993 (180k spawners)"
+      filter == 1 ~ "Hucuktlis Ricker excluding 1993 (180k spawners)",
+      filter == 2 ~ "Hucuktlis Ricker excluding fertilized years"
     ),
     pred_plot = list(
       ggplot(data, aes(x = S, y = R)) +
-        geom_point() +
+        geom_point(aes(colour = fert)) +
         geom_ribbon(
           data = pred,
           aes(
