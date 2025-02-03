@@ -35,7 +35,8 @@ Som_brood_ts <- Som_run_ts |>
     n = n()
   ) |> 
   # Remove incomplete brood years
-  filter(n > 5)
+  filter(n > 5) |> 
+  select(-n)
 
 
 # Load data on age samples
@@ -89,7 +90,6 @@ mean_age_samples <- Somass_age_samples_spread |>
   pull(age.samples, name = stock)
 
 
-
 # Build stock-recruit table
 Som_sr <- Som_run_ts |> 
   filter(!is.na(brood_year)) |> 
@@ -105,7 +105,7 @@ Som_sr <- Som_run_ts |>
     )
   ) |> 
   pivot_wider(
-    id_cols = c(return_year, stock, spawners, age.samples),
+    id_cols = c(return_year, stock, spawners, age.samples, fertilized),
     names_from = ttl_age,
     names_prefix = "N.age.",
     values_from = run,
@@ -439,7 +439,8 @@ Huc_brood_ts <- Huc_run_ts_infill |>
     n = n()
   ) |> 
   # Remove brood years with incomplete returns
-  filter(n > 5)
+  filter(n > 5) |> 
+  select(-n)
 
 
 # Get Hucuktlis data reformatted properly
@@ -490,6 +491,8 @@ Barkley_sk_sr <- bind_rows(Som_sr, Huc_sr) |>
     H,
     contains("N.age"),
     age.samples,
+    fertilized,
+    hatchery_fry_release,
     R,
     hr_pred,
     H_cv,
@@ -517,6 +520,18 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
       column_name == "age.samples" ~ paste(
         "Number of fish sampled to calculate the age compositions",
         "given in columns labeled 'N.age.#'"
+      ),
+      column_name == "fertilized" ~ paste(
+        "Binary variable describing whether (1) or not (0) the CU nursary",
+        "lake was fertilized in each year. Note that fertilization affects",
+        "abundances of pre-smolts in year + 1 (e.g. fertilizing a lake in",
+        "2010 is expected to bolster the abundances of pre-smolts counted",
+        "during the winter 2011 ATS."
+      ),
+      column_name == "hatchery_fry_release" ~ paste(
+        "Numbers of Sockeye fry released by the Hucuktlis/Henderson hatchery",
+        "in each year. Pertains only to the Hucuktlis CU because outplants were",
+        "discontinued in the 1930s. The hatchery ceased operations in 2007."
       ),
       column_name == "R" ~ paste(
         "Recruitment that arose from S in subsequent years. Calculated",
@@ -593,14 +608,20 @@ historic_catch <- here("1. data", "Barkley Sockeye time series of returns.xlsx")
 # Modern time series of catch and escapement for Somass stocks
 Somass_catch_esc <- Som_run_ts |> 
   summarize(
-    .by = c(return_year, stock, contains("_source"), esc_cat),
+    .by = c(
+      return_year, stock, contains("_source"), esc_cat, 
+      fertilized, hatchery_eggs_release
+    ),
     across(c(catch, escapement), sum)
   )
 
 
 # Collate all the data and reformat for export
 Barkley_catch_esc <- Huc_run_ts |> 
-  select(return_year, stock, contains("_source"), catch, escapement) |> 
+  select(
+    return_year, stock, contains("_source"), catch, escapement,
+    fertilized, hatchery_fry_release
+  ) |> 
   bind_rows(Somass_catch_esc) |> 
   rename("year" = return_year) |> 
   full_join(
