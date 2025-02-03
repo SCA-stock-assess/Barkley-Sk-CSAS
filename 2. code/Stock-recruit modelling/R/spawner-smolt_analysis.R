@@ -236,7 +236,7 @@ ricker_fits <- nested_data |>
 
 
 # Plot the various Ricker model fits
-ricker_fits |> 
+(ricker_plots <- ricker_fits |> 
   filter(fltr == 0) %>% # Removing the 1993 outlier actually produces poorer fit
   split(.$predictor) |> 
   imap(
@@ -299,4 +299,20 @@ ricker_fits |>
           axis.text.x = element_text(angle = 25, hjust = 1)
         )
     }
+  )
+)
+
+
+# Save the plotted fits
+ricker_plots |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        paste0("Pre-smolts per ", idx, ".png")
+      ),
+      dpi = "print"
+    )
   )
