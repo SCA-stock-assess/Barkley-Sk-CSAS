@@ -62,9 +62,9 @@ spwn <-  here(
   rename("cu" = stock) |> 
   mutate(
     cu = tolower(cu),
-    smolt_year = year + 1,
+    smolt_year = year + 2,
     # smolt_year = year for hatchery_fry_releases--lead back to align
-    hatchery_fry_release = lead(hatchery_fry_release, 1),
+    #hatchery_fry_release = lead(hatchery_fry_release, 2),
     hatchery_fry_release = if_else(
       is.na(hatchery_fry_release), 
       0, 
@@ -88,12 +88,12 @@ spwn_fry <- left_join(
     ),
     # Remove hatchery contributions from Hucuktlis data
     ttl = if_else(
-      # In 1997, assume 90% hatchery smolts. Otherwise, subtracting 10% of 
+      # In 1999, assume 90% hatchery smolts. Otherwise, subtracting 10% of 
       # hatchery released fry from from the total lake ATS estimate (as is
       # done for all other years) results in a - value. This is following
       # a footnote in Tablw 13 of the unpublished draft Henderson Stock
       # Status PSARC report (from 2008). 
-      cu == "Hucuktlis" & smolt_year == 1997,
+      cu == "Hucuktlis" & smolt_year == 1999,
       ttl*0.1, 
       ttl - (hatchery_fry_release*0.1/1e6)
       ),
@@ -182,7 +182,7 @@ nested_data |>
 
 
 # Use the data that were assembled above for plotting
-ricker_fits <- nested_data |> 
+model_fits <- nested_data |> 
   unnest(data) |> 
   # Filtering is only relevant for the Hucuktlis data (currently)
   filter(
@@ -198,22 +198,32 @@ ricker_fits <- nested_data |>
       list(mutate(data, x = S)),
       list(mutate(data, x = adult_S))
     ),
-    model = list(lm(log(y/x) ~ x, data = data)),
-    glance = list(glance(model)),
+    # Fit Ricker and Beverton-Holt models
+    ricker_model = list(lm(log(y/x) ~ x, data = data)),
+    bevholt_model = list(
+      glm(
+        y ~ I(1/x), 
+        family = gaussian(link = "inverse"), 
+        #start = c(0, 3), # Research how to choose appropriate starting values
+        data = data
+      )
+    ),
+    # Add predictions from Ricker and Beverton-Holt models
     newdata = list(
       tibble(
         x = seq(
-          0, 
+          #0.01,
+          min(data$x, na.rm = TRUE),
           max(data$x, na.rm = TRUE), 
           length.out = 100
         )
       )
     ),
-    pred = list(
+    ricker_pred = list(
       MASS::mvrnorm(
         10000, 
-        mu = coef(model), 
-        Sigma = as.matrix(vcov(model))
+        mu = coef(ricker_model), 
+        Sigma = as.matrix(vcov(ricker_model))
       ) |> 
         as_tibble() |> 
         rename("a" = 1, "b" = 2) |> 
@@ -229,15 +239,35 @@ ricker_fits <- nested_data |>
           lwr = quantile(pred_y, 0.025),
           upr = quantile(pred_y, 0.975)
         )
+    ),
+    bevholt_pred = list(
+      predict(
+        bevholt_model,
+        newdata,
+        type = "link",
+        se.fit = TRUE
+      ) |> 
+        as_tibble() |> 
+        bind_cols(newdata) |> 
+        mutate(
+          # Equation signs need to switch for LCI and UCI?
+          lwr = fit + 1.96*se.fit,
+          upr = fit - 1.96*se.fit,
+          # Back-transform estimates to response scale
+          across(c(fit, lwr, upr), gaussian(link = "inverse")$linkinv)
+        )
     )
   ) |> 
   ungroup() |> 
-  unnest_wider(glance)
+  pivot_longer(
+    matches("ricker|bevholt"),
+    names_sep = "_",
+    names_to = c("type", ".value")
+  )
 
 
-# Plot the various Ricker model fits
-(ricker_plots <- ricker_fits |> 
-  filter(fltr == 0) %>% # Removing the 1993 outlier actually produces poorer fit
+# Plot the various model fits
+(model_plots <- model_fits %>% 
   split(.$predictor) |> 
   imap(
     function(set, idx) {
@@ -247,20 +277,23 @@ ricker_fits <- nested_data |>
         pred = unnest(set, pred)
       )
       
-      label <- set |> 
-        rowwise() |> 
-        mutate(
-          x = max(data$x, na.rm = TRUE),
-          y = max(data$y, na.rm = TRUE)*1.1,
-          r2 = round(adj.r.squared, 2)
-        ) |> 
-        ungroup()
+      # label <- set |> 
+      #   rowwise() |> 
+      #   mutate(
+      #     x = max(data$x, na.rm = TRUE),
+      #     y = max(data$y, na.rm = TRUE)*1.1,
+      #     r2 = round(adj.r.squared, 2)
+      #   ) |> 
+      #   ungroup()
       
       ggplot(
         data = sub_set$obs,
         aes(
           x = x, 
-          y = y
+          y = y,
+          colour = type,
+          fill = type,
+          lty = factor(fltr)
         )
       ) +
         facet_grid(
@@ -269,21 +302,21 @@ ricker_fits <- nested_data |>
           switch = "y"
         ) +
         geom_point() +
-        geom_ribbon(
-          data = sub_set$pred,
-          aes(y = fit, ymin = lwr, ymax = upr),
-          alpha = 0.15,
-          colour = NA
-        ) +
+        # geom_ribbon(
+        #   data = sub_set$pred,
+        #   aes(y = fit, ymin = lwr, ymax = upr),
+        #   alpha = 0.15,
+        #   colour = NA
+        # ) +
         geom_line(
           data = sub_set$pred,
           aes(y = fit)
         ) +
-        geom_text(
-          data = label,
-          aes(label = paste("R sq:", r2)),
-          hjust = 1
-        ) +
+        # geom_text(
+        #   data = label,
+        #   aes(label = paste("R sq:", r2)),
+        #   hjust = 1
+        # ) +
         scale_x_continuous(
           name = idx,
           labels = scales::label_number(),
@@ -291,6 +324,7 @@ ricker_fits <- nested_data |>
         ) +
         scale_y_continuous(
           name = NULL,
+          #limits = c(0, max(sub_set$pred$upr)),
           expand = expansion(mult = c(0, 0.05))
         ) +
         theme(
@@ -304,7 +338,7 @@ ricker_fits <- nested_data |>
 
 
 # Save the plotted fits
-ricker_plots |> 
+model_plots |> 
   iwalk(
     \(x, idx) ggsave(
       plot = x,
