@@ -97,7 +97,9 @@ Som_sr <- Som_run_ts |>
   left_join(select(Somass_age_samples_spread, -source)) |>
   mutate(
     .by = c(return_year, stock),
+    marine_age = ttl_age - fw_age,
     spawners = sum(escapement),
+    adult_spawners = sum(escapement[marine_age > 1]),
     age.samples = case_when(
       is.na(age.samples) & stock == "GCL" ~ mean_age_samples[["GCL"]],
       is.na(age.samples) & stock == "SPR" ~ mean_age_samples[["SPR"]],
@@ -105,7 +107,7 @@ Som_sr <- Som_run_ts |>
     )
   ) |> 
   pivot_wider(
-    id_cols = c(return_year, stock, spawners, age.samples, fertilized),
+    id_cols = c(return_year, stock, contains("spawners"), age.samples, fertilized),
     names_from = ttl_age,
     names_prefix = "N.age.",
     values_from = run,
@@ -129,6 +131,7 @@ Som_sr <- Som_run_ts |>
   rename(
     "year" = return_year,
     "S" = spawners,
+    "adult_S" = adult_spawners,
     "N" = run,
     "R" = return
   )
@@ -161,7 +164,8 @@ Huc_run_ts <- here("1. data", "Barkley Sockeye time series of returns.xlsx") |>
         x / age_sample_size,
         NA_real_
       )
-    )
+    ),
+    adult_escapement = escapement*(age_42 + age_52 + age_53 + age_62 + age_63)
   )
 
 
@@ -454,6 +458,7 @@ Huc_sr <- Huc_run_ts_infill |>
   rename(
     "year" = return_year,
     "S" = escapement,
+    "adult_S" = adult_escapement,
     "N" = run,
     "H" = catch,
     "R" = return,
@@ -487,6 +492,7 @@ Barkley_sk_sr <- bind_rows(Som_sr, Huc_sr) |>
     year,
     stock, 
     S,
+    adult_S,
     N,
     H,
     contains("N.age"),
@@ -512,6 +518,9 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
       "'Sproat' (SPR), or 'Hucuktlis' (formerly 'Henderson'; HUC)"
       ),
       column_name == "S" ~ "Spawners a.k.a escapement",
+      column_name == "adult_S" ~ paste(
+      "Spawners (S, above) with jacks (marine age = 1) removed"
+      ),
       str_detect(column_name, "N.age.\\d") ~ paste(
         "Proportion of the run at the given total age (in years)"
       ),
