@@ -1,0 +1,188 @@
+# Packages ----------------------------------------------------------------
+
+
+pkgs <- c("tidyverse", "rstan", "here")
+#install.packages(pkgs)
+
+
+library(here)
+library(tidyverse); theme_set(theme_bw())
+library(rstan)
+
+
+
+# Load and prepare raw data for Stan --------------------------------------
+
+
+# Load the data
+data <- here(
+  "3. outputs",
+  "Stock-recruit data",
+  "Inferred_annual_smolt_age_composition.csv"
+) |> 
+  read.csv() |> 
+  rename_with(\(x) str_replace_all(x, "\\.", "x")) |> 
+  filter(year < 2017) # post-2017 won't have data
+
+
+# Function to create Stan data for each lake
+make_stan_data <- function(lake_name) {
+  
+  # Filter data for a single lake
+  lake_data <- data %>%
+    filter(lake == lake_name) %>%
+    select(year, prop_age1, prop_age2, prop_age1x) %>%
+    arrange(year)
+  
+  # Prepare data for Stan
+  Y <- lake_data %>%
+    select(starts_with("prop_")) %>%
+    as.matrix()
+  
+  # Identify missing rows
+  is_observed <- complete.cases(Y)
+  
+  # Replace NAs with placeholder values (needed for Stan input)
+  Y[!is_observed, ] <- rep(1 / ncol(Y), ncol(Y))
+  
+  # Adjust 0 values to accomodate log-transformation in Dirichlet fit
+  Y[Y == 0] <- 1e-6
+  Y <- Y / rowSums(Y)
+  
+  # Calculate prior mean composition (ignoring NAs)
+  prior_mean <- colMeans(Y[is_observed, ], na.rm = TRUE)
+  
+  # Stan data list
+  stan_data <- list(
+    T = nrow(Y),
+    K = ncol(Y),
+    Y = Y,
+    is_observed = as.integer(is_observed),
+    prior_mean = prior_mean
+  )
+  
+  return(stan_data)
+}
+
+
+# List of Stan data for each lake
+lakes_stan_data <- unique(data$lake) |> 
+  set_names() |> 
+  map(make_stan_data)
+
+
+# Compile and fit the Stan model
+fit_stan_model <- function(stan_data) {
+  stan(
+    file = here(
+      "2. code",
+      "Stock-recruit data preparation",
+      "Stan",
+      "dirichlet_state_space_model.stan"
+    ),
+    data = stan_data,
+    iter = 2000,
+    chains = 4,
+    control = list(adapt_delta = 0.9)
+  )
+}
+
+
+# Fit models for each lake
+lakes_stan_fits <- lakes_stan_data |> 
+  map(fit_stan_model)
+
+# Extract results
+print(fit, pars = c("theta", "sigma"))
+
+# Extract posterior samples for theta
+theta_samples <- extract(fit)$theta
+
+# Posterior mean estimates
+theta_summary <- apply(
+  theta_samples, 
+  c(2, 3), # Specifies margins of output to summarize
+  # For this Stan output, 1 is the iterations, 2 is the time steps,
+  # and 3 is the categories, i.e. age classes
+  function(x) c(
+    mean = mean(x),
+    lower80 = quantile(x, 0.1, names = FALSE),
+    upper80 = quantile(x, 0.9, names = FALSE),
+    lower95 = quantile(x, 0.025, names = FALSE),
+    upper95 = quantile(x, 0.975, names = FALSE)
+  )
+)
+
+# Convert to dataframe
+theta_df <- map_dfr(
+  1:dim(theta_summary)[2], 
+  function(t) {
+    tibble(
+      year = lake_data$year[t],
+      fitted_age1_mean = theta_summary["mean", t, 1],
+      fitted_age1_lower80 = theta_summary["lower80", t, 1],
+      fitted_age1_upper80 = theta_summary["upper80", t, 1],
+      fitted_age1_lower95 = theta_summary["lower95", t, 1],
+      fitted_age1_upper95 = theta_summary["upper95", t, 1],
+      fitted_age2_mean = theta_summary["mean", t, 2],
+      fitted_age2_lower80 = theta_summary["lower80", t, 2],
+      fitted_age2_upper80 = theta_summary["upper80", t, 2],
+      fitted_age2_lower95 = theta_summary["lower95", t, 2],
+      fitted_age2_upper95 = theta_summary["upper95", t, 2],
+      fitted_age1x_mean = theta_summary["mean", t, 3],
+      fitted_age1x_lower80 = theta_summary["lower80", t, 3],
+      fitted_age1x_upper80 = theta_summary["upper80", t, 3],
+      fitted_age1x_lower95 = theta_summary["lower95", t, 3],
+      fitted_age1x_upper95 = theta_summary["upper95", t, 3]
+    )
+  }
+)
+
+# Add fitted values to data
+pred_frame <- left_join(lake_data, theta_df) |> 
+  rename_with(.cols = contains("prop"), \(x) paste0(x, "_mean")) |> 
+  pivot_longer(
+    matches("prop|fitted"),
+    names_sep = "_",
+    names_to = c("source", "age", "interval")
+  ) |> 
+  pivot_wider(
+    names_from = c(source, interval),
+    names_sep = "_",
+    values_from = value
+  )
+  
+
+
+# Plot predicted versus observed data
+pred_frame |> 
+  ggplot(aes(x = year, y = prop_mean)) +
+  geom_linerange(
+    aes(
+      ymin = fitted_lower95, 
+      ymax = fitted_upper95,
+      colour = age
+    ),
+    linewidth = 0.25,
+    alpha = 0.6
+  ) +
+  geom_pointrange(
+    aes(
+      y = fitted_mean,
+      ymin = fitted_lower80,
+      ymax = fitted_upper80,
+      colour = age
+    ),
+    shape = "–",
+    linewidth = 0.75,
+    alpha = 0.6
+  ) +
+  geom_point(
+    aes(fill = age),
+    colour = "black",
+    shape = 21
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_cartesian(expand = FALSE) +
+  labs(y = "Percent composition")
+
