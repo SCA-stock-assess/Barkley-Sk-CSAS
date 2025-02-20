@@ -92,71 +92,86 @@ fit_stan_model <- function(stan_data) {
 lakes_stan_fits <- lakes_stan_data |> 
   map(fit_stan_model)
 
-# Extract results
-print(fit, pars = c("theta", "sigma"))
 
-# Extract posterior samples for theta
-theta_samples <- extract(fit)$theta
-
-# Posterior mean estimates
-theta_summary <- apply(
-  theta_samples, 
-  c(2, 3), # Specifies margins of output to summarize
-  # For this Stan output, 1 is the iterations, 2 is the time steps,
-  # and 3 is the categories, i.e. age classes
-  function(x) c(
-    mean = mean(x),
-    lower80 = quantile(x, 0.1, names = FALSE),
-    upper80 = quantile(x, 0.9, names = FALSE),
-    lower95 = quantile(x, 0.025, names = FALSE),
-    upper95 = quantile(x, 0.975, names = FALSE)
-  )
-)
-
-# Convert to dataframe
-theta_df <- map_dfr(
-  1:dim(theta_summary)[2], 
-  function(t) {
-    tibble(
-      year = lake_data$year[t],
-      fitted_age1_mean = theta_summary["mean", t, 1],
-      fitted_age1_lower80 = theta_summary["lower80", t, 1],
-      fitted_age1_upper80 = theta_summary["upper80", t, 1],
-      fitted_age1_lower95 = theta_summary["lower95", t, 1],
-      fitted_age1_upper95 = theta_summary["upper95", t, 1],
-      fitted_age2_mean = theta_summary["mean", t, 2],
-      fitted_age2_lower80 = theta_summary["lower80", t, 2],
-      fitted_age2_upper80 = theta_summary["upper80", t, 2],
-      fitted_age2_lower95 = theta_summary["lower95", t, 2],
-      fitted_age2_upper95 = theta_summary["upper95", t, 2],
-      fitted_age1x_mean = theta_summary["mean", t, 3],
-      fitted_age1x_lower80 = theta_summary["lower80", t, 3],
-      fitted_age1x_upper80 = theta_summary["upper80", t, 3],
-      fitted_age1x_lower95 = theta_summary["lower95", t, 3],
-      fitted_age1x_upper95 = theta_summary["upper95", t, 3]
+# Make dataframe with predicted and observed values for each year
+make_pred_frame <- function(fit, lake_name) {
+  
+  # Extract posterior samples for theta
+  theta_samples <- extract(fit)$theta
+  
+  # Posterior mean estimates
+  theta_summary <- apply(
+    theta_samples, 
+    c(2, 3), # Specifies margins of output to summarize
+    # For this Stan output, 1 is the iterations, 2 is the time steps,
+    # and 3 is the categories, i.e. age classes
+    function(x) c(
+      mean = mean(x),
+      lower80 = quantile(x, 0.1, names = FALSE),
+      upper80 = quantile(x, 0.9, names = FALSE),
+      lower95 = quantile(x, 0.025, names = FALSE),
+      upper95 = quantile(x, 0.975, names = FALSE)
     )
-  }
-)
-
-# Add fitted values to data
-pred_frame <- left_join(lake_data, theta_df) |> 
-  rename_with(.cols = contains("prop"), \(x) paste0(x, "_mean")) |> 
-  pivot_longer(
-    matches("prop|fitted"),
-    names_sep = "_",
-    names_to = c("source", "age", "interval")
-  ) |> 
-  pivot_wider(
-    names_from = c(source, interval),
-    names_sep = "_",
-    values_from = value
   )
   
+  # Convert to dataframe
+  theta_df <- map_dfr(
+    1:dim(theta_summary)[2], 
+    function(t) {
+      tibble(
+        year = lake_data$year[t],
+        fitted_age1_mean = theta_summary["mean", t, 1],
+        fitted_age1_lower80 = theta_summary["lower80", t, 1],
+        fitted_age1_upper80 = theta_summary["upper80", t, 1],
+        fitted_age1_lower95 = theta_summary["lower95", t, 1],
+        fitted_age1_upper95 = theta_summary["upper95", t, 1],
+        fitted_age2_mean = theta_summary["mean", t, 2],
+        fitted_age2_lower80 = theta_summary["lower80", t, 2],
+        fitted_age2_upper80 = theta_summary["upper80", t, 2],
+        fitted_age2_lower95 = theta_summary["lower95", t, 2],
+        fitted_age2_upper95 = theta_summary["upper95", t, 2],
+        fitted_age1x_mean = theta_summary["mean", t, 3],
+        fitted_age1x_lower80 = theta_summary["lower80", t, 3],
+        fitted_age1x_upper80 = theta_summary["upper80", t, 3],
+        fitted_age1x_lower95 = theta_summary["lower95", t, 3],
+        fitted_age1x_upper95 = theta_summary["upper95", t, 3]
+      )
+    }
+  )
+  
+  # Add fitted values to data
+  pred_frame <- data |> 
+    filter(lake == lake_name) |> 
+    select(year, lake, contains("prop")) |> 
+    left_join(theta_df) |> 
+    rename_with(.cols = contains("prop"), \(x) paste0(x, "_mean")) |> 
+    pivot_longer(
+      matches("prop|fitted"),
+      names_sep = "_",
+      names_to = c("source", "age", "interval")
+    ) |> 
+    pivot_wider(
+      names_from = c(source, interval),
+      names_sep = "_",
+      values_from = value
+    )
+}
+
+
+# Save dataframe with predictions for each of the three lakes
+lakes_pred_frame <- lakes_stan_fits |> 
+  imap(make_pred_frame) |> 
+  list_rbind()
 
 
 # Plot predicted versus observed data
-pred_frame |> 
+lakes_pred_frame |> 
   ggplot(aes(x = year, y = prop_mean)) +
+  facet_wrap(
+    ~ lake,
+    ncol = 1,
+    strip.position = "right"
+  ) +
   geom_linerange(
     aes(
       ymin = fitted_lower95, 
@@ -184,5 +199,6 @@ pred_frame |>
   ) +
   scale_y_continuous(labels = scales::percent) +
   coord_cartesian(expand = FALSE) +
-  labs(y = "Percent composition")
+  labs(y = "Percent composition") +
+  theme(panel.spacing.y = unit(1, "lines"))
 
