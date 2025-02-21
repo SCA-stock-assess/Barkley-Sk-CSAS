@@ -4,17 +4,22 @@
 data {
   int<lower=1> T;                       // Number of time points
   int<lower=2> K;                       // Number of composition categories
-  simplex[K] Y[T];                      // Observed compositions (set to arbitrary valid values where missing)
+  vector<lower=0>[K] rate[T];           // Weight data (non-integer) for Dirichlet likelihood
   int<lower=0, upper=1> is_observed[T]; // Indicator for observed values
-  simplex[K] prior_mean;                 // Informative prior on initial composition (e.g., historic average)
+  simplex[K] prior_mean;                 // Informative prior on initial composition (historic average)
+  vector<lower=0>[T] conc;               // Year-specific concentration parameter (weights/sample sizes)
 }
+
 parameters {
   simplex[K] theta[T]; // Latent compositions
   real<lower=0> sigma; // Process noise
 }
+
 model {
   sigma ~ normal(0, 1);
-  theta[1] ~ dirichlet(prior_mean * 50); // Prior informed by historic average
+  theta[1] ~ dirichlet(prior_mean * 200); // Prior informed by historic average
+  // using 200 to reflect reasonable confidence that the historic average should
+  // be representative of the population under status quo conditions
   
   for (t in 2:T) {
     theta[t] ~ dirichlet( (theta[t-1] * sigma + 1e-6) );
@@ -22,7 +27,7 @@ model {
 
   for (t in 1:T) {
     if (is_observed[t] == 1) {
-      Y[t] ~ dirichlet(theta[t] * 50); // Concentration parameter scaling
+      rate[t] ~ dirichlet(theta[t] * conc[t]); // Using Dirichlet likelihood with a moderate concentration parameter
     }
   }
 }

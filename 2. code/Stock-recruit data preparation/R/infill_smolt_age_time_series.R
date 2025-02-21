@@ -31,19 +31,30 @@ make_stan_data <- function(lake_name) {
   # Filter data for a single lake
   lake_data <- data %>%
     filter(lake == lake_name) %>%
-    select(year, prop_age1, prop_age2, prop_age1x) %>%
+    select(year, starts_with("rate_")) %>%
     arrange(year)
+  
+  # Ensure weights are conveyed into the model
+  weights <- lake_data %>%
+    rowwise() %>%
+    mutate(
+      weight = sum(c_across(starts_with("rate_"))),
+      # Replace weights with a placeholder where data is missing
+      # Placeholder value, 1, doesn't affect unobserved years
+      weight = if_else(is.na(weight), 1, weight)
+    ) %>%
+    pull(weight)
   
   # Prepare data for Stan
   Y <- lake_data %>%
-    select(starts_with("prop_")) %>%
+    select(starts_with("rate_")) %>%
     as.matrix()
   
   # Identify missing rows
   is_observed <- complete.cases(Y)
   
   # Replace NAs with placeholder values (needed for Stan input)
-  Y[!is_observed, ] <- rep(1 / ncol(Y), ncol(Y))
+  Y[!is_observed, ] <- rep(1, ncol(Y))
   
   # Adjust 0 values to accomodate log-transformation in Dirichlet fit
   Y[Y == 0] <- 1e-6
@@ -51,14 +62,16 @@ make_stan_data <- function(lake_name) {
   
   # Calculate prior mean composition (ignoring NAs)
   prior_mean <- colMeans(Y[is_observed, ], na.rm = TRUE)
+  prior_mean <- prior_mean / sum(prior_mean) # Ensure it is a simplex
   
   # Stan data list
   stan_data <- list(
     T = nrow(Y),
     K = ncol(Y),
-    Y = Y,
+    rate = Y,
     is_observed = as.integer(is_observed),
-    prior_mean = prior_mean
+    prior_mean = prior_mean,
+    conc = weights
   )
   
   return(stan_data)
