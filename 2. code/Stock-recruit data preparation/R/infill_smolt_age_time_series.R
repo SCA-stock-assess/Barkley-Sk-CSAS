@@ -25,6 +25,11 @@ data <- here(
   filter(year < 2017) # post-2017 won't have data
 
 
+# Specify sigma priors for each lake
+lakes_sigma_priors <- c(1, 0.3, 0.4) |> 
+  set_names(nm = unique(data$lake))
+
+
 # Function to create Stan data for each lake
 make_stan_data <- function(lake_name) {
   
@@ -64,6 +69,9 @@ make_stan_data <- function(lake_name) {
   prior_mean <- colMeans(Y[is_observed, ], na.rm = TRUE)
   prior_mean <- prior_mean / sum(prior_mean) # Ensure it is a simplex
   
+  # Lake-specific sigma prior
+  sigma_prior <- lakes_sigma_priors[[lake_name]]
+  
   # Stan data list
   stan_data <- list(
     T = nrow(Y),
@@ -71,6 +79,7 @@ make_stan_data <- function(lake_name) {
     rate = Y,
     is_observed = as.integer(is_observed),
     prior_mean = prior_mean,
+    sigma_prior = sigma_prior,
     conc = weights
   )
   
@@ -84,8 +93,12 @@ lakes_stan_data <- unique(data$lake) |>
   map(make_stan_data)
 
 
+
+# Fit Stan models and plot predictions ------------------------------------
+
+
 # Compile and fit the Stan model
-fit_stan_model <- function(stan_data) {
+fit_stan_model <- function(stan_data, index) {
   stan(
     file = here(
       "2. code",
@@ -93,21 +106,29 @@ fit_stan_model <- function(stan_data) {
       "Stan",
       "dirichlet_state_space_model.stan"
     ),
+    model_name = index,
     data = stan_data,
     iter = 2000,
+    #warmup = 1500, # probably need lower ratio of warmup to total iterations
     chains = 4,
-    control = list(adapt_delta = 0.9)
+    control = list(adapt_delta = 0.95)
   )
 }
 
 
 # Fit models for each lake
 lakes_stan_fits <- lakes_stan_data |> 
-  map(fit_stan_model)
+  imap(fit_stan_model)
+# Currently yields numerous warnings, many of which imply poor fits
+# High numbers of divergent transitions, estimated Bayesian Fractions of
+# Missing Information are low in several chains
+# Large R-hat values
+# Low tail effective sample sizes
+# Transitions exceeding maximum treedepth
 
 
 # Make dataframe with predicted and observed values for each year
-make_pred_frame <- function(fit, lake_name) {
+make_pred_frame <- function(fit, index) {
   
   # Extract posterior samples for theta
   theta_samples <- extract(fit)$theta
@@ -132,7 +153,7 @@ make_pred_frame <- function(fit, lake_name) {
     1:dim(theta_summary)[2], 
     function(t) {
       tibble(
-        year = lake_data$year[t],
+        year = filter(data, lake == index)$year[t],
         fitted_age1_mean = theta_summary["mean", t, 1],
         fitted_age1_lower80 = theta_summary["lower80", t, 1],
         fitted_age1_upper80 = theta_summary["upper80", t, 1],
@@ -154,7 +175,7 @@ make_pred_frame <- function(fit, lake_name) {
   
   # Add fitted values to data
   pred_frame <- data |> 
-    filter(lake == lake_name) |> 
+    filter(lake == index) |> 
     select(year, lake, contains("prop")) |> 
     left_join(theta_df) |> 
     rename_with(.cols = contains("prop"), \(x) paste0(x, "_mean")) |> 
