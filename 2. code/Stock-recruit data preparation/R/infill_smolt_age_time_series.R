@@ -25,8 +25,32 @@ data <- here(
   filter(year < 2017) # post-2017 won't have data
 
 
+# Plot observed proportions
+data |> 
+  pivot_longer(
+    matches("(rate|prop)_"),
+    names_sep = "_",
+    names_to = c(".value", "age")
+  ) |> 
+  ggplot(aes(x = year, y = prop)) +
+  facet_wrap(
+    ~ lake,
+    ncol = 1,
+    strip.position = "right"
+  ) +
+  geom_point(
+    aes(fill = age, size = rate),
+    colour = "black",
+    shape = 21
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_cartesian(expand = FALSE) +
+  labs(y = "Percent composition") +
+  theme(panel.spacing.y = unit(1, "lines"))
+
+
 # Specify sigma priors for each lake
-lakes_sigma_priors <- c(1, 0.3, 0.4) |> 
+lakes_sigma_priors <- c(1, 0.5, 0.3) |> 
   set_names(nm = unique(data$lake))
 
 
@@ -111,7 +135,7 @@ fit_stan_model <- function(stan_data, index) {
     iter = 2000,
     #warmup = 1500, # probably need lower ratio of warmup to total iterations
     chains = 4,
-    control = list(adapt_delta = 0.95)
+    control = list(adapt_delta = 0.9)
   )
 }
 
@@ -176,11 +200,11 @@ make_pred_frame <- function(fit, index) {
   # Add fitted values to data
   pred_frame <- data |> 
     filter(lake == index) |> 
-    select(year, lake, contains("prop")) |> 
+    select(year, lake, matches("rate|prop")) |> 
     left_join(theta_df) |> 
-    rename_with(.cols = contains("prop"), \(x) paste0(x, "_mean")) |> 
+    rename_with(.cols = matches("prop|rate"), \(x) paste0(x, "_mean")) |> 
     pivot_longer(
-      matches("prop|fitted"),
+      matches("prop|rate|fitted"),
       names_sep = "_",
       names_to = c("source", "age", "interval")
     ) |> 
@@ -224,12 +248,13 @@ lakes_pred_frame |>
     ),
     shape = "–",
     linewidth = 0.75,
-    alpha = 0.6
+    #alpha = 0.6
   ) +
   geom_point(
-    aes(fill = age),
+    aes(fill = age, size = rate_mean),
     colour = "black",
-    shape = 21
+    shape = 21,
+    alpha = 0.6
   ) +
   scale_y_continuous(labels = scales::percent) +
   coord_cartesian(expand = FALSE) +

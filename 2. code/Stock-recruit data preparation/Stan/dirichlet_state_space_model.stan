@@ -13,26 +13,30 @@ data {
 }
 
 parameters {
-  simplex[K] theta_raw[T]; // Raw latent compositions for non-centered parameterization
+  simplex[K] theta[T]; // Raw latent compositions for non-centered parameterization
   real<lower=0> sigma;     // Process noise
+  vector[T-1] epsilon_raw;  // Standard normal noise for process variation
 }
 
 transformed parameters {
-  simplex[K] theta[T];
-  theta[1] = theta_raw[1];
-  for (t in 2:T) {
-    theta[t] = softmax(log(theta_raw[t]) * sigma);
-  }
+  vector[T-1] epsilon;
+  epsilon = sigma * epsilon_raw; // Scale standard normal noise
 }
 
 model {
   sigma ~ normal(sigma_prior, 0.5) T[0,]; // Lake-specific prior for sigma
-  theta_raw[1] ~ dirichlet(prior_mean * 100); // Prior informed by historic average
-    // using 100 to reflect reasonable confidence that the historic average should
+  // First value (user-specified) is the mean, second value (0.5) is the SD.
+  epsilon_raw ~ normal(0, 1);             // Standard normal prior
+  theta[1] ~ dirichlet(prior_mean * 200); // Prior informed by historic average
+    // using 200 to reflect reasonable confidence that the historic average should
   // be representative of the population under status quo conditions
 
   for (t in 2:T) {
-    theta_raw[t] ~ dirichlet((theta[t-1] * sigma + 1e-6));
+    vector[K] epsilon_t;
+    for (k in 1:K) {
+      epsilon_t[k] = exp(epsilon[t-1]); // Small perturbation
+    }
+    theta[t] ~ dirichlet(theta[t-1] .* epsilon_t + 1e-6); // Process noise added
   }
 
   for (t in 1:T) {
