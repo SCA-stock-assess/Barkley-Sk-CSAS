@@ -761,7 +761,8 @@ rates_of_capture <- smolt_ages |>
     .by = c(year, sample_date, stock),
     across(c(catch_age1, catch_age2, n_age, n_catch), \(x) sum(x, na.rm = TRUE))
   ) |> 
-  filter(n_catch >= 20) |> # Remove years with too few observations
+  #filter(n_catch >= 20) |> # Remove years with too few observations
+  # more appropriate to do this at a later stage
   summarize(
     .by = c(year, stock),
     across(c(catch_age1, catch_age2, n_age, n_catch), \(x) sum(x, na.rm = TRUE)),
@@ -798,6 +799,35 @@ rates_of_capture |>
       "3. outputs",
       "Stock-recruit data",
       "Inferred_annual_smolt_age_composition.csv"
+    ),
+    row.names = FALSE
+  )
+
+
+# Export adult brood year age compositions as a potential weakly informative
+# prior for infilling missing smolt age compositions
+adult_by_prod |> 
+  mutate(smolt_age = paste0("returns_age", smolt_age)) |> 
+  pivot_wider(
+    id_cols = c(stock, brood_year, by_ttl),
+    names_from = smolt_age,
+    values_from = prop
+  ) |> 
+  arrange(stock, brood_year) |> 
+  mutate(
+    .by = stock,
+    `returns_age1+` = lead(returns_age2)
+  ) |> 
+  rename(
+    "lake" = stock,
+    "year" = brood_year,
+    "ttl" = by_ttl
+  ) |> 
+  write.csv(
+    here(
+      "3. outputs",
+      "Stock-recruit data",
+      "Annual_adult_fw-age_composition.csv"
     ),
     row.names = FALSE
   )
