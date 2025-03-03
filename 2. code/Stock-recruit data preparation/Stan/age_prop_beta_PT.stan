@@ -4,7 +4,7 @@ data {
   array[Y] int<lower=0> A1_obs;   // Observed age-1 migrants in samples
   array[Y] int<lower=0> A_total;  // Total aged fish in outmigration samples
   
-  real<lower=0> obs_error_prior;        // obs error on total abundance negative binomial
+  real<lower=0> obs_error_prior;      // obs error on total abundance negative binomial
   real mu_theta_prior;   // Mean prior for age 1 outmigration proportion (use calculated values)
   real<lower=0> sigma_theta_prior;// SD prior for age1 outmigration proportion
   real mu_M_prior;       // Mean prior for mortality of age 2s in year 2
@@ -25,7 +25,7 @@ parameters {
   array[Y] real<lower=0, upper=1> theta_raw;  // Yearly outmigration deviation - z score
   array[Y] real<lower=0> M_raw;   // Yearly mortality deviation - z score
   
-  real<lower=0> init_N2; //initialization for age 2 fish in year 1
+  real<lower=0> N2_init; //initialization for age 2 fish in year 1
 }
 
 transformed parameters { // deterministic statements
@@ -47,7 +47,7 @@ transformed parameters { // deterministic statements
   // State dynamics
   for (y in 1:Y) {
     if (y == 1) {
-      N2[y] = init_N2;  // No age-2s in first year
+      N2[y] = N2_init;  // No age-2s in first year
     } else {
       N2[y] = N1[y-1] * (1 - theta[y-1]) * M[y-1]; // calculation of age2s in y+1
     }
@@ -70,7 +70,7 @@ model {
   sigma_M ~ normal(0, sigma_M_prior);
   
   //initialization of age 2s
-  init_N2 ~ lognormal(log(N2_init_prior), N2_init_sigma_prior);
+  N2_init ~ lognormal(log(N2_init_prior), N2_init_sigma_prior);
   
   // Hierarchical deviations - z scores
   theta_raw ~ normal(0,1);
