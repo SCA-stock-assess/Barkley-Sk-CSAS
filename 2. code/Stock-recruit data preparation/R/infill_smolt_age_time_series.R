@@ -23,6 +23,7 @@ logit <- function(p) {log(p/(1-p))}
 # Simulate some plausible data to validate the Stan model
 # and better understand how priors and natural variability
 # can affect estimate quality
+set.seed(10)
 
 
 # Nick messing around to understand sigma_theta values
@@ -224,7 +225,7 @@ sim_stan_fits |>
       x, 
       pars = rownames(filter(worst_Rhat, lake == idx))[1:20]
     ) +
-      ggtitle(label = name)
+      ggtitle(label = idx)
   )
 
 
@@ -236,45 +237,98 @@ sim_stan_fits |>
 #explore posterior###
 post <- sim_stan_fits |> 
   map(extract) |> 
-  map(\(x) keep(x, str_detect(names(x), "mu_M|(mu|sigma)_theta|N2_init"))) |> 
+  # Discard all parameters with year-specific estimates
+  map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
   map(\(x) imap(x, as_tibble_col)) |> 
   map(\(x) list_cbind(unname(x))) |> 
   list_rbind(names_to = "lake")
 
 
+target <- sim_inputs |> 
+  select(any_of(colnames(post)))
+
+
+prior_dist <- priors |> 
+  rowwise() |> 
+  mutate(
+    mu_M = list(
+      rnorm(
+        1e5,
+        mean = mu_M_prior,
+        sd = sigma_M_prior
+      )
+    ),
+    mu_theta = list(
+      rnorm(
+        1e5,
+        mean = mu_theta_prior,
+        sd = sigma_theta_prior
+      )
+    ),
+    N2_init = list(
+      rlnorm(
+        1e5,
+        meanlog = log(N2_init_prior),
+        sdlog = N2_init_sigma_prior
+      )
+    )
+  ) |>
+  ungroup() |> 
+  select(lake, mu_M, mu_theta, N2_init) |> 
+  unnest(everything()) |> 
+  pivot_longer(!lake) %>%
+  split(.$name)
+
+
 # Show posterior estimates versus simulation input values and priors
+# Complex function employed to customize plots according to which prior
+# information is pertinent, and to which have targets
 post |> 
   pivot_longer(!lake) %>% 
   split(.$name) |> 
   imap(
     function(x, idx) {
-      prior <- sim_data |> 
-        map(\(y) keep(y, names(y) == paste0(idx, "_prior"))) |> 
-        map(as_tibble) |> 
-        list_rbind(names_to = "lake")
       
-      x |> 
+      if(idx %in% colnames(target)) {
+        target_vals <- select(target, lake, .data[[idx]])
+      }
+      
+      plot <- x |> 
         ggplot(aes(x = value)) +
         facet_wrap(
           ~lake,
           scales = "free_x"
         ) +
         geom_density() +
-        geom_textvline(
-          data = select(sim_inputs, lake, all_of(idx)),
-          aes(xintercept = .data[[idx]]),
-          label = "Simulation input",
-          lty = 2
-        ) +
-        geom_textvline(
-          data = prior,
-          aes(xintercept = .data[[paste0(idx, "_prior")]]),
-          label = "Prior",
-          lty = 1,
-          colour = "red"
-        ) +
         scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
         labs(x = idx)
+      
+      if(idx %in% names(prior_dist)) {
+        plot2 <- plot + 
+          geom_density(
+            data = prior_dist[[idx]],
+            colour = "red"
+          ) +
+           geom_textvline(
+             data = target_vals,
+             aes(xintercept = .data[[idx]]),
+             label = "Simulation input",
+             lty = 2
+           )
+          
+      } else if(idx %in% colnames(target)) {
+        plot2 <- plot +
+          geom_textvline(
+            data = target_vals,
+            aes(xintercept = .data[[idx]]),
+            label = "Simulation input",
+            lty = 2
+          )
+      } else {
+        plot2 <- plot
+      }
+      
+      return(plot2)
     }
   )
 
@@ -346,19 +400,27 @@ sim_stan_fits |>
 # Load and prepare raw data for Stan --------------------------------------
 
 
-# Load the data
-data <- here(
+# Load the smolt outmigration data
+smolt_data <- here(
   "3. outputs",
   "Stock-recruit data",
   "Inferred_annual_smolt_age_composition.csv"
 ) |> 
   read.csv() |> 
   rename_with(\(x) str_replace_all(x, "\\.", "x")) |> 
-  filter(year < 2017) # post-2017 won't have data
+  filter(year < 2017)  |> # post-2017 won't have data
+  # Convert annual rates to counts
+  mutate(
+    across(
+      c(rate_age1, rate_age2), 
+      \(x) round(x*sample_days, 0),
+      .names = "{str_replace(col, 'rate', 'count')}"
+    )
+  )
 
 
-# Plot observed proportions
-data |> 
+# Plot calculated age proportions
+smolt_data |> 
   pivot_longer(
     matches("(rate|prop)_"),
     names_sep = "_",
@@ -381,94 +443,108 @@ data |>
   theme(panel.spacing.y = unit(1, "lines"))
 
 
-# Specify sigma priors for each lake
-lakes_sigma_priors <- c(1, 0.5, 0.3) |> 
-  set_names(nm = unique(data$lake))
-
-
-# Weakly informative prior from adult age compositions
-adult_prior <- here(
+# Load the annual ATS estimates
+ats_data <- here(
   "3. outputs",
   "Stock-recruit data",
-  "Annual_adult_fw-age_composition.csv"
+  "GAM-estimated_pre-smolt_time_series.csv"
 ) |> 
-  read.csv() |>
-  rename_with(\(x) str_replace_all(x, "\\.", "x")) |> 
-  arrange(lake, year) |> 
-  mutate(across(c(returns_age1, returns_age2), \(x) x * ttl)) |> 
-  mutate(
-    .by = lake,
-    returns_age1x = lead(returns_age2),
-    # Replace 0s with small positive number
-    across(matches("returns_"), \(x) if_else(x == 0, 1e-6, x))
-  ) |> 
-  filter(year %in% unique(data$year))
+  read.csv() |> 
+  rename("year" = smolt_year) |> 
+  rename_with(\(x) paste0("ats_", x), .cols = c(est, lwr, upr)) |> 
+  # Remove NAs at start and end of time series
+  filter(!is.na(ats_est)) |> 
+  group_by(lake) |> 
+  complete(year = full_seq(min(year):max(year), 1)) |> 
+  ungroup()
 
 
-# Function to create Stan data for each lake
-make_stan_data <- function(lake_name) {
+# Are there any years with missing estimates?
+ats_data |> 
+  ggplot(aes(x = year, y = ats_est)) +
+  facet_wrap(
+    ~lake,
+    ncol = 1,
+    scales = "free_y"
+  ) +
+  geom_pointrange(aes(ymin = ats_lwr, ymax = ats_upr))
+# Hucuktlis in 1980.
+
+
+# Function to create observed Stan data for each lake
+make_stan_obs <- function(lake_name) {
   
   # Filter data for a single lake
-  lake_data <- data %>%
+  lake_data <- ats_data %>%
     filter(lake == lake_name) %>%
-    select(year, sample_days, rate_age1, rate_age2) %>%
-    arrange(year)
+    left_join(select(smolt_data, lake, year, contains("count"))) |> 
+    mutate(
+      is_observed_count = !if_any(matches("count"), is.na),
+      is_observed_ats = !if_any(matches("ats"), is.na),
+      count_total = count_age1 + count_age2,
+      across(matches("ats|count"), \(x) if_else(is.na(x), -999, x))
+    ) |> 
+    arrange(year) |> 
+    # Post-2017 won't have data
+    filter(year < 2017)
+    
+  # CV estimates for lake abundance
+  
   
   # Identify missing rows
-  is_observed <- ifelse(is.na(lake_data$rate_age1) | is.na(lake_data$rate_age2), 0, 1)
+  is_observed_count <- lake_data$is_observed_count
+  is_observed_ats <- lake_data$is_observed_ats
   
-  # Replace NAs with placeholder values (needed for Stan input)
-  rate <- lake_data %>%
-    select(rate_age1, rate_age2) %>%
-    mutate(
-      across(everything(), ~replace_na(.x, 1e-6)),
-      # Replace 0s with very small positive number
-      across(everything(), \(x) if_else(x == 0, 1e-6, x))
-    )
+  # Vector of age1 counts
+  A1_obs <- lake_data$count_age1
+  A_total <- lake_data$count_total
   
-  rate_age1 <- pull(rate, rate_age1)
-  rate_age2 <- pull(rate, rate_age2)
+  # Vector of observed total lake abundance
+  N_obs <- lake_data$ats_est
   
-  # Define concentration parameter (weight/sample size proxy)
-  conc <- lake_data$sample_days
-  conc[is.na(conc)] <- mean(conc, na.rm = TRUE)  # Replace missing sample sizes with average
-  
-  # Lake-specific sigma prior
-  sigma_prior <- lakes_sigma_priors[[lake_name]]
-  
-  # Lake-specific adult FW age comps prior
-  alpha_prior <- adult_prior |> 
-    filter(lake == lake_name) |> 
-    select(returns_age1, returns_age2) |> 
-    as.matrix()
-  
-  # Handle missing values in alpha_prior
-  for (i in 1:nrow(alpha_prior)) {
-    if (any(is.na(alpha_prior[i, ]))) {
-      alpha_prior[i, ] <- colMeans(alpha_prior, na.rm = TRUE)  # Fill with mean values
-    }
-  }
-  
-  # Normalize alpha_prior to avoid zero issues
-  alpha_prior <- alpha_prior + 1e-6
-  alpha_prior <- alpha_prior / rowSums(alpha_prior) * rowSums(alpha_prior, na.rm = TRUE)
-  
-  # Convert adult return counts to proportions
-  alpha_prior <- alpha_prior / rowSums(alpha_prior)
-  
-
   # Stan data list
   stan_data <- list(
-    T = nrow(lake_data),
-    rate_age1 = rate_age1,
-    rate_age2 = rate_age2,
-    is_observed = as.integer(is_observed),
-    sigma_prior = sigma_prior,
-    alpha_prior = alpha_prior,
-    sample_days = conc
+    Y = nrow(lake_data),
+    A1_obs = A1_obs,
+    A_total = A_total,
+    N_obs = N_obs,
+    is_observed_count = as.integer(is_observed_count),
+    is_observed_ats = as.integer(is_observed_ats)
   )
   
   return(stan_data)
+}
+
+
+# Priors for each lake
+make_stan_priors <- function(
+    lake_name,
+    # Priors (with sensible default values)
+  obs_error_prior = 5e5, # Not sure about this
+  mu_theta_prior = 2,
+  sigma_theta_prior = 0.5,
+  mu_M_prior = -1.5,
+  sigma_M_prior = 0.5,
+  N2_init_prior = N2_init/2,
+  N2_init_sigma_prior = 0.2
+) {
+  
+  # Year-specific smolting rate prior
+  smolt_data |> 
+    
+  
+  stan_data <- list(
+    obs_error_prior = obs_error_prior,
+    mu_theta_prior = mu_theta_prior,
+    sigma_theta_prior = sigma_theta_prior,
+    mu_M_prior = mu_M_prior,
+    sigma_M_prior = sigma_M_prior,
+    N2_init_prior = N2_init_prior,
+    N2_init_sigma_prior = N2_init_sigma_prior
+  )
+ 
+  return(stan_data)
+   
 }
 
 
