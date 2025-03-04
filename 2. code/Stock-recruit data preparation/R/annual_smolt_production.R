@@ -643,7 +643,9 @@ ann_gam_pred <- gam_frame |>
       predict(model, ann_val, type = "link", se.fit = TRUE) |> 
         cbind(ann_val) |> 
         mutate(
-          cv = se.fit/fit,
+          fit_response = exp(fit),
+          se = fit_response * se.fit, # SE calculated via delta method
+          cv = se/fit_response,
           lci = fit - se.fit*1.96,
           uci = fit + se.fit*1.96,
           across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
@@ -653,7 +655,7 @@ ann_gam_pred <- gam_frame |>
   select(lake, ann_pred) |> 
   unnest(ann_pred) |> 
   mutate(smolt_year = as.numeric(as.character(smolt_year_f))) |> 
-  select(lake, smolt_year, day_smolt_yr, est = fit, lwr = lci, upr = uci)
+  select(lake, smolt_year, day_smolt_yr, est = fit, lwr = lci, upr = uci, cv, se)
 
 
 # Export predicted pre-smolt abundance estimates
