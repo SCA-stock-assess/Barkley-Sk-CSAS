@@ -643,6 +643,7 @@ ann_gam_pred <- gam_frame |>
       predict(model, ann_val, type = "link", se.fit = TRUE) |> 
         cbind(ann_val) |> 
         mutate(
+          cv = se.fit/fit,
           lci = fit - se.fit*1.96,
           uci = fit + se.fit*1.96,
           across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
@@ -754,7 +755,7 @@ rates_of_capture <- smolt_ages |>
       \(x) x * n_catch, 
       .names = "catch_{str_remove(.col, 'prop_')}"
       )
-    ) |> 
+  ) |> 
   select(stock, sample_date, year, matches("age\\d"), contains("n_")) |>
   # Ensure all sample dates are aggregated into a single row per lake
   summarize(
