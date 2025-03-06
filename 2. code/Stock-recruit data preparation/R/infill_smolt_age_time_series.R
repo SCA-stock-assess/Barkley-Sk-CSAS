@@ -415,8 +415,34 @@ smolt_data <- here(
       c(rate_age1, rate_age2), 
       \(x) round(x*sample_days, 0),
       .names = "{str_replace(col, 'rate', 'count')}"
+    ),
+    smolting_rate = 1-(rate_age1x/(rate_age1x + rate_age1)),
+    # Remove exact 0s and 1s from age compositions and smolting rate
+    across(
+      c(matches("^prop_age"), smolting_rate),
+      \(x) case_when(
+        x == 1 ~ 0.999999,
+        x == 0 ~ 1e-6,
+        .default = x
+      )
+    ),
+    # Ensure age compositions sum to 1
+    across(
+      c("prop_age1", "prop_age2", "prop_age1x"),
+      \(x) x / (prop_age1 + prop_age2 + prop_age1x)
     )
   )
+
+
+# Look at distribution of observed smolting rates
+smolt_data |> 
+  ggplot(aes(x = logit(smolting_rate))) +
+  facet_wrap(~lake) +
+  geom_density(
+    fill = "grey",
+    bw = 1
+  )
+# Median values best? Appears to be some bimodality
 
 
 # Plot calculated age proportions
@@ -451,7 +477,7 @@ ats_data <- here(
 ) |> 
   read.csv() |> 
   rename("year" = smolt_year) |> 
-  rename_with(\(x) paste0("ats_", x), .cols = c(est, lwr, upr)) |> 
+  rename_with(\(x) paste0("ats_", x), .cols = c(est, lwr, upr, se, cv)) |> 
   # Remove NAs at start and end of time series
   filter(!is.na(ats_est)) |> 
   group_by(lake) |> 
@@ -468,30 +494,41 @@ ats_data |>
     scales = "free_y"
   ) +
   geom_pointrange(aes(ymin = ats_lwr, ymax = ats_upr))
-# Hucuktlis in 1980.
+
+
+# Join ATS and smolt data
+lakes_data <- ats_data |> 
+  left_join(
+    select(
+      .data = smolt_data, 
+      lake, year, contains("count"), smolting_rate, prop_age2
+    )
+  ) |> 
+  mutate(
+    is_observed_count = !if_any(matches("count"), is.na),
+    is_observed_ats = !if_any(matches("ats"), is.na),
+    count_total = count_age1 + count_age2,
+    across(matches("ats|count"), \(x) if_else(is.na(x), -999, x))
+  ) |> 
+  arrange(year) |> 
+  # Post-2017 won't have data
+  filter(year < 2017)
 
 
 # Function to create observed Stan data for each lake
-make_stan_obs <- function(lake_name) {
+make_stan_data <- function(
+    lake_name,
+    # User-defined second year mortality priors 
+    # (with sensible default values)
+    mu_M_prior = -1.5,
+    sigma_M_prior = 0.5
+) {
   
   # Filter data for a single lake
-  lake_data <- ats_data %>%
-    filter(lake == lake_name) %>%
-    left_join(select(smolt_data, lake, year, contains("count"))) |> 
-    mutate(
-      is_observed_count = !if_any(matches("count"), is.na),
-      is_observed_ats = !if_any(matches("ats"), is.na),
-      count_total = count_age1 + count_age2,
-      across(matches("ats|count"), \(x) if_else(is.na(x), -999, x))
-    ) |> 
-    arrange(year) |> 
-    # Post-2017 won't have data
-    filter(year < 2017)
-    
-  # CV estimates for lake abundance
-  
-  
-  # Identify missing rows
+  lake_data <- lakes_data %>%
+    filter(lake == lake_name)
+
+  # Identify missing rows in observations
   is_observed_count <- lake_data$is_observed_count
   is_observed_ats <- lake_data$is_observed_ats
   
@@ -502,6 +539,33 @@ make_stan_obs <- function(lake_name) {
   # Vector of observed total lake abundance
   N_obs <- lake_data$ats_est
   
+  # Smolting rate prior
+  theta_prior <- lake_data |> 
+    mutate(
+      holdover_rate = 1-smolting_rate,
+      # Adjust holdover rate according to assumed overwinter mortality
+      # Reflects our understanding that the prior will always be an 
+      # overestimate of the smolting rate
+      holdover_rate_adj = holdover_rate/(1-binomial(link = "logit")$linkinv(mu_M_prior)),
+      smolting_rate_adj = 1-holdover_rate_adj,
+      theta = logit(smolting_rate_adj)
+    ) |> 
+    summarize(
+      mu_theta = mean(theta, na.rm = TRUE),
+      sigma_theta = sd(theta, na.rm = TRUE)
+    )
+  
+  # Initial age2 fry population prior
+  N2_init_prior <- lake_data |> 
+    filter(year == min(year)) |> 
+    mutate(
+      N2_init = prop_age2 * ats_est,
+      N2_init_sigma = prop_age2 * ats_se
+    )
+  
+  # Observation error on lake ATS estimates
+  obs_error_prior <- lake_data$ats_se
+  
   # Stan data list
   stan_data <- list(
     Y = nrow(lake_data),
@@ -509,49 +573,88 @@ make_stan_obs <- function(lake_name) {
     A_total = A_total,
     N_obs = N_obs,
     is_observed_count = as.integer(is_observed_count),
-    is_observed_ats = as.integer(is_observed_ats)
-  )
-  
-  return(stan_data)
-}
-
-
-# Priors for each lake
-make_stan_priors <- function(
-    lake_name,
-    # Priors (with sensible default values)
-  obs_error_prior = 5e5, # Not sure about this
-  mu_theta_prior = 2,
-  sigma_theta_prior = 0.5,
-  mu_M_prior = -1.5,
-  sigma_M_prior = 0.5,
-  N2_init_prior = N2_init/2,
-  N2_init_sigma_prior = 0.2
-) {
-  
-  # Year-specific smolting rate prior
-  smolt_data |> 
-    
-  
-  stan_data <- list(
+    is_observed_ats = as.integer(is_observed_ats),
     obs_error_prior = obs_error_prior,
-    mu_theta_prior = mu_theta_prior,
-    sigma_theta_prior = sigma_theta_prior,
+    mu_theta_prior = theta_prior$mu_theta,
+    sigma_theta_prior = theta_prior$sigma_theta,
     mu_M_prior = mu_M_prior,
     sigma_M_prior = sigma_M_prior,
-    N2_init_prior = N2_init_prior,
-    N2_init_sigma_prior = N2_init_sigma_prior
+    N2_init_prior = N2_init_prior$N2_init,
+    N2_init_sigma_prior = N2_init_prior$N2_init_sigma
   )
- 
+  
   return(stan_data)
-   
 }
 
 
-# List of Stan data for each lake
-lakes_stan_data <- unique(data$lake) |> 
+# Create nested list of priors for each lake
+lakes_stan_data <- unique(lakes_data$lake) |> 
   set_names() |> 
-  map(make_stan_data)
+  map2(
+    # Second winter mortality rate priors for GCL, HUC, SPR, respectively
+    .y = logit(c(0.25, 0.5, 0.4)),
+    \(x, y) make_stan_data(lake_name = x, mu_M_prior = y)
+  )
+
+
+# View prior distributions for theta, mu_M, and N2_init
+lakes_stan_data |> 
+  # Discard all parameters with year-specific estimates
+  map(\(x) discard(.x = x, .p = \(y) length(y) > 1)) |> 
+  map(\(x) imap(x, as_tibble_col)) |> 
+  map(\(x) list_cbind(unname(x))) |> 
+  list_rbind(names_to = "lake") |> 
+  rowwise() |> 
+  mutate(
+    n = 1e4,
+    mu_M = list(
+      rnorm(
+        n = n,
+        mean = mu_M_prior,
+        sd = sigma_M_prior
+      ) |> 
+        binomial()$linkinv()
+    ),
+    mu_theta = list(
+      rnorm(
+        n = n,
+        mean = mu_theta_prior,
+        sd = sigma_theta_prior
+      ) |> 
+        binomial()$linkinv()
+    ),
+    # Need to transform N2_init mean and SD for random draws from lognormal distribution:
+    # workings from: https://msalganik.wordpress.com/2017/01/21/making-sense-of-the-rlnorm-function-in-r/
+    N2_init_location = log(
+      N2_init_prior^2 / sqrt(N2_init_sigma_prior^2 + N2_init_prior^2)
+      ),
+    N2_init_shape = sqrt(log(1 + (N2_init_sigma_prior^2 / N2_init_prior^2))),
+    N2_init = list(
+      rlnorm(
+        n = n,
+        meanlog = N2_init_location,
+        sdlog = N2_init_shape
+      )
+    )
+  ) |>
+  ungroup() |> 
+  select(lake, mu_M, mu_theta, N2_init) |> 
+  unnest(everything()) |> 
+  pivot_longer(!lake) %>%
+  split(.$name) |> 
+  imap(
+    \(x, idx) x |> 
+      ggplot(aes(x = value)) +
+      facet_wrap(
+        ~ lake,
+        nrow = 1,
+        scales = "free"
+      ) +
+      geom_density(fill = "lightgrey") +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+      scale_x_continuous(expand = c(0, 0), name = idx)
+  )
+
 
 
 
