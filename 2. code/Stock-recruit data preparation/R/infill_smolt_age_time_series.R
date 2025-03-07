@@ -141,10 +141,10 @@ make_stan_data <- function(
     lake_name,
     # User-defined second year mortality and theta priors 
     # (with sensible default values)
-    mu_M_prior = -1.5,
+    mu_M_prior = logit(0.25),
     sigma_M_prior = 0.5,
-    mu_theta_prior = 4,
-    sigma_theta_prior = 2
+    mu_theta_prior = logit(0.9),
+    sigma_theta_prior = 1.5
 ) {
   
   # Filter data for a single lake
@@ -178,6 +178,14 @@ make_stan_data <- function(
       sigma_theta = sd(theta, na.rm = TRUE)
     )
   
+  # Age-1 fry proportion prior
+  pN1_prior <- lake_data |> 
+    mutate(pN1 = logit(1-prop_age2)) |> 
+    summarize(
+      mu_pN1 = mean(pN1, na.rm = TRUE),
+      sigma_pN1 = sd(pN1, na.rm = TRUE)
+    )
+  
   # Alternative specification of smolting rate prior
   # PT suggestion after reviewing the data-driven approach above and
   # observing that it seems to draw the model away from what we assume
@@ -199,6 +207,14 @@ make_stan_data <- function(
       N2_init_log_sigma = sqrt(log(1 + (N2_init_sigma^2 / N2_init^2))),
     )
   
+  # Total lake fry abundance prior
+  mu_N_lake_prior <- lake_data |> 
+    summarize(
+      mean_N_lake = mean(ats_est),
+      sd_N_lake = sd(ats_est)
+    ) |> 
+    mutate(mu_N_lake = log(mean_N_lake^2 / sqrt(sd_N_lake^2 + mean_N_lake^2)))
+  
   # Observation error on lake ATS estimates
   obs_error_prior <- lake_data$ats_se
   
@@ -217,8 +233,12 @@ make_stan_data <- function(
     sigma_theta_prior = theta_prior_alt$sigma_theta, # alternative user specification
     mu_M_prior = mu_M_prior,
     sigma_M_prior = sigma_M_prior,
-    N2_init_prior = N2_init_prior$N2_init_log_mean,
-    N2_init_sigma_prior = N2_init_prior$N2_init_log_sigma
+    mu_N2_init_prior = N2_init_prior$N2_init_log_mean,
+    sigma_N2_init_prior = N2_init_prior$N2_init_log_sigma,
+    mu_pN1_prior = pN1_prior$mu_pN1,
+    sigma_pN1_prior = 0.5,
+    #sigma_pN1_prior = pN1_prior$sigma_pN1 # might try wider prior?
+    mu_N_lake_prior = mu_N_lake_prior$mu_N_lake
   )
   
   return(stan_data)
@@ -262,16 +282,30 @@ some_priors <- lakes_stan_data |>
         sd = sigma_theta_prior
       )
     ),
+    mu_pN1 = list(
+      rnorm(
+        n = n,
+        mean = mu_pN1_prior,
+        sd = sigma_pN1_prior
+      )
+    ),
     N2_init = list(
       rlnorm(
         n = n,
-        meanlog = N2_init_prior,
-        sdlog = N2_init_sigma_prior
+        meanlog = mu_N2_init_prior,
+        sdlog = sigma_N2_init_prior
+      )
+    ),
+    N_lake = list(
+      rlnorm(
+        n = n,
+        meanlog = mu_N_lake_prior,
+        sdlog = 0.5
       )
     )
   ) |>
   ungroup() |> 
-  select(lake, mu_M, mu_theta, N2_init) |> 
+  select(lake, mu_M, mu_theta, mu_pN1, N2_init, N_lake) |> 
   unnest(everything()) |> 
   pivot_longer(!lake) %>%
   split(.$name) 
@@ -306,7 +340,7 @@ fit_stan_model <- function(stan_data, index) {
     model_name = index,
     data = stan_data,
     iter = 2000,
-    chains = 4,
+    chains = 3,
     control = list(adapt_delta = 0.9)
   )
 }
@@ -363,7 +397,7 @@ lakes_stan_fits |>
 
 # Pair plots
 lakes_stan_fits |> 
-  map(\(x) pairs(x, pars = c("mu_theta", "mu_M")))
+  map(\(x) pairs(x, pars = c("mu_theta", "mu_M", "mu_pN1")))
 
 
 # Plot predicted versus observed values -----------------------------------
@@ -382,7 +416,7 @@ post <- lakes_stan_fits |>
 # Plot posterior versus prior distributions for mu_theta and 
 # mu_M
 post |> 
-  select(lake, mu_M, mu_theta) |> 
+  select(lake, mu_M, mu_theta, mu_pN1) |> 
   pivot_longer(!lake) %>% 
   split(.$name) |> 
   imap(
@@ -430,8 +464,27 @@ lakes_stan_fits |>
     }
   )
 
+# Predicted versus observed Age1 out-migrants
+lakes_stan_fits |> 
+  imap(
+    function(x, idx) {
+      O2 <- lakes_data |> 
+        filter(lake == idx) |> 
+        mutate(age2s = prop_age2*ats_est) |> 
+        pull(age2s)
+      Y <- lakes_stan_data[[idx]]$Y
+      
+      spread_draws(x, O2[year]) %>% 
+        ggplot(aes(x = year, y = O2)) +
+        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
+        geom_point(data = data.frame(year = 1:Y, O2 = O2), color = "red") +
+        ggtitle(paste(idx, "predicted versus estimated age2 out-migrants"))
+    }
+  )
 
-# Predicted versus observed Age2 out-migrants
+
+
+# Predicted versus observed age-1 smolt proportion
 lakes_stan_fits |> 
   imap(
     function(x, idx) {
@@ -445,31 +498,40 @@ lakes_stan_fits |>
         ggplot(aes(x = year, y = p1)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
         geom_point(data = data.frame(year = 1:Y, p1 = p1), color = "red") +
+        scale_y_continuous(
+          expand = c(0, 0),
+          limits = c(0, 1),
+          labels = scales::percent
+        ) +
         ggtitle(paste(idx, "predicted versus estimated age1 proportion"))
     }
   )
 
 
-# Predicted Age1 proportions
+# Predicted Age2 proportions
 lakes_stan_fits |> 
   imap(
     function(x, idx) {
-      2 <- lakes_data |> 
+      p2 <- lakes_data |> 
         filter(lake == idx) |> 
-        mutate(age1s = prop_age2*ats_est) |> 
-        pull(age1s)
+        pull(prop_age2)
       Y <- lakes_stan_data[[idx]]$Y
       
-      spread_draws(x, O2[year]) %>% 
-        ggplot(aes(x = year, y = O2)) +
+      spread_draws(x, p2[year]) %>% 
+        ggplot(aes(x = year, y = p2)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, O2 = O2), color = "red") +
+        geom_point(data = data.frame(year = 1:Y, p2 = p2), color = "red") +
+        scale_y_continuous(
+          expand = c(0, 0),
+          limits = c(0, 1),
+          labels = scales::percent
+        ) +
         ggtitle(paste(idx, "predicted versus estimated age2 out-migrants"))
     }
   )
 
 
-# Predicted versus true smolting rate
+# Predicted versus estimated smolting rate
 lakes_stan_fits |> 
   imap(
     function(x, idx) {
@@ -483,6 +545,24 @@ lakes_stan_fits |>
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
         geom_point(data = data.frame(year = 1:Y, theta = theta), color = "red") +
         ggtitle(paste(idx, "predicted versus estimated smolting rate"))
+    }
+  )
+
+
+# Predicted versus observed lake abundance
+lakes_stan_fits |> 
+  imap(
+    function(x, idx) {
+      N_lake <- lakes_data |> 
+        filter(lake == idx) |> 
+        pull(ats_est)
+      Y <- lakes_stan_data[[idx]]$Y
+      
+      spread_draws(x, N_lake[year]) %>% 
+        ggplot(aes(x = year, y = N_lake)) +
+        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
+        geom_point(data = data.frame(year = 1:Y, N_lake = N_lake), color = "red") +
+        ggtitle(paste(idx, "predicted versus estimated lake abundance"))
     }
   )
 
