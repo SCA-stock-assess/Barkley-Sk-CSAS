@@ -137,14 +137,16 @@ lakes_data <- ats_data |>
 
 
 # Function to create observed Stan data for each lake
+# As a general note: priors should reflect what is *possible*
+# not what we think is likely.
 make_stan_data <- function(
     lake_name,
     # User-defined second year mortality and theta priors 
     # (with sensible default values)
-    mu_M_prior = logit(0.25),
+    mu_M_prior = logit(0.5),
     sigma_M_prior = 0.5,
-    mu_theta_prior = logit(0.9),
-    sigma_theta_prior = 1.5
+    mu_theta_prior = logit(0.8),
+    sigma_theta_prior = 1
 ) {
   
   # Filter data for a single lake
@@ -208,15 +210,21 @@ make_stan_data <- function(
     )
   
   # Total lake fry abundance prior
-  mu_N_lake_prior <- lake_data |> 
+  N1_prior <- lake_data |> 
+    mutate(N1 = (1-prop_age2)*ats_est) |> 
     summarize(
-      mean_N_lake = mean(ats_est),
-      sd_N_lake = sd(ats_est)
+      mean_N1 = mean(N1, na.rm = TRUE),
+      sd_N1 = sd(N1, na.rm = TRUE)
     ) |> 
-    mutate(mu_N_lake = log(mean_N_lake^2 / sqrt(sd_N_lake^2 + mean_N_lake^2)))
+    mutate(
+      mu_N1 = log(mean_N1^2 / sqrt(sd_N1^2 + mean_N1^2)),
+      sigma_N1 = sqrt(log(1 + (sd_N1^2 / mean_N1^2)))
+    )
   
   # Observation error on lake ATS estimates
-  obs_error_prior <- lake_data$ats_se
+  obs_error_prior <- lake_data |> 
+    mutate(obs_error_prior = sqrt(log(1 + (ats_se^2 / ats_est^2)))) |> 
+    pull(obs_error_prior)
   
   # Stan data list
   stan_data <- list(
@@ -235,17 +243,19 @@ make_stan_data <- function(
     sigma_M_prior = sigma_M_prior,
     mu_N2_init_prior = N2_init_prior$N2_init_log_mean,
     sigma_N2_init_prior = N2_init_prior$N2_init_log_sigma,
-    mu_pN1_prior = pN1_prior$mu_pN1,
-    sigma_pN1_prior = 0.5,
+    #mu_pN1_prior = pN1_prior$mu_pN1,
+    #mu_pN1_prior = logit(0.8),
+    #sigma_pN1_prior = 2,
     #sigma_pN1_prior = pN1_prior$sigma_pN1 # might try wider prior?
-    mu_N_lake_prior = mu_N_lake_prior$mu_N_lake
+    mu_N1_prior = N1_prior$mu_N1,
+    sigma_N1_prior = N1_prior$sigma_N1
   )
   
   return(stan_data)
 }
 
 
-# Create nested list of priors for each lake
+# Create nested list of Stan input data for each lake
 lakes_stan_data <- unique(lakes_data$lake) |> 
   set_names() |> 
   map2(
@@ -282,13 +292,6 @@ some_priors <- lakes_stan_data |>
         sd = sigma_theta_prior
       )
     ),
-    mu_pN1 = list(
-      rnorm(
-        n = n,
-        mean = mu_pN1_prior,
-        sd = sigma_pN1_prior
-      )
-    ),
     N2_init = list(
       rlnorm(
         n = n,
@@ -296,16 +299,16 @@ some_priors <- lakes_stan_data |>
         sdlog = sigma_N2_init_prior
       )
     ),
-    N_lake = list(
+    N1 = list(
       rlnorm(
         n = n,
-        meanlog = mu_N_lake_prior,
-        sdlog = 0.5
+        meanlog = mu_N1_prior,
+        sdlog = sigma_N1_prior
       )
     )
   ) |>
   ungroup() |> 
-  select(lake, mu_M, mu_theta, mu_pN1, N2_init, N_lake) |> 
+  select(lake, mu_M, mu_theta, N2_init, N1) |> 
   unnest(everything()) |> 
   pivot_longer(!lake) %>%
   split(.$name) 
@@ -313,7 +316,15 @@ some_priors <- lakes_stan_data |>
 some_priors |> 
   imap(
     \(x, idx) x |> 
-      ggplot(aes(x = value)) +
+      ggplot(
+        aes(
+          if(idx %in% c("mu_M", "mu_theta")) {
+            x = binomial()$linkinv(value)
+          } else {
+          x = value
+          }
+        )
+      ) +
       facet_wrap(
         ~ lake,
         nrow = 1,
@@ -341,7 +352,10 @@ fit_stan_model <- function(stan_data, index) {
     data = stan_data,
     iter = 2000,
     chains = 3,
-    control = list(adapt_delta = 0.9)
+    control = list(
+      adapt_delta = 0.90
+      #,max_treedepth = 15
+    )
   )
 }
 
@@ -397,7 +411,7 @@ lakes_stan_fits |>
 
 # Pair plots
 lakes_stan_fits |> 
-  map(\(x) pairs(x, pars = c("mu_theta", "mu_M", "mu_pN1")))
+  map(\(x) pairs(x, pars = c("mu_theta", "mu_M")))
 
 
 # Plot predicted versus observed values -----------------------------------
@@ -413,10 +427,9 @@ post <- lakes_stan_fits |>
   list_rbind(names_to = "lake")
 
 
-# Plot posterior versus prior distributions for mu_theta and 
-# mu_M
+# Plot posterior versus prior distributions for mu_theta and mu_M
 post |> 
-  select(lake, mu_M, mu_theta, mu_pN1) |> 
+  select(lake, mu_M, mu_theta) |> 
   pivot_longer(!lake) %>% 
   split(.$name) |> 
   imap(
@@ -464,7 +477,8 @@ lakes_stan_fits |>
     }
   )
 
-# Predicted versus observed Age1 out-migrants
+
+# Predicted versus observed Age2 out-migrants
 lakes_stan_fits |> 
   imap(
     function(x, idx) {
@@ -526,7 +540,7 @@ lakes_stan_fits |>
           limits = c(0, 1),
           labels = scales::percent
         ) +
-        ggtitle(paste(idx, "predicted versus estimated age2 out-migrants"))
+        ggtitle(paste(idx, "predicted versus estimated age2 proportion"))
     }
   )
 
@@ -570,117 +584,11 @@ lakes_stan_fits |>
 # Predicted mortality rate
 lakes_stan_fits |> 
   imap(
-    \(x, idx) spread_draws(x, theta[year]) %>% 
-        ggplot(aes(x = year, y = theta)) +
+    \(x, idx) spread_draws(x, M[year]) %>% 
+        ggplot(aes(x = year, y = M)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
         ggtitle(paste(idx, "predicted mortality rate"))
   )
-
-
-# # Make dataframe with predicted and observed values for each year
-# make_pred_frame <- function(fit, index) {
-#   
-#   # Extract posterior samples for theta
-#   theta_samples <- extract(fit)$theta
-#   
-#   # Posterior mean estimates
-#   theta_summary <- apply(
-#     theta_samples, 
-#     c(2, 3), # Specifies margins of output to summarize
-#     # For this Stan output, 1 is the iterations, 2 is the time steps,
-#     # and 3 is the categories, i.e. age classes
-#     function(x) c(
-#       mean = mean(x),
-#       lower80 = quantile(x, 0.1, names = FALSE),
-#       upper80 = quantile(x, 0.9, names = FALSE),
-#       lower95 = quantile(x, 0.025, names = FALSE),
-#       upper95 = quantile(x, 0.975, names = FALSE)
-#     )
-#   )
-#   
-#   # Convert to dataframe
-#   theta_df <- map_dfr(
-#     1:dim(theta_summary)[2], 
-#     function(t) {
-#       tibble(
-#         year = filter(data, lake == index)$year[t],
-#         fitted_age1_mean = theta_summary["mean", t, 1],
-#         fitted_age1_lower80 = theta_summary["lower80", t, 1],
-#         fitted_age1_upper80 = theta_summary["upper80", t, 1],
-#         fitted_age1_lower95 = theta_summary["lower95", t, 1],
-#         fitted_age1_upper95 = theta_summary["upper95", t, 1],
-#         fitted_age2_mean = theta_summary["mean", t, 2],
-#         fitted_age2_lower80 = theta_summary["lower80", t, 2],
-#         fitted_age2_upper80 = theta_summary["upper80", t, 2],
-#         fitted_age2_lower95 = theta_summary["lower95", t, 2],
-#         fitted_age2_upper95 = theta_summary["upper95", t, 2]
-#       )
-#     }
-#   )
-#   
-#   # Add fitted values to data
-#   pred_frame <- data |> 
-#     filter(lake == index) |> 
-#     select(year, lake, matches("rate|prop")) |> 
-#     left_join(theta_df) |> 
-#     rename_with(.cols = matches("prop|rate"), \(x) paste0(x, "_mean")) |> 
-#     pivot_longer(
-#       matches("prop|rate|fitted"),
-#       names_sep = "_",
-#       names_to = c("source", "age", "interval")
-#     ) |> 
-#     pivot_wider(
-#       names_from = c(source, interval),
-#       names_sep = "_",
-#       values_from = value
-#     )
-# }
-# 
-# 
-# # Save dataframe with predictions for each of the three lakes
-# lakes_pred_frame <- lakes_stan_fits |> 
-#   imap(make_pred_frame) |> 
-#   list_rbind()
-# 
-# 
-# # Plot predicted versus observed data
-# lakes_pred_frame |> 
-#   ggplot(aes(x = year, y = prop_mean)) +
-#   facet_wrap(
-#     ~ lake,
-#     ncol = 1,
-#     strip.position = "right"
-#   ) +
-#   geom_linerange(
-#     aes(
-#       ymin = fitted_lower95, 
-#       ymax = fitted_upper95,
-#       colour = age
-#     ),
-#     linewidth = 0.25,
-#     alpha = 0.6
-#   ) +
-#   geom_pointrange(
-#     aes(
-#       y = fitted_mean,
-#       ymin = fitted_lower80,
-#       ymax = fitted_upper80,
-#       colour = age
-#     ),
-#     shape = "–",
-#     linewidth = 0.75,
-#     #alpha = 0.6
-#   ) +
-#   geom_point(
-#     aes(fill = age, size = rate_mean),
-#     colour = "black",
-#     shape = 21,
-#     alpha = 0.6
-#   ) +
-#   scale_y_continuous(labels = scales::percent) +
-#   coord_cartesian(expand = FALSE) +
-#   labs(y = "Percent composition") +
-#   theme(panel.spacing.y = unit(1, "lines"))
 
 
 
