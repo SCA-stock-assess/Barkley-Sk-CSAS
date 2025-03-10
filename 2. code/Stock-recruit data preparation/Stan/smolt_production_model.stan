@@ -27,8 +27,8 @@ parameters {
   real<lower=0> sigma_theta;         // Yearly variation in outmigration
   real<lower=0> sigma_M;             // Yearly variation in mortality
  
-  array[Y] real<lower=0> theta_raw;  // Yearly outmigration deviation - z score
-  array[Y] real<lower=0> M_raw;      // Yearly mortality deviation - z score
+  array[Y] real theta_raw;           // Yearly outmigration deviation - z score
+  array[Y] real M_raw;               // Yearly mortality deviation - z score
  
   real<lower=0> N2_init;             // initialization for age 2 fish in year 1
   array[Y] real<lower=0> N1;         // Yearly total age1 fry abundance

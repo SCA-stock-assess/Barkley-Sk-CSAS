@@ -93,6 +93,87 @@ smolt_data |>
   theme(panel.spacing.y = unit(1, "lines"))
 
 
+# Load smolt size data
+smolt_size <- here(
+  "1. data",
+  "smolt size data.xlsx"
+) |> 
+  read_xlsx(sheet = "smolt_morphometrics") |> 
+  pivot_longer(
+    cols = !smolt_year,
+    names_pattern = "(.{3})_(.*)",
+    names_to = c("lake", "metric")
+  ) |> 
+  pivot_wider(names_from = metric) |> 
+  mutate(
+    lake = case_when(
+      lake == "gcl" ~ "Great Central",
+      lake == "huc" ~ "Hucuktlis",
+      lake == "spr" ~ "Sproat"
+    ),
+    K = 100*(w_g/len_mm^3)
+  )
+
+
+# fry size data
+fry_size <- here(
+  "1. data",
+  "smolt size data.xlsx"
+) |> 
+  read_xlsx(sheet = "fry_morphometrics") |> 
+  pivot_longer(
+    cols = !smolt_year,
+    names_pattern = "(.{3})_(.*)",
+    names_to = c("lake", "metric")
+  ) |> 
+  pivot_wider(names_from = metric) |> 
+  rename_with(\(x) paste0("fry_", x), .cols = !c(lake, smolt_year)) |> 
+  mutate(
+    lake = case_when(
+      lake == "gcl" ~ "Great Central",
+      lake == "huc" ~ "Hucuktlis",
+      lake == "spr" ~ "Sproat"
+    )
+  )
+
+
+# Plot smolt size versus smolting rate
+smolt_size |> 
+  left_join(fry_size) |> 
+  mutate(fw_growth_idx = len_mm - fry_len_mm) |> 
+  left_join(
+    smolt_data, 
+    by = c("smolt_year" = "year", "lake")
+  ) |>
+  pivot_longer(c(w_g, len_mm, K, fw_growth_idx)) |> 
+  ggplot(aes(x = value, y = smolting_rate)) +
+  facet_grid(
+    lake~name, 
+    scales = "free",
+    switch = "x"
+    ) +
+  geom_point() +
+  geom_smooth() +
+  scale_y_continuous(
+    labels = scales::percent,
+    limits = c(0, 1),
+    expand = c(0, 0),
+    oob = scales::oob_keep
+  ) +
+  theme(
+    strip.placement = "outside",
+    strip.background.x = element_blank(),
+    axis.title.x = element_blank()
+  )
+# No strong patterns evident here. Both the dependent and 
+# independent variable are subject to considerable uncertainty, but 
+# if there was a strong link between growth and smolting rate, a 
+# clearer pattern would likely be discernable.
+# Possible conclusion: environmental conditions in the lakes do not
+# have a strong influence on smolting rate?
+
+
+
 # Load the annual ATS estimates
 ats_data <- here(
   "3. outputs",
@@ -151,8 +232,8 @@ make_stan_data <- function(
     sigma_M_prior = 0.5,
     mu_theta_prior = logit(0.8),
     sigma_theta_prior = 1,
-    sigma_theta_sd_prior = 0.75,
-    sigma_M_sd_prior = 0.5
+    sigma_theta_sd_prior = 1,
+    sigma_M_sd_prior = 1
 ) {
   
   # Filter data for a single lake
@@ -443,7 +524,7 @@ post <- lakes_stan_fits |>
 
 # Plot posterior versus prior distributions for mu_theta and mu_M
 post |> 
-  select(lake, mu_M, mu_theta, obs_error) |> 
+  select(lake, mu_M, mu_theta) |> 
   pivot_longer(!lake) %>% 
   split(.$name) |> 
   imap(
@@ -473,6 +554,41 @@ post |>
   )
 
 
+# Plot posterior distributions for sigma_theta & sigma_M
+post |> 
+  select(lake, sigma_M, sigma_theta) |> 
+  pivot_longer(!lake) %>% 
+  split(.$name) |> 
+  imap(
+    function(x, idx) {
+      prior <- lakes_stan_data |> 
+        map(\(x) keep_at(x, \(y) str_detect(y, idx))) |> 
+        map(as_tibble) |> 
+        list_rbind()
+      
+      x |> 
+      ggplot(aes(x = value)) +
+      facet_wrap(
+        ~lake,
+        scales = "free"
+      ) +
+      geom_textdensity(
+        label = "posterior",
+        hjust = 0.8
+      ) +
+      geom_textvline(
+        data = prior,
+        aes(xintercept = .data[[paste0(idx, "_sd_prior")]]),
+        colour = "red",
+        label = paste0(idx, "_sd_prior"),
+        hjust = 0.7
+      ) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+      labs(x = idx)
+    }
+  )
+
+
 # Predicted versus observed Age1 out-migrants
 lakes_stan_fits |> 
   imap(
@@ -487,6 +603,7 @@ lakes_stan_fits |>
         ggplot(aes(x = year, y = O1)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
         geom_point(data = data.frame(year = 1:Y, O1 = O1), color = "red") +
+        scale_y_continuous(labels = scales::label_number()) +
         ggtitle(paste(idx, "predicted versus estimated age1 out-migrants"))
     }
   )
@@ -506,10 +623,10 @@ lakes_stan_fits |>
         ggplot(aes(x = year, y = O2)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
         geom_point(data = data.frame(year = 1:Y, O2 = O2), color = "red") +
+        scale_y_continuous(labels = scales::label_number()) +
         ggtitle(paste(idx, "predicted versus estimated age2 out-migrants"))
     }
   )
-
 
 
 # Predicted versus observed age-1 smolt proportion
