@@ -1,7 +1,10 @@
 # Packages ----------------------------------------------------------------
 
 
-pkgs <- c("tidyverse", "rstan", "here", "bayesplot", "tidybayes", "geomtextpath")
+pkgs <- c(
+  "tidyverse", "rstan", "here", "bayesplot", "tidybayes", 
+  "geomtextpath", "writexl"
+)
 #install.packages(pkgs)
 
 
@@ -11,6 +14,7 @@ library(rstan)
 library(bayesplot)
 library(tidybayes)
 library(geomtextpath)
+library(writexl)
 
 
 # Logit transformation
@@ -146,7 +150,9 @@ make_stan_data <- function(
     mu_M_prior = logit(0.5),
     sigma_M_prior = 0.5,
     mu_theta_prior = logit(0.8),
-    sigma_theta_prior = 1
+    sigma_theta_prior = 1,
+    sigma_theta_sd_prior = 0.75,
+    sigma_M_sd_prior = 0.5
 ) {
   
   # Filter data for a single lake
@@ -223,6 +229,11 @@ make_stan_data <- function(
   
   # Observation error on lake ATS estimates
   obs_error_prior <- lake_data |> 
+    summarize(
+      ats_se = mean(ats_se),
+      ats_est = mean(ats_est)
+    ) |> 
+    mutate(ats_se = ats_se/2) |> # Reduce the SE estimates
     mutate(obs_error_prior = sqrt(log(1 + (ats_se^2 / ats_est^2)))) |> 
     pull(obs_error_prior)
   
@@ -241,6 +252,8 @@ make_stan_data <- function(
     sigma_theta_prior = theta_prior_alt$sigma_theta, # alternative user specification
     mu_M_prior = mu_M_prior,
     sigma_M_prior = sigma_M_prior,
+    sigma_theta_sd_prior = sigma_theta_sd_prior,
+    sigma_M_sd_prior = sigma_M_sd_prior,
     mu_N2_init_prior = N2_init_prior$N2_init_log_mean,
     sigma_N2_init_prior = N2_init_prior$N2_init_log_sigma,
     #mu_pN1_prior = pN1_prior$mu_pN1,
@@ -260,10 +273,10 @@ lakes_stan_data <- unique(lakes_data$lake) |>
   set_names() |> 
   map2(
     # Second winter mortality rate priors for GCL, HUC, SPR, respectively
-    .y = logit(c(0.25, 0.5, 0.4)),
+    .y = logit(c(0.25, 0.65, 0.5)),
     \(x, y) make_stan_data(
       lake_name = x, 
-      #mu_M_prior = y # Try with all default values first
+      mu_M_prior = y # Try with all default values first
     )
   )
 
@@ -317,6 +330,7 @@ some_priors |>
   imap(
     \(x, idx) x |> 
       ggplot(
+        # Show distributions of M and theta priors in response (%) scale
         aes(
           if(idx %in% c("mu_M", "mu_theta")) {
             x = binomial()$linkinv(value)
@@ -350,11 +364,11 @@ fit_stan_model <- function(stan_data, index) {
     ),
     model_name = index,
     data = stan_data,
-    iter = 2000,
-    chains = 3,
+    iter = 4000,
+    chains = 4,
     control = list(
-      adapt_delta = 0.90
-      #,max_treedepth = 15
+      adapt_delta = 0.99
+      ,max_treedepth = 15
     )
   )
 }
@@ -429,7 +443,7 @@ post <- lakes_stan_fits |>
 
 # Plot posterior versus prior distributions for mu_theta and mu_M
 post |> 
-  select(lake, mu_M, mu_theta) |> 
+  select(lake, mu_M, mu_theta, obs_error) |> 
   pivot_longer(!lake) %>% 
   split(.$name) |> 
   imap(
@@ -457,7 +471,7 @@ post |>
       scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
       labs(x = idx)
   )
-  
+
 
 # Predicted versus observed Age1 out-migrants
 lakes_stan_fits |> 
@@ -558,6 +572,11 @@ lakes_stan_fits |>
         ggplot(aes(x = year, y = theta)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
         geom_point(data = data.frame(year = 1:Y, theta = theta), color = "red") +
+        scale_y_continuous(
+          expand = c(0, 0),
+          limits = c(0, 1),
+          labels = scales::percent
+        ) +
         ggtitle(paste(idx, "predicted versus estimated smolting rate"))
     }
   )
@@ -587,9 +606,92 @@ lakes_stan_fits |>
     \(x, idx) spread_draws(x, M[year]) %>% 
         ggplot(aes(x = year, y = M)) +
         stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
+      scale_y_continuous(
+        expand = c(0, 0),
+        limits = c(0, 1),
+        labels = scales::percent
+      ) +
         ggtitle(paste(idx, "predicted mortality rate"))
   )
 
 
 
- 
+  
+
+# Extract posterior (with imputed) values and export ----------------------
+
+
+# Dataframe with first year in time series for each lake
+min_yrs <- lakes_data |> 
+  summarize(
+    .by = lake,
+    min_yr = min(year)
+  )
+
+
+# Big dataframe with all draws for all lakes
+posterior_df <- lakes_stan_fits |> 
+  map(extract) |> 
+  map(
+    \(x) keep(
+      .x = x, 
+      .p = \(y) is.matrix(y))
+  ) |> 
+  map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "lake") |> 
+  pivot_longer(
+    cols = !c(lake, parameter),
+    names_to = "year",
+    values_to = "value",
+    names_transform = \(x) str_extract(x, "\\d+")
+  ) |> 
+  left_join(min_yrs) |> 
+  mutate(year = as.numeric(year) - 1 + min_yr) |> 
+  select(-min_yr) |> 
+  filter(parameter %in% c("O1", "O2", "N1", "N2", "N_lake", "theta", "M"))
+  
+
+# Summarize posterior for export
+annual_estimates <- posterior_df |> 
+  filter(!is.na(value)) |> 
+  summarize(
+    .by = c(lake, parameter, year),
+    quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+    # How about an SD-esque statistic? 
+  ) |> 
+  unnest_wider(quantiles)
+
+
+# Metadata sheet
+metadata <- tibble(
+  parameter = unique(annual_estimates$parameter)
+) |> 
+  mutate(
+    definition = case_when(
+      parameter == "O1" ~ "Posterior estimates for age1 outmigrating smolts",
+      parameter == "O2" ~ "Posterior estimates for age2 outmigrating smolts",
+      parameter == "N1" ~ "Posterior estimates for age1 fry abundance in the lake on 1 March",
+      parameter == "N2" ~ "Posterior estimates for age2 fry abundance in the lake on 1 March",
+      parameter == "N_lake" ~ "Posterior estimates for total fry abundance in the lake on 1 March",
+      parameter == "theta" ~ "Posterior estimates for age1 smolting rate",
+      parameter == "M" ~ "Posterior estimates for second year fry mortality (age1 to age2)",
+      .default = "MISSING"
+    )
+  )
+
+
+# Export posterior estimates and metadata to excel
+list(
+  "metadata" = metadata, 
+  "model_estimates" = annual_estimates
+) |> 
+  write_xlsx(
+    path = here(
+      "3. outputs",
+      "Stock-recruit data",
+      "Bayesian_state-space_smolt-production_estimated_time_series.xlsx"
+    )
+  )
+  
+  
