@@ -3,7 +3,7 @@
 
 pkgs <- c(
   "tidyverse", "rstan", "here", "bayesplot", "tidybayes", 
-  "geomtextpath", "writexl"
+  "geomtextpath", "writexl", "readxl"
 )
 #install.packages(pkgs)
 
@@ -11,6 +11,7 @@ pkgs <- c(
 library(here)
 library(tidyverse); theme_set(theme_bw())
 library(rstan)
+library(readxl)
 library(bayesplot)
 library(tidybayes)
 library(geomtextpath)
@@ -233,7 +234,7 @@ make_stan_data <- function(
     mu_theta_prior = logit(0.8),
     sigma_theta_prior = 1,
     sigma_theta_sd_prior = 1,
-    sigma_M_sd_prior = 1
+    sigma_M_sd_prior = 2
 ) {
   
   # Filter data for a single lake
@@ -314,7 +315,7 @@ make_stan_data <- function(
       ats_se = mean(ats_se),
       ats_est = mean(ats_est)
     ) |> 
-    mutate(ats_se = ats_se/2) |> # Reduce the SE estimates
+    mutate(ats_se = ats_se/5) |> # Reduce the SE estimates
     mutate(obs_error_prior = sqrt(log(1 + (ats_se^2 / ats_est^2)))) |> 
     pull(obs_error_prior)
   
@@ -459,18 +460,53 @@ fit_stan_model <- function(stan_data, index) {
 # fit_stan_model(lakes_stan_data$`Great Central`, "Great Central")
 # working, as of 6 March
 
-# Fit models for each lake
-lakes_stan_fits <- lakes_stan_data |> 
-  imap(fit_stan_model)
+# Fit models for each lake (toggle to TRUE to run)
+if(
+  FALSE
+  #TRUE
+) {
+  lakes_stan_fits <- lakes_stan_data |> 
+    imap(fit_stan_model)
+}
 
 
-# Save summary data from the fitted models
-models_summary <- lakes_stan_fits |> 
-  map(rstan::summary) |> 
-  map(\(x) x$summary) |> 
-  map(\(x) as_tibble(x, rownames = "parameter")) |> 
-  list_rbind(names_to = "stock") |> 
-  nest(.by = stock, .key = "model_summary")
+# Save fitted models as RDS objects
+if(
+  #TRUE
+  FALSE
+) {
+  lakes_stan_fits |> 
+    iwalk(
+      \(x, idx) x |> 
+        saveRDS(
+          file = here(
+            "3. outputs",
+            "Stock-recruit data",
+            paste("Bayesian state-space", idx, "smolts.rds")
+          )
+        )
+    )
+}
+
+
+# Load fitted models from RDS files (if not already in global environment)
+lakes_stan_fits <- if(exists("lakes_stan_fits")) {
+  lakes_stan_fits
+  } else {
+  names(lakes_stan_data) |>
+    purrr::set_names() |> 
+    map(
+      \(x) list.files(
+        here(
+          "3. outputs",
+          "Stock-recruit data"
+        ),
+        pattern = paste("Bayesian state-space", x, "smolts.rds"),
+        full.names = TRUE
+      )
+    ) |> 
+    map(readRDS)
+}
 
 
 #assess convergence###
@@ -512,233 +548,8 @@ lakes_stan_fits |>
 # Plot predicted versus observed values -----------------------------------
 
 
-# Posterior values
-post <- lakes_stan_fits |> 
-  map(extract) |> 
-  # Discard all parameters with year-specific estimates
-  map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
-  map(\(x) imap(x, as_tibble_col)) |> 
-  map(\(x) list_cbind(unname(x))) |> 
-  list_rbind(names_to = "lake")
-
-
-# Plot posterior versus prior distributions for mu_theta and mu_M
-post |> 
-  select(lake, mu_M, mu_theta) |> 
-  pivot_longer(!lake) %>% 
-  split(.$name) |> 
-  imap(
-    \(x, idx) x |> 
-      ggplot(
-        aes(
-          #x = value
-          x = binomial()$linkinv(value)
-        )
-      ) +
-      facet_wrap(
-        ~lake,
-        scales = "free"
-      ) +
-      geom_textdensity(
-        label = "posterior",
-        hjust = 0.3
-      ) +
-      geom_textdensity(
-        data = some_priors[[idx]],
-        colour = "red",
-        label = "prior",
-        hjust = 0.7
-      ) +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-      labs(x = idx)
-  )
-
-
-# Plot posterior distributions for sigma_theta & sigma_M
-post |> 
-  select(lake, sigma_M, sigma_theta) |> 
-  pivot_longer(!lake) %>% 
-  split(.$name) |> 
-  imap(
-    function(x, idx) {
-      prior <- lakes_stan_data |> 
-        map(\(x) keep_at(x, \(y) str_detect(y, idx))) |> 
-        map(as_tibble) |> 
-        list_rbind()
-      
-      x |> 
-      ggplot(aes(x = value)) +
-      facet_wrap(
-        ~lake,
-        scales = "free"
-      ) +
-      geom_textdensity(
-        label = "posterior",
-        hjust = 0.8
-      ) +
-      geom_textvline(
-        data = prior,
-        aes(xintercept = .data[[paste0(idx, "_sd_prior")]]),
-        colour = "red",
-        label = paste0(idx, "_sd_prior"),
-        hjust = 0.7
-      ) +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-      labs(x = idx)
-    }
-  )
-
-
-# Predicted versus observed Age1 out-migrants
-lakes_stan_fits |> 
-  imap(
-    function(x, idx) {
-      O1 <- lakes_data |> 
-        filter(lake == idx) |> 
-        mutate(age1s = (1-prop_age2)*smolting_rate*ats_est) |> 
-        pull(age1s)
-      Y <- lakes_stan_data[[idx]]$Y
-      
-      spread_draws(x, O1[year]) %>% 
-        ggplot(aes(x = year, y = O1)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, O1 = O1), color = "red") +
-        scale_y_continuous(labels = scales::label_number()) +
-        ggtitle(paste(idx, "predicted versus estimated age1 out-migrants"))
-    }
-  )
-
-
-# Predicted versus observed Age2 out-migrants
-lakes_stan_fits |> 
-  imap(
-    function(x, idx) {
-      O2 <- lakes_data |> 
-        filter(lake == idx) |> 
-        mutate(age2s = prop_age2*ats_est) |> 
-        pull(age2s)
-      Y <- lakes_stan_data[[idx]]$Y
-      
-      spread_draws(x, O2[year]) %>% 
-        ggplot(aes(x = year, y = O2)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, O2 = O2), color = "red") +
-        scale_y_continuous(labels = scales::label_number()) +
-        ggtitle(paste(idx, "predicted versus estimated age2 out-migrants"))
-    }
-  )
-
-
-# Predicted versus observed age-1 smolt proportion
-lakes_stan_fits |> 
-  imap(
-    function(x, idx) {
-      p1 <- lakes_data |> 
-        filter(lake == idx) |> 
-        mutate(prop_age1s = (1-prop_age2)*smolting_rate) |> 
-        pull(prop_age1s)
-      Y <- lakes_stan_data[[idx]]$Y
-      
-      spread_draws(x, p1[year]) %>% 
-        ggplot(aes(x = year, y = p1)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, p1 = p1), color = "red") +
-        scale_y_continuous(
-          expand = c(0, 0),
-          limits = c(0, 1),
-          labels = scales::percent
-        ) +
-        ggtitle(paste(idx, "predicted versus estimated age1 proportion"))
-    }
-  )
-
-
-# Predicted Age2 proportions
-lakes_stan_fits |> 
-  imap(
-    function(x, idx) {
-      p2 <- lakes_data |> 
-        filter(lake == idx) |> 
-        pull(prop_age2)
-      Y <- lakes_stan_data[[idx]]$Y
-      
-      spread_draws(x, p2[year]) %>% 
-        ggplot(aes(x = year, y = p2)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, p2 = p2), color = "red") +
-        scale_y_continuous(
-          expand = c(0, 0),
-          limits = c(0, 1),
-          labels = scales::percent
-        ) +
-        ggtitle(paste(idx, "predicted versus estimated age2 proportion"))
-    }
-  )
-
-
-# Predicted versus estimated smolting rate
-lakes_stan_fits |> 
-  imap(
-    function(x, idx) {
-      theta <- lakes_data |> 
-        filter(lake == idx) |> 
-        pull(smolting_rate)
-      Y <- lakes_stan_data[[idx]]$Y
-      
-      spread_draws(x, theta[year]) %>% 
-        ggplot(aes(x = year, y = theta)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, theta = theta), color = "red") +
-        scale_y_continuous(
-          expand = c(0, 0),
-          limits = c(0, 1),
-          labels = scales::percent
-        ) +
-        ggtitle(paste(idx, "predicted versus estimated smolting rate"))
-    }
-  )
-
-
-# Predicted versus observed lake abundance
-lakes_stan_fits |> 
-  imap(
-    function(x, idx) {
-      N_lake <- lakes_data |> 
-        filter(lake == idx) |> 
-        pull(ats_est)
-      Y <- lakes_stan_data[[idx]]$Y
-      
-      spread_draws(x, N_lake[year]) %>% 
-        ggplot(aes(x = year, y = N_lake)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-        geom_point(data = data.frame(year = 1:Y, N_lake = N_lake), color = "red") +
-        ggtitle(paste(idx, "predicted versus estimated lake abundance"))
-    }
-  )
-
-
-# Predicted mortality rate
-lakes_stan_fits |> 
-  imap(
-    \(x, idx) spread_draws(x, M[year]) %>% 
-        ggplot(aes(x = year, y = M)) +
-        stat_pointinterval(.width = c(0.5, 0.8, 0.95))+
-      scale_y_continuous(
-        expand = c(0, 0),
-        limits = c(0, 1),
-        labels = scales::percent
-      ) +
-        ggtitle(paste(idx, "predicted mortality rate"))
-  )
-
-
-
-  
-
-# Extract posterior (with imputed) values and export ----------------------
-
-
 # Dataframe with first year in time series for each lake
+# used to properly code years in the Stan outputs
 min_yrs <- lakes_data |> 
   summarize(
     .by = lake,
@@ -746,14 +557,26 @@ min_yrs <- lakes_data |>
   )
 
 
-# Big dataframe with all draws for all lakes
-posterior_df <- lakes_stan_fits |> 
+# Posterior values that are not year-specific
+post_interannual <- lakes_stan_fits |> 
   map(extract) |> 
-  map(
-    \(x) keep(
-      .x = x, 
-      .p = \(y) is.matrix(y))
-  ) |> 
+  # Discard all parameters with year-specific estimates
+  map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
+  map(\(x) imap(x, as_tibble_col)) |> 
+  map(\(x) list_cbind(unname(x))) |> 
+  list_rbind(names_to = "lake") |> 
+  pivot_longer(
+    !lake,
+    names_to = "parameter",
+    values_to = "value"
+  )
+
+
+# Posterior values that are year-specific
+post_annual <- lakes_stan_fits |> 
+  map(extract) |> 
+  # Keep only parameters with year-specific estimates
+  map(\(x) keep(.x = x, .p = \(y) is.matrix(y))) |> 
   map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL))) |> 
   map(\(x) list_rbind(x, names_to = "parameter")) |> 
   list_rbind(names_to = "lake") |> 
@@ -765,13 +588,178 @@ posterior_df <- lakes_stan_fits |>
   ) |> 
   left_join(min_yrs) |> 
   mutate(year = as.numeric(year) - 1 + min_yr) |> 
-  select(-min_yr) |> 
-  filter(parameter %in% c("O1", "O2", "N1", "N2", "N_lake", "theta", "M"))
+  select(-min_yr)
+
+
+# Bring both posterior dataframes together
+posterior_df <- bind_rows(post_annual, post_interannual)
+
+
+# Plot posterior versus prior distributions for mu_theta and mu_M
+posterior_df |> 
+  filter(parameter %in% c("mu_M", "mu_theta")) %>% 
+  ggplot(aes(x = binomial()$linkinv(value))) +
+  facet_wrap(
+    parameter ~ lake,
+    scales = "free",
+    labeller = labeller(.multi_line = FALSE)
+  ) +
+  geom_textdensity(
+    label = "posterior",
+    hjust = 0.3
+  ) +
+  geom_textdensity(
+    data = some_priors |> 
+      keep_at(c("mu_M", "mu_theta")) |> 
+      list_rbind(names_to = "parameter"),
+    colour = "red",
+    label = "prior",
+    hjust = 0.7
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(x = "value")
   
+
+# Plot posterior distributions for sigma_theta & sigma_M
+posterior_df |> 
+  filter(parameter %in% c("sigma_M", "sigma_theta")) |> 
+  ggplot(aes(x = value)) +
+  facet_wrap(
+    parameter ~ lake,
+    scales = "free",
+    labeller = labeller(.multi_line = FALSE)
+  ) +
+  geom_textdensity(
+    label = "posterior",
+    hjust = 0.8
+  ) +
+  geom_textvline(
+    data = lakes_stan_data |> 
+      map(\(x) keep_at(x, paste0(c("sigma_M", "sigma_theta"), "_sd_prior"))) |> 
+      map(as_tibble) |> 
+      list_rbind(names_to = "lake") |> 
+      pivot_longer(
+        !lake,
+        names_to = "label",
+        values_to = "value"
+      ) |> 
+      mutate(parameter = str_remove(label, "_sd_prior")),
+    aes(
+      xintercept = value, 
+      label = label
+    ),
+    colour = "red",
+    hjust = 0.7
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(x = "value")
+
+
+# Dataframe with estimated parameters from raw data
+obs_params <- lakes_data |> 
+  mutate(
+    O1 = (1-prop_age2)*smolting_rate*ats_est,
+    O2 = prop_age2*ats_est,
+    p1 = (1-prop_age2)*smolting_rate,
+    p2 = prop_age2,
+    theta = smolting_rate,
+    M = NA,
+    N_lake = ats_est
+  ) |> 
+  select(lake, year, any_of(unique(post_annual$parameter))) |> 
+  pivot_longer(
+    cols = !c(lake, year),
+    names_to = "parameter",
+    values_to = "obs"
+  )
+
+
+# Plot predicted versus estimated values for parameters of interest across years
+(out_plots <- posterior_df |> 
+  filter(
+    !is.na(value),
+    parameter %in% c("O1", "O2", "p1", "p2", "N_lake", "theta", "M"),
+  ) |> 
+  summarize(
+    .by = c(lake, parameter, year),
+    quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+  ) |> 
+  unnest_wider(quantiles) |>
+  # Add observed values
+  left_join(obs_params) |> 
+  # Make parameter names more informative
+  mutate(
+    parameter = case_when(
+      parameter == "O1" ~ "age1 smolts",
+      parameter == "O2" ~ "age2 smolts",
+      parameter == "p1" ~ "age1 smolt proportion",
+      parameter == "p2" ~ "age2 smolt proportion",
+      parameter == "N_lake" ~ "lake total fry abundance",
+      parameter == "theta" ~ "smolting rate",
+      parameter == "M" ~ "age1 to age2 mortality",
+      .default = "MISSING"
+    )
+  ) %>%
+  split(.$parameter) |> 
+  imap(
+    \(x, idx) x |> 
+      ggplot(aes(x = year, y = `50%`)) +
+      facet_wrap(
+        ~lake,
+        scales = "free_y",
+        ncol = 1,
+        strip.position = "right"
+      ) +
+      geom_linerange(
+        aes(
+          ymin = `2.5%`,
+          ymax = `97.5%`
+        ),
+        linewidth = 0.3,
+        alpha = 0.6
+      ) +
+      geom_pointrange(
+        aes(
+          ymin = `10%`,
+          ymax = `90%`
+        ),
+        linewidth = 1
+      ) +
+      geom_point(aes(y = obs), color = "red") +
+      labs(y = idx) +
+      ggtitle(paste("Predicted versus estimated", idx))
+  )
+)
+
+
+# Save output plots
+out_plots |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit data",
+        "Bayesian smolt model posterior",
+        paste("Posterior vs estimated", idx, ".png")
+      ),
+      dpi = "print",
+      width = 6.5, 
+      height = 5.5,
+      units = "in"
+    )
+  )
+
+
+# Export posterior values of interest (with imputed years) -------------------
+
 
 # Summarize posterior for export
 annual_estimates <- posterior_df |> 
-  filter(!is.na(value)) |> 
+  filter(
+    parameter %in% c("O1", "O2", "N1", "N2", "N_lake", "theta", "M"),
+    !is.na(value)
+  ) |> 
   summarize(
     .by = c(lake, parameter, year),
     quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
