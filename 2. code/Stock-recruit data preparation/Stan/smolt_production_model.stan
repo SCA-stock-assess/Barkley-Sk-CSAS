@@ -1,5 +1,5 @@
 data {
-  int<lower=1> Y;                // Number of years
+  int<lower=1> Y;                 // Number of years
   array[Y] int<lower=0> N_obs;    // Observed total lake abundance
   array[Y] int<lower=0> A1_obs;   // Observed age-1 migrants in samples
   array[Y] int<lower=0> A_total;  // Total aged fish in outmigration samples
@@ -61,6 +61,7 @@ transformed parameters {
   array[Y] real<lower=0, upper=1> p2;    // Age-2 smolt proportion
   array[Y] real<lower=0> BO1;            // Biomass of age-1 outmigrants
   array[Y] real<lower=0> BO2;            // Biomass of age-2 outmigrants 
+
   
   // Hierarchical transformation
   for (y in 1:Y) {
@@ -86,7 +87,6 @@ transformed parameters {
     // Biomass: multiply abundance by true weight
     BO1[y] = O1[y] * w1[y];
     BO2[y] = O2[y] * w2[y];
-  }
 }
  
 model {
