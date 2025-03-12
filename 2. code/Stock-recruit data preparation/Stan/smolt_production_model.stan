@@ -3,6 +3,17 @@ data {
   array[Y] int<lower=0> N_obs;    // Observed total lake abundance
   array[Y] int<lower=0> A1_obs;   // Observed age-1 migrants in samples
   array[Y] int<lower=0> A_total;  // Total aged fish in outmigration samples
+  
+  // Weight data for outmigrants:
+  // For age-1 outmigrants (O1)
+  array[Y] real WO1_mean;   // Observed mean body weight for O1 fish in each year
+  array[Y] real<lower=0> WO1_sd;   // Observed SD of body weight for O1 fish
+  array[Y] int<lower=1> WO1_n;      // Sample size for O1 weight data
+  // For age-2 outmigrants (O2)
+  array[Y] real WO2_mean;   // Observed mean body weight for O2 fish in each year
+  array[Y] real<lower=0> WO2_sd;   // Observed SD of body weight for O2 fish
+  array[Y] int<lower=1> WO2_n;      // Sample size for O2 weight data
+  
   real<lower=0> obs_error_prior; // obs error on total lake abundance (sigma)
   real mu_theta_prior;                    // Mean prior for smolting rate
   real<lower=0> sigma_theta_prior;        // SD prior for smolting rate
@@ -32,7 +43,9 @@ parameters {
  
   real<lower=0> N2_init;             // initialization for age 2 fish in year 1
   array[Y] real<lower=0> N1;         // Yearly total age1 fry abundance
- 
+  
+  array[Y] real<lower=0> w1;         // True weight for O1 fish in each year
+  array[Y] real<lower=0> w2;         // True weight for O2 fish in each year
 }
  
 // deterministic statements
@@ -46,7 +59,8 @@ transformed parameters {
   array[Y] real<lower=0> O2;             // Age-2 outmigrants
   array[Y] real<lower=0, upper=1> p1;    // Age-1 smolt proportion
   array[Y] real<lower=0, upper=1> p2;    // Age-2 smolt proportion
- 
+  array[Y] real<lower=0> BO1;            // Biomass of age-1 outmigrants
+  array[Y] real<lower=0> BO2;            // Biomass of age-2 outmigrants 
   
   // Hierarchical transformation
   for (y in 1:Y) {
@@ -69,6 +83,9 @@ transformed parameters {
     // Annual age proportions of smolts
     p1[y] = O1[y] / N_lake[y];
     p2[y] = O2[y] / N_lake[y];
+    // Biomass: multiply abundance by true weight
+    BO1[y] = O1[y] * w1[y];
+    BO2[y] = O2[y] * w2[y];
   }
 }
  
@@ -103,5 +120,13 @@ model {
     if (is_observed_count[y] == 1) {
       A1_obs[y] ~ binomial(A_total[y], O1[y] / (O1[y] + O2[y])); // total number of observed age1s in outmigration
     }
+  }
+  
+  // Observation models for weight data for outmigrants
+  for (y in 1:Y) {
+    // For age-1 fish weights:
+    WO1_mean[y] ~ normal(w1[y], WO1_sd[y] / sqrt(WO1_n[y]));
+    // For age-2 fish weights:
+    WO2_mean[y] ~ normal(w2[y], WO2_sd[y] / sqrt(WO2_n[y]));
   }
 }
