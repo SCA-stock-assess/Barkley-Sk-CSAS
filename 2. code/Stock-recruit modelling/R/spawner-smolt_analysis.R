@@ -12,92 +12,72 @@ library(broom)
 
 
 
-# Load pre-smolt abundance and size  and adult spawner data --------------
+# Load pre-smolt abundance and adult spawner data --------------
 
 
-# Lake abundance estimates
+# Lake abundance estimates from Bayesian model
 fry_abun <- here(
-  "1. data",
-  "Barkley-Sk_pre-smolt_abundances.xlsx"
+  "3. outputs",
+  "Stock-recruit data",
+  "Bayesian_state-space_smolt-production_estimated_time_series.xlsx"
 ) |> 
-  read_xlsx() |> 
-  pivot_longer(
-    matches("gcl|spr|huc"),
-    names_sep = "_",
-    names_to = c("cu", ".value")
-  ) |> 
-  # For the purposes of this analysis, we will focus only on the total #s
-  select(smolt_year, cu, ttl)
-
-
-# Pre-smolt size data
-fry_sizes <- here(
-  "1. data",
-  "smolt size data.xlsx"
-) |> 
-  read_xlsx(sheet = "morphometrics") |> 
-  pivot_longer(
-    matches("gcl|spr|huc"),
-    names_sep = "_",
-    names_to = c("cu", ".value")
-  ) |> 
-  select(-n)
-
-
-# Join abundance and size data
-fry <- left_join(
-  fry_abun,
-  fry_sizes
-) |> 
-  mutate(biomass = w*ttl)
+  read_xlsx(sheet = "model_estimates") |> 
+  filter(parameter %in% c("N1", "N2", "O1", "O2", "BO1", "BO2")) |> 
+  rename("cu" = lake) |> 
+  mutate(
+    brood_year = case_when(
+      str_detect(parameter, "1") ~ year - 2,
+      str_detect(parameter, "2") ~ year - 3,
+      .default = NA
+    )
+  )
 
 
 # Spawner abundance data
-spwn <-  here(
+spwn <- here(
   "3. outputs",
   "Stock-recruit data",
   "Barkley_Sockeye_stock-recruit_infilled.xlsx"
 ) |> 
   read_xlsx(sheet = "S-R data") |> 
-  rename("cu" = stock) |> 
+  rename("cu" = stock, "brood_year" = year) |> 
   mutate(
-    cu = tolower(cu),
-    smolt_year = year + 2,
-    # smolt_year = year for hatchery_fry_releases--lead back to align
-    #hatchery_fry_release = lead(hatchery_fry_release, 2),
-    hatchery_fry_release = if_else(
-      is.na(hatchery_fry_release), 
-      0, 
-      hatchery_fry_release
-    )
+    cu = case_when(
+      cu == "GCL" ~ "Great Central",
+      cu == "SPR" ~ "Sproat",
+      cu == "HUC" ~ "Hucuktlis"
+    ),
+    hatchery_fry_release = lead(hatchery_fry_release, 2)
   ) |> 
-  select(smolt_year, cu, S, adult_S, fertilized, hatchery_fry_release)
+  select(brood_year, cu, S, adult_S, fertilized, hatchery_fry_release)
 
 
 # Join spawner data to fry data
 spwn_fry <- left_join(
-  fry,
+  fry_abun,
   spwn
 ) |>
   mutate(
-    fertilized = factor(fertilized),
-    cu = factor(
-      cu,
-      levels = c("gcl", "spr", "huc"),
-      labels = c("Great Central", "Sproat", "Hucuktlis")
+    hatchery_fry_release = if_else(
+      is.na(hatchery_fry_release), 
+      0, 
+      hatchery_fry_release
     ),
+    fertilized = factor(fertilized),
+    cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis")),
     # Remove hatchery contributions from Hucuktlis data
-    ttl = if_else(
-      # In 1999, assume 90% hatchery smolts. Otherwise, subtracting 10% of 
-      # hatchery released fry from from the total lake ATS estimate (as is
-      # done for all other years) results in a - value. This is following
-      # a footnote in Tablw 13 of the unpublished draft Henderson Stock
-      # Status PSARC report (from 2008). 
-      cu == "Hucuktlis" & smolt_year == 1999,
-      ttl*0.1, 
-      ttl - (hatchery_fry_release*0.1/1e6)
-      ),
-    biomass = ttl * w
+    across(
+      matches("%"),
+      \(x) case_when(
+      # When releases > number fry, assume 90% hatchery. 
+      # This is following a footnote in Table 13 of the unpublished draft 
+      # Henderson Stock Status PSARC report (from 2008). 
+      parameter == "N1" & cu == "Hucuktlis" & hatchery_fry_release > x ~ x*0.1, 
+      parameter == "N1" ~ x - hatchery_fry_release,
+      # What is expected to happen to N2s? 
+      .default = x
+      )
+    )
   )
 
 
@@ -112,6 +92,231 @@ spwn_fry <- left_join(
 # 4) log(pre-smolt biomass per spawner)
 # 
 # Also need to examine fits with & without Hucuktlis 1993 outlier removed 
+
+
+# Simple plots of spawners and adult spawners versus pre-smolt abundance
+spwn_fry |> 
+  filter(parameter == "N1") |> 
+  pivot_longer(c(S, adult_S)) |> 
+  ggplot(aes(x = value, y = `50%`)) +
+  facet_grid(
+    cu ~ name,
+    scales = "free",
+    switch = "x"
+  ) +
+  geom_linerange(
+    aes(
+      ymin = `2.5%`,
+      ymax = `97.5%`
+    ),
+    linewidth = 0.3,
+    alpha = 0.3
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = `10%`,
+      ymax = `90%`,
+      fill = brood_year
+    ),
+    linewidth = 0.5,
+    fatten = 3,
+    shape = 21,
+    stroke = 0.5
+  ) +
+  scale_fill_viridis_c() +
+  scale_y_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(y = "Age-1 fry production") +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.placement = "outside",
+    strip.background.x = element_blank()
+  )
+
+
+# Similar plots but with smolt production
+spwn_fry |> 
+  filter(
+    .by = cu,
+    brood_year != min(brood_year), # remove first brood year, which has incomplete data
+    parameter %in% c("O1", "O2")
+  ) |> 
+  summarize(
+    .by = c(brood_year, S, adult_S, cu),
+    across(matches("%"), sum)
+  ) |>
+  pivot_longer(c(S, adult_S)) |> 
+  ggplot(aes(x = value, y = `50%`)) +
+  facet_grid(
+    cu ~ name,
+    scales = "free",
+    switch = "x"
+  ) +
+  geom_linerange(
+    aes(
+      ymin = `2.5%`,
+      ymax = `97.5%`
+    ),
+    linewidth = 0.3,
+    alpha = 0.3
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = `10%`,
+      ymax = `90%`,
+      fill = brood_year
+    ),
+    linewidth = 0.5,
+    fatten = 3,
+    shape = 21,
+    stroke = 0.5
+  ) +
+  scale_fill_viridis_c() +
+  scale_y_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(y = "Smolt production") +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.placement = "outside",
+    strip.background.x = element_blank()
+  )
+
+
+
+# And  with smolt biomass
+spwn_fry |> 
+  filter(
+    .by = cu,
+    brood_year != min(brood_year), # remove first brood year, which has incomplete data
+    parameter %in% c("BO1", "BO2")
+  ) |> 
+  summarize(
+    .by = c(brood_year, S, adult_S, cu),
+    across(matches("%"), sum)
+  ) |>
+  mutate(across(matches("%"), \(x) x/1000)) |> # convert to kg
+  pivot_longer(c(S, adult_S)) |> 
+  ggplot(aes(x = value, y = `50%`)) +
+  facet_grid(
+    cu ~ name,
+    scales = "free",
+    switch = "x"
+  ) +
+  geom_linerange(
+    aes(
+      ymin = `2.5%`,
+      ymax = `97.5%`
+    ),
+    linewidth = 0.3,
+    alpha = 0.3
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = `10%`,
+      ymax = `90%`,
+      fill = brood_year
+    ),
+    linewidth = 0.5,
+    fatten = 3,
+    shape = 21,
+    stroke = 0.5
+  ) +
+  scale_fill_viridis_c() +
+  scale_y_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(y = "Smolt biomass (kg)") +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.placement = "outside",
+    strip.background.x = element_blank()
+  )
+
+
+
+# Log smolts per spawner
+spwn_fry |> 
+  filter(
+    .by = cu,
+    brood_year != min(brood_year), # remove first brood year, which has incomplete data
+    parameter %in% c("O1", "O2")
+  ) |> 
+  summarize(
+    .by = c(brood_year, S, adult_S, cu),
+    across(matches("%"), sum)
+  ) |>
+  pivot_longer(c(S, adult_S)) |> 
+  ggplot(aes(x = value, y = log(`50%`/value))) +
+  facet_grid(
+    cu ~ name,
+    scales = "free",
+    switch = "x"
+  ) +
+  geom_linerange(
+    aes(
+      ymin = log(`2.5%`/value),
+      ymax = log(`97.5%`/value)
+    ),
+    linewidth = 0.3,
+    alpha = 0.3
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = log(`10%`/value),
+      ymax = log(`90%`/value),
+      fill = brood_year
+    ),
+    linewidth = 0.5,
+    fatten = 3,
+    shape = 21,
+    stroke = 0.5
+  ) +
+  geom_smooth() +
+  scale_fill_viridis_c() +
+  scale_y_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  labs(y = "log smolts per spawner") +
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.placement = "outside",
+    strip.background.x = element_blank()
+  )
+
 
 
 # Set up a nested dataframe containing those 4 outcome variables
