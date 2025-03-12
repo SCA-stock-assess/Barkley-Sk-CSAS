@@ -22,7 +22,145 @@ library(writexl)
 logit <- function(p) {log(p/(1-p))}
 
 
-# Load and prepare raw data for Stan --------------------------------------
+
+# Load and infill smolt size data -----------------------------------------
+
+
+# Raw data, with annual mean lengths and weights infilled for missing years
+smolt_sizes <- here(
+  "1. data",
+  "smolt size data.xlsx"
+) |> 
+  read_xlsx(sheet = "smolt_morpho_age") |> 
+  filter(smolt_year >= 1977) |> 
+  pivot_longer(
+    matches("age\\d"),
+    names_pattern = "(age\\d)_(.*)",
+    names_to = c("age", "measure")
+  ) |> 
+  pivot_wider(
+    names_from = measure,
+    values_from = value
+  ) |> 
+  pivot_longer(
+    matches("^(len|w)"),
+    names_sep = "_",
+    names_to = c("measure", "statistic")
+  ) |> 
+  pivot_wider(
+    names_from = statistic,
+    values_from = value
+  ) |> 
+  mutate(cv = sd/mean)
+
+
+# Does using average CV make sense for SD infilling?
+smolt_sizes |> 
+  ggplot(aes(x = smolt_year, y = cv)) +
+  facet_grid(measure ~ lake) +
+  geom_point(aes(colour = age)) +
+  scale_y_continuous(
+    labels = scales::percent,
+    limits = c(0, 1),
+    expand = c(0, 0)
+  )
+# Data look a bit noisy for weights
+
+
+# Does CV scale with mean?
+smolt_sizes |> 
+  ggplot(aes(x = mean, y = cv, colour = age)) +
+  facet_grid(lake ~ measure, scales = "free_x") +
+  geom_point() +
+  geom_smooth()
+# Not really
+
+# It looks like it's probably fine to use average CV to infill missing SD values
+
+
+# Missing age-2 Hucuktlis weights
+# see if there is any possibility to infill based on age1 weights or lagged
+# age1 weights
+smolt_sizes |> 
+  filter(lake == "huc") |> 
+  pivot_wider(
+    id_cols = c(lake, smolt_year, measure),
+    names_from = age,
+    values_from = mean
+  ) |> 
+  arrange(lake, measure, smolt_year) |> 
+  mutate(
+    .by = c(lake, measure),
+    age1_lag = lag(age1, 1L)
+  ) |> 
+  pivot_longer(
+    matches("age1"),
+    names_to = "predictor",
+    values_to = "x"
+  ) |> 
+  ggplot(aes(x = log(x), y = log(age2))) +
+  facet_wrap(
+    predictor ~ measure, 
+    scales = "free",
+    labeller = labeller(.multi_line = FALSE)
+  ) +
+  geom_smooth(method = "lm") +
+  geom_point()
+# Age1 sizes seem reasonable as a predictor
+
+
+# Use lm to predict age2 values for Hucuktlis
+huc_infill <- smolt_sizes |> 
+  filter(lake == "huc") |> 
+  pivot_wider(
+    id_cols = c(lake, smolt_year, measure),
+    names_from = age,
+    values_from = mean
+  ) |> 
+  nest(.by = measure) |> 
+  rowwise() |> 
+  mutate(
+    model = list(lm(age2 ~ age1, data = data)),
+    pred = list(predict(model, data))
+  ) |> 
+  unnest(cols = c(data, pred)) |> 
+  mutate(
+    infill = if_else(is.na(age2), pred, age2),
+    age = "age2"
+  ) |> 
+  select(measure, lake, smolt_year, age, infill)
+
+
+# Add infilled age2 values for Hucuktlis and infill SD and N
+smolt_sizes_infilled <- smolt_wt0 |> 
+  left_join(huc_infill) |> 
+  mutate(mean = if_else(is.na(mean), infill, mean)) |> 
+  mutate(
+    .by = c(lake, measure, age),
+    mean_cv = mean(cv, na.rm = TRUE),
+    median_n = round(median(n, na.rm = TRUE), 0),
+    # Assume SD is similar to historic average CV
+    sd = if_else(is.na(sd), mean*mean_cv, sd),
+    # Assume N is equivalent to the historic median N
+    n = if_else(is.na(n), median_n, n)
+  ) |> 
+  select(-infill, -mean_cv, -median_n)
+
+
+# Dataframe with just summary statistics for weight
+smolt_wt <- smolt_sizes_infilled |> 
+  filter(measure == "w") |> 
+  pivot_wider(
+    id_cols = c(smolt_year, lake),
+    names_from = age,
+    values_from = c(mean, sd, n),
+    names_glue = "{age}_{.value}"
+  ) |> 
+  rename_with(\(x) str_replace(x, "age", "WO")) |> 
+  mutate(lake = factor(lake, labels = c("Great Central", "Hucuktlis", "Sproat")))
+
+
+# Load and prepare raw smolt abundance data  ----------------------------------
 
 
 # Load the smolt outmigration data
@@ -210,6 +348,11 @@ lakes_data <- ats_data |>
       lake, year, contains("count"), smolting_rate, prop_age2
     )
   ) |> 
+  # Add infilled smolt weight data
+  left_join(
+    smolt_wt,
+    by = c("lake", "year" = "smolt_year")
+  ) |> 
   mutate(
     is_observed_count = !if_any(matches("count"), is.na),
     is_observed_ats = !if_any(matches("ats"), is.na),
@@ -219,7 +362,14 @@ lakes_data <- ats_data |>
   ) |> 
   arrange(year) |> 
   # Post-2017 won't have data
-  filter(year < 2017)
+  filter(
+    year < 2017,
+    !(lake == "Hucuktlis" & year == 2016) # No weight data available for Hucuktlis in 2016
+  )
+
+
+
+# Format data for Stan ----------------------------------------------------
 
 
 # Function to create observed Stan data for each lake
@@ -325,6 +475,12 @@ make_stan_data <- function(
     A1_obs = A1_obs,
     A_total = A_total,
     N_obs = N_obs,
+    WO1_mean = lake_data$WO1_mean,
+    WO1_sd = lake_data$WO1_sd,
+    WO1_n = lake_data$WO1_n,
+    WO2_mean = lake_data$WO2_mean,
+    WO2_sd = lake_data$WO2_sd,
+    WO2_n = lake_data$WO2_n,
     is_observed_count = as.integer(is_observed_count),
     is_observed_ats = as.integer(is_observed_ats),
     obs_error_prior = obs_error_prior,
@@ -664,7 +820,9 @@ obs_params <- lakes_data |>
     p2 = prop_age2,
     theta = smolting_rate,
     M = NA,
-    N_lake = ats_est
+    N_lake = ats_est,
+    BO1 = O1*WO1_mean,
+    BO2 = O2*WO2_mean
   ) |> 
   select(lake, year, any_of(unique(post_annual$parameter))) |> 
   pivot_longer(
@@ -678,7 +836,7 @@ obs_params <- lakes_data |>
 (out_plots <- posterior_df |> 
   filter(
     !is.na(value),
-    parameter %in% c("O1", "O2", "p1", "p2", "N_lake", "theta", "M"),
+    parameter %in% c("O1", "O2", "BO1", "BO2", "p1", "p2", "N_lake", "theta", "M"),
   ) |> 
   summarize(
     .by = c(lake, parameter, year),
@@ -692,6 +850,8 @@ obs_params <- lakes_data |>
     parameter = case_when(
       parameter == "O1" ~ "age1 smolts",
       parameter == "O2" ~ "age2 smolts",
+      parameter == "BO1" ~ "age1 smolt biomass",
+      parameter == "BO2" ~ "age2 smolt biomass",
       parameter == "p1" ~ "age1 smolt proportion",
       parameter == "p2" ~ "age2 smolt proportion",
       parameter == "N_lake" ~ "lake total fry abundance",
@@ -776,6 +936,8 @@ metadata <- tibble(
     definition = case_when(
       parameter == "O1" ~ "Posterior estimates for age1 outmigrating smolts",
       parameter == "O2" ~ "Posterior estimates for age2 outmigrating smolts",
+      parameter == "BO1" ~ "Posterior estimates for age1 smolt biomass",
+      parameter == "BO2" ~ "Posterior estimates for age2 smolt biomass",
       parameter == "N1" ~ "Posterior estimates for age1 fry abundance in the lake on 1 March",
       parameter == "N2" ~ "Posterior estimates for age2 fry abundance in the lake on 1 March",
       parameter == "N_lake" ~ "Posterior estimates for total fry abundance in the lake on 1 March",
