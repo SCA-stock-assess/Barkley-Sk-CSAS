@@ -132,7 +132,7 @@ huc_infill <- smolt_sizes |>
 
 
 # Add infilled age2 values for Hucuktlis and infill SD and N
-smolt_sizes_infilled <- smolt_wt0 |> 
+smolt_sizes_infilled <- smolt_sizes |> 
   left_join(huc_infill) |> 
   mutate(mean = if_else(is.na(mean), infill, mean)) |> 
   mutate(
@@ -917,7 +917,7 @@ out_plots |>
 # Summarize posterior for export
 annual_estimates <- posterior_df |> 
   filter(
-    parameter %in% c("O1", "O2", "N1", "N2", "N_lake", "theta", "M"),
+    parameter %in% c("O1", "O2", "BO1", "BO2", "N1", "N2", "N_lake", "theta", "M"),
     !is.na(value)
   ) |> 
   summarize(
