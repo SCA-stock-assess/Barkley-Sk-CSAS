@@ -626,7 +626,7 @@ if(
 }
 
 
-# Save fitted models as RDS objects
+# Save fitted models as RDS objects (toggle to TRUE to run)
 if(
   #TRUE
   FALSE
@@ -718,14 +718,9 @@ post_interannual <- lakes_stan_fits |>
   map(extract) |> 
   # Discard all parameters with year-specific estimates
   map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
-  map(\(x) imap(x, as_tibble_col)) |> 
-  map(\(x) list_cbind(unname(x))) |> 
-  list_rbind(names_to = "lake") |> 
-  pivot_longer(
-    !lake,
-    names_to = "parameter",
-    values_to = "value"
-  )
+  map(\(x) map(x, \(y) as_tibble(y, rownames = "draw"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "lake") 
 
 
 # Posterior values that are year-specific
@@ -733,11 +728,11 @@ post_annual <- lakes_stan_fits |>
   map(extract) |> 
   # Keep only parameters with year-specific estimates
   map(\(x) keep(.x = x, .p = \(y) is.matrix(y))) |> 
-  map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL))) |> 
+  map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL, rownames = "draw"))) |> 
   map(\(x) list_rbind(x, names_to = "parameter")) |> 
   list_rbind(names_to = "lake") |> 
   pivot_longer(
-    cols = !c(lake, parameter),
+    cols = !c(lake, parameter, draw),
     names_to = "year",
     values_to = "value",
     names_transform = \(x) str_extract(x, "\\d+")
@@ -747,8 +742,33 @@ post_annual <- lakes_stan_fits |>
   select(-min_yr)
 
 
+# Calculate brood year total outmigrants and biomass from individual draws
+post_by_ttls <- post_annual |> 
+  filter(str_detect(parameter, "(B|)O\\d")) |> 
+  # Convert year (currently smolt year) to brood_year
+  mutate(year = if_else(str_detect(parameter, "1"), year-2, year-3)) |> 
+  pivot_wider(
+    names_from = parameter,
+    values_from = value
+  ) |> 
+  mutate(
+    BYO = O1 + O2,
+    BYB = BO1 + BO2
+  ) |> 
+  pivot_longer(
+    cols = c(BYO, BYB),
+    names_to = "parameter",
+    values_to = "value"
+  ) |> 
+  select(lake, year, draw, parameter, value)
+
+
 # Bring both posterior dataframes together
-posterior_df <- bind_rows(post_annual, post_interannual)
+posterior_df <- bind_rows(
+  post_annual, 
+  post_interannual,
+  post_by_ttls
+)
 
 
 # Plot posterior versus prior distributions for mu_theta and mu_M
@@ -811,32 +831,47 @@ posterior_df |>
   labs(x = "value")
 
 
+# Annual parameters estimated
+annual_params <- posterior_df |> 
+  filter(!is.na(year)) |> 
+  distinct(parameter) |> 
+  pull() |> 
+  str_subset("_raw", negate = TRUE)
+
 # Dataframe with estimated parameters from raw data
 obs_params <- lakes_data |> 
+  arrange(lake, year) |> 
   mutate(
+    .by = lake,
     O1 = (1-prop_age2)*smolting_rate*ats_est,
     O2 = prop_age2*ats_est,
     p1 = (1-prop_age2)*smolting_rate,
     p2 = prop_age2,
     theta = smolting_rate,
     M = NA,
+    w1 = WO1_mean,
+    w2 = WO2_mean,
     N_lake = ats_est,
     BO1 = O1*WO1_mean,
-    BO2 = O2*WO2_mean
+    BO2 = O2*WO2_mean,
+    BYB = BO1 + lead(BO2),
+    BYO = O1 + lead(O2),
   ) |> 
-  select(lake, year, any_of(unique(post_annual$parameter))) |> 
+  select(lake, year, any_of(annual_params)) |> 
   pivot_longer(
     cols = !c(lake, year),
     names_to = "parameter",
     values_to = "obs"
-  )
+  ) |> 
+  # Ensure year is brood year for the BY total values
+  mutate(year = if_else(parameter %in% c("BYB", "BYO"), year-2, year))
 
 
 # Plot predicted versus estimated values for parameters of interest across years
 (out_plots <- posterior_df |> 
   filter(
     !is.na(value),
-    parameter %in% c("O1", "O2", "BO1", "BO2", "p1", "p2", "N_lake", "theta", "M"),
+    parameter %in% annual_params,
   ) |> 
   summarize(
     .by = c(lake, parameter, year),
@@ -852,14 +887,19 @@ obs_params <- lakes_data |>
       parameter == "O2" ~ "age2 smolts",
       parameter == "BO1" ~ "age1 smolt biomass",
       parameter == "BO2" ~ "age2 smolt biomass",
+      parameter == "w1" ~ "age1 smolt mean weight",
+      parameter == "w2" ~ "age2 smolt mean weight",
       parameter == "p1" ~ "age1 smolt proportion",
       parameter == "p2" ~ "age2 smolt proportion",
       parameter == "N_lake" ~ "lake total fry abundance",
       parameter == "theta" ~ "smolting rate",
       parameter == "M" ~ "age1 to age2 mortality",
+      parameter == "BYB" ~ "brood year smolt biomass production",
+      parameter == "BYO" ~ "brood year smolt production",
       .default = "MISSING"
     )
-  ) %>%
+  ) |> 
+    filter(!parameter == "MISSING") %>%
   split(.$parameter) |> 
   imap(
     \(x, idx) x |> 
@@ -917,7 +957,7 @@ out_plots |>
 # Summarize posterior for export
 annual_estimates <- posterior_df |> 
   filter(
-    parameter %in% c("O1", "O2", "BO1", "BO2", "N1", "N2", "N_lake", "theta", "M"),
+    parameter %in% str_subset(annual_params, "p\\d", negate = TRUE),
     !is.na(value)
   ) |> 
   summarize(
@@ -936,14 +976,22 @@ metadata <- tibble(
     definition = case_when(
       parameter == "O1" ~ "Posterior estimates for age1 outmigrating smolts",
       parameter == "O2" ~ "Posterior estimates for age2 outmigrating smolts",
-      parameter == "BO1" ~ "Posterior estimates for age1 smolt biomass",
-      parameter == "BO2" ~ "Posterior estimates for age2 smolt biomass",
+      parameter == "w1" ~ "Posterior estimates for age1 smolt average weight (g)",
+      parameter == "w2" ~ "Posterior estimates for age2 smolts average weight (g)",
+      parameter == "BO1" ~ "Posterior estimates for age1 smolt biomass (g)",
+      parameter == "BO2" ~ "Posterior estimates for age2 smolt biomass (g)",
+      parameter == "BYO" ~ "Sum of posterior estimates for O1 & O2 (see above)",
+      parameter == "BYB" ~ "Sum of posterior estimates for BO1 & BO2 (see above)",
       parameter == "N1" ~ "Posterior estimates for age1 fry abundance in the lake on 1 March",
       parameter == "N2" ~ "Posterior estimates for age2 fry abundance in the lake on 1 March",
       parameter == "N_lake" ~ "Posterior estimates for total fry abundance in the lake on 1 March",
       parameter == "theta" ~ "Posterior estimates for age1 smolting rate",
       parameter == "M" ~ "Posterior estimates for second year fry mortality (age1 to age2)",
       .default = "MISSING"
+    ),
+    year_type = case_when(
+      str_detect(parameter, "BY") ~ "brood year",
+      .default = "smolt year"
     )
   )
 
