@@ -175,6 +175,10 @@ Huc_run_ts |>
   mutate(sum = sum(c_across(matches("^age_\\d+")))) |> 
   count(sum)
 
+# Ensure only 1 row per year exists
+Huc_run_ts |> 
+  count(return_year) |> 
+  distinct(n)
 
 
 # Use Somass harvest rates to hindcast Hucuktlis harvest rates ------------
@@ -449,7 +453,6 @@ Huc_brood_ts <- Huc_run_ts_infill |>
 
 # Get Hucuktlis data reformatted properly
 Huc_sr <- Huc_run_ts_infill |> 
-  #filter(!if_all(matches("age_\\d+"), is.na)) |> 
   # Add recruitment data
   left_join(
     Huc_brood_ts,
@@ -474,7 +477,8 @@ Huc_sr <- Huc_run_ts_infill |>
     N.age.5 = sum(c_across(matches("^age_5."))),
     N.age.6 = sum(c_across(matches("^age_6."))),
     .keep = "unused"
-  )
+  ) |> 
+  filter(!year < 1972) # Remove years prior to 1972
 
 
 # Collate the two dataframes
@@ -503,7 +507,8 @@ Barkley_sk_sr <- bind_rows(Som_sr, Huc_sr) |>
     hr_pred,
     H_cv,
     S_cv
-  )
+  ) |> 
+  arrange(stock, year)
 
 
 # Save metadata for solumn names
