@@ -449,7 +449,7 @@ Huc_brood_ts <- Huc_run_ts_infill |>
 
 # Get Hucuktlis data reformatted properly
 Huc_sr <- Huc_run_ts_infill |> 
-  filter(!if_all(matches("age_\\d+"), is.na)) |> 
+  #filter(!if_all(matches("age_\\d+"), is.na)) |> 
   # Add recruitment data
   left_join(
     Huc_brood_ts,
