@@ -37,20 +37,30 @@ spwn <- here(
   rename("cu" = stock, "brood_year" = year) |> 
   filter(brood_year >= 1972) |> # Remove older years' data
   mutate(
+    # Simplify the fertilization data for GCL and SPR
+    fertilized = case_when(
+      cu == "GCL" ~ 1,
+      cu == "SPR" ~ 0,
+      cu == "HUC" ~ fertilized
+    ) |> factor(),
+    # Assume 100% adults for Hucuktlis in years with missing age data
+    adult_S = if_else(is.na(adult_S) & cu == "HUC", S, adult_S),
+    # Use long names for CUs
     cu = case_when(
       cu == "GCL" ~ "Great Central",
       cu == "SPR" ~ "Sproat",
       cu == "HUC" ~ "Hucuktlis"
     ),
+    # Align hatchery fry releases by brood year
     hatchery_fry_release = lead(hatchery_fry_release, 2)
   ) |> 
-  select(brood_year, cu, S, adult_S, fertilized, hatchery_fry_release)
+  select(brood_year, cu, S, adult_S, R, fertilized, hatchery_fry_release)
 
 
 # Join spawner data to fry data
 spwn_fry <- left_join(
   fry_abun,
-  spwn
+  select(spwn, -R)
 ) |>
   mutate(
     hatchery_fry_release = if_else(
@@ -58,7 +68,6 @@ spwn_fry <- left_join(
       0, 
       hatchery_fry_release
     ),
-    fertilized = factor(fertilized),
     cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis")),
     # Remove hatchery contributions from Hucuktlis data
     across(
@@ -69,7 +78,7 @@ spwn_fry <- left_join(
       # Henderson Stock Status PSARC report (from 2008). 
       parameter == "N1" & cu == "Hucuktlis" & hatchery_fry_release > x ~ x*0.1, 
       parameter == "N1" ~ x - hatchery_fry_release,
-      # What is expected to happen to N2s? 
+      parameter == "BYB" ~ x/1000, # Convert biomass to kg
       .default = x
       )
     )
@@ -89,34 +98,45 @@ spwn_fry <- left_join(
 # Also need to examine fits with & without Hucuktlis 1993 outlier removed 
 
 
-# Plot adult spawners versus different measures of recruitment
-(sr_plots <- spwn_fry |> 
+sr_plot_data <- spwn_fry |> 
+  # Add rows with adult recruitment as a new parameter
+  bind_rows(
+    mutate(
+      .data = spwn, 
+      parameter = "R",
+      `50%` = R,
+      .keep = "unused"
+    )
+  ) |> 
   rename(
     "Adult spawners" = adult_S,
     "Spawners" = S
   ) |> 
   mutate(
-    # Convert biomass to kg
-    across(matches("%"), \(x) if_else(parameter == "BYB", x/1000, x)),
     # Give parameters informative names
     parameter = case_when(
       parameter == "N1" ~ "Age-1 fry production",
       parameter == "BYO" ~ "Smolt production",
-      parameter == "BYB" ~ "Smolt biomass (kg)"
+      parameter == "BYB" ~ "Smolt biomass (kg)",
+      parameter == "R" ~ "Adult returns"
     )
   ) |> 
   pivot_longer(
     matches("(?i)spawners"),
     values_to = "value"
-  ) %>%
-  split(.$name) |> 
+  )
+
+
+# Plot spawners versus different measures of recruitment
+(sr_plots <- sr_plot_data %>%
+  split(.$cu) |> 
   imap(
     \(x, idx) x |> 
       ggplot(aes(x = value, y = `50%`)) +
       facet_grid(
-        parameter ~ cu,
+        parameter ~ name,
         scales = "free",
-        switch = "y"
+        switch = "both"
       ) +
       geom_linerange(
         aes(
@@ -130,14 +150,14 @@ spwn_fry <- left_join(
         aes(
           ymin = `10%`,
           ymax = `90%`,
-          fill = brood_year
+          fill = fertilized
         ),
         linewidth = 0.5,
         fatten = 3,
         shape = 21,
         stroke = 0.5
       ) +
-      scale_fill_viridis_c() +
+      #scale_fill_viridis_c() +
       scale_y_continuous(
         limits = c(0, NA),
         labels = scales::label_number(),
@@ -148,41 +168,73 @@ spwn_fry <- left_join(
         labels = scales::label_number(),
         expand = expansion(mult = c(0, 0.05))
       ) +
-      labs(x = idx) +
+      labs(title = idx) +
       theme(
-        axis.title.y = element_blank(),
+        axis.title = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
         strip.placement = "outside",
-        strip.background.y = element_blank()
+        strip.background = element_blank()
       )
   )
 )
 
 
-# log- version
-sr_plots |> 
-  map(
-    \(x) x +
-      scale_y_continuous(transform = "log") 
-  )
+# R/S version
+sr_plot_data |> 
+  mutate(
+    across(matches("%"), \(x) x/value),
+    parameter = paste0(parameter, " per spawner")
+  ) %>% 
+  split(.$cu) %>%
+  {pmap(
+    list(
+      data = .,
+      plot = sr_plots
+    ),
+    \(data, plot) plot %+% data +
+      scale_y_continuous()
+  )}
 
 
 
-# Set up a nested dataframe containing those 4 outcome variables
-nested_data <- tibble(
-  response = c("abun", "biomass", "log_abun_spwn", "log_biom_spwn")
+# Examine stock-recruit relationships ---------------------------------------
+
+
+# Set up a nested dataframe containing 4 outcome variables,
+# 2 predictors, and 2 different ways of filtering the data
+nested_data <- expand_grid(
+  response = c(
+    "fry_a", "smolt_a", "smolt_b", 
+    "log_frya_spwn", "log_smolta_spwn", "log_smoltb_spwn"
+  ),
+  predictor = c("spawners", "adult_spawners"),
+  fltr = c(0, 1)
 ) |> 
-  expand_grid(fltr = c(0, 1)) |> 
-  mutate(data = list(spwn_fry)) |> 
+  mutate(
+    data = list(
+      spwn_fry |> 
+        pivot_wider(
+          id_cols = c(cu, brood_year, S, adult_S, fertilized),
+          names_from = parameter,
+          values_from = `50%` # Use the median estimates for now
+        )
+    )
+  ) |> 
   rowwise() |> 
   mutate(
     data = case_when(
-      response == "abun" ~ list(mutate(data, y = ttl)),
-      response == "biomass" ~ list(mutate(data, y = biomass)),
-      response == "log_abun_spwn" ~ list(mutate(data, y = log(ttl/S))),
-      response == "log_biom_spwn" ~ list(mutate(data, y = log(biomass/S)))
+      predictor == "spawners" ~ list(data),
+      predictor == "adult_spawners" ~list(mutate(data, S = adult_S))
     ),
-    data = list(select(data, smolt_year, cu, S, adult_S, y, fertilized)),
+    data = case_when(
+      response == "fry_a" ~ list(mutate(data, y = N1)),
+      response == "smolt_a" ~ list(mutate(data, y = BYO)),
+      response == "smolt_b" ~ list(mutate(data, y = BYB)),
+      response == "log_frya_spwn" ~ list(mutate(data, y = log(N1/S))),
+      response == "log_smolta_spwn" ~ list(mutate(data, y = log(BYO/S))),
+      response == "log_smoltb_spwn" ~ list(mutate(data, y = log(BYB/S)))
+    ),
+    data = list(select(data, brood_year, cu, S, y, fertilized)),
     # Filter the Hucuktlis data to remove 1993 outlier
     data = if_else(
       fltr == 1,
@@ -190,10 +242,12 @@ nested_data <- tibble(
       list(data)
     ),
     response_long = case_when(
-      response == "abun" ~ "Smolt abundance",
-      response == "biomass" ~ "Total smolt biomass",
-      response == "log_abun_spwn" ~ "log(smolt abundance per spawner)",
-      response == "log_biom_spwn" ~ "log(smolt biomass per spawner)"
+      response == "fry_a" ~ "Age-1 fry production",
+      response == "smolt_a" ~ "Total smolt production",
+      response == "smolt_b" ~ "Total smolt biomass",
+      response == "log_frya_spwn" ~ "log(age-1 fry per spawner)",
+      response == "log_smolta_spwn" ~ "log(smolts per spawner)",
+      response == "log_smoltb_spwn" ~ "log(smolt biomass per spawner)"
     )
   ) |> 
   ungroup()
@@ -203,31 +257,30 @@ nested_data <- tibble(
 nested_data |> 
   unnest(data) |>   
   # Filtering is only relevant for the Hucuktlis data (currently)
-  filter(!(fltr == 1 & cu != "Hucuktlis")) %>%
-  split(.$response_long) |> 
-  imap(
-    \(x, idx) ggplot(
-      data = filter(x, fltr == 0),
-      aes(x = S, y = y, colour = fertilized)
-    ) +
-      facet_wrap(
-        ~cu,
-        nrow = 1,
-        scales = "free_x"
-      ) +
-      geom_point() +
-      geom_smooth(
-        data = x,
-        aes(lty = factor(fltr)),
-        method = "lm",
-        alpha = 0.15
-      ) +
-      scale_x_continuous(
-        name = "Spawners",
-        labels = scales::label_number()
-      ) +
-      labs(y = idx) +
-      theme(axis.text.x = element_text(angle = 25, hjust = 1))
+  filter(!(fltr == 1 & cu != "Hucuktlis")) |> 
+  ggplot(
+    aes(x = S, y = y, colour = predictor)
+  ) +
+  facet_grid(
+    response_long ~ cu,
+    scales = "free",
+    switch = "y"
+  ) +
+  geom_point() +
+  geom_smooth(
+    aes(lty = factor(fltr)),
+    method = "lm",
+    alpha = 0.15
+  ) +
+  scale_x_continuous(
+    name = "Spawners",
+    labels = scales::label_number()
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 25, hjust = 1),
+    strip.placement = "outside",
+    strip.background.y = element_blank(),
+    axis.title.y = element_blank()
   )
 
 
@@ -241,59 +294,105 @@ model_fits <- nested_data |>
   # Filtering is only relevant for the Hucuktlis data (currently)
   filter(
     !(fltr == 1 & cu != "Hucuktlis"),
-    response %in% c("abun", "biomass")
+    !str_detect(response, "log")
   ) |> 
-  expand_grid(predictor = c("Spawners", "Adult spawners")) |> 
-  nest(.by = c(cu, contains("response"), fltr, predictor)) |> 
+  nest(.by = c(cu, predictor, contains("response"), fltr)) |> 
   rowwise() |> 
   mutate(
-    data = if_else(
-      predictor == "Spawners",
-      list(mutate(data, x = S)),
-      list(mutate(data, x = adult_S))
-    ),
     # Fit Ricker and Beverton-Holt models
-    ricker_model = list(lm(log(y/x) ~ x, data = data)),
-    bevholt_model = list(
-      glm(
-        y ~ I(1/x), 
-        family = gaussian(link = "inverse"), 
-        #start = c(0, 3), # Research how to choose appropriate starting values
-        data = data
-      )
-    ),
-    # Add predictions from Ricker and Beverton-Holt models
-    newdata = list(
-      tibble(
-        x = seq(
-          #0.01,
-          min(data$x, na.rm = TRUE),
-          max(data$x, na.rm = TRUE), 
-          length.out = 100
+    ricker_model = if(cu == "Hucuktlis")
+      list(lm(log(y/S) ~ S + fertilized, data = data)) 
+    else 
+      list(lm(log(y/S) ~ S, data = data)),
+    bevholt_model = if(cu == "Hucuktlis")
+      list(
+        glm(
+          y ~ I(1/S) + fertilized, 
+          family = gaussian(link = "inverse"), 
+          #start = c(0, 3), # Research how to choose appropriate starting values
+          data = data
         )
       )
-    ),
-    ricker_pred = list(
-      MASS::mvrnorm(
-        10000, 
-        mu = coef(ricker_model), 
-        Sigma = as.matrix(vcov(ricker_model))
-      ) |> 
-        as_tibble() |> 
-        rename("a" = 1, "b" = 2) |> 
-        expand_grid(newdata) |> 
-        mutate(
-          a = exp(a),
-          b = -b,
-          pred_y = a*x*exp(-b*x)
+    else
+      list(
+        glm(
+          y ~ I(1/S), 
+          family = gaussian(link = "inverse"), 
+          #start = c(0, 3), # Research how to choose appropriate starting values
+          data = data
+        )
+      ),
+    # Dataframe for predictions
+    newdata = if_else(
+      cu == "Hucuktlis",
+      list(
+        expand_grid(
+          S = seq(
+            0.01,
+            #min(data$S, na.rm = TRUE),
+            max(data$S, na.rm = TRUE), 
+            length.out = 100
+          ),
+          fertilized = factor(c(0, 1))
+        )
+      ),
+      list(
+        tibble(
+          S = seq(
+            0.01,
+            #min(data$S, na.rm = TRUE),
+            max(data$S, na.rm = TRUE), 
+            length.out = 100
+          )
+        )
+      )
+    )
+  ) |> 
+  mutate(
+    ricker_pred = if(cu == "Hucuktlis")
+      list(
+        MASS::mvrnorm(
+          10000, 
+          mu = coef(ricker_model), 
+          Sigma = as.matrix(vcov(ricker_model))
         ) |> 
-        summarize(
-          .by = x,
-          fit = mean(pred_y),
-          lwr = quantile(pred_y, 0.025),
-          upr = quantile(pred_y, 0.975)
-        )
-    ),
+          as_tibble() |> 
+          rename("a" = 1, "b" = 2) |> 
+          expand_grid(newdata) |> 
+          mutate(
+            a = exp(a),
+            b = -b,
+            pred_y = a*S*exp(-b*S)
+          ) |> 
+          summarize(
+            .by = c(S, fertilized),
+            fit = mean(pred_y),
+            lwr = quantile(pred_y, 0.025),
+            upr = quantile(pred_y, 0.975)
+          )
+      )
+    else
+      list(
+        MASS::mvrnorm(
+          10000, 
+          mu = coef(ricker_model), 
+          Sigma = as.matrix(vcov(ricker_model))
+        ) |> 
+          as_tibble() |> 
+          rename("a" = 1, "b" = 2) |> 
+          expand_grid(newdata) |> 
+          mutate(
+            a = exp(a),
+            b = -b,
+            pred_y = a*S*exp(-b*S)
+          ) |> 
+          summarize(
+            .by = c(S),
+            fit = mean(pred_y),
+            lwr = quantile(pred_y, 0.025),
+            upr = quantile(pred_y, 0.975)
+          )
+      ),
     bevholt_pred = list(
       predict(
         bevholt_model,
@@ -321,7 +420,8 @@ model_fits <- nested_data |>
 
 
 # Plot the various model fits
-(model_plots <- model_fits %>% 
+(model_plots <- model_fits |>  
+  filter(cu != "Hucuktlis") %>% 
   split(.$predictor) |> 
   imap(
     function(set, idx) {
@@ -330,24 +430,14 @@ model_fits <- nested_data |>
         obs = unnest(set, data),
         pred = unnest(set, pred)
       )
-      
-      # label <- set |> 
-      #   rowwise() |> 
-      #   mutate(
-      #     x = max(data$x, na.rm = TRUE),
-      #     y = max(data$y, na.rm = TRUE)*1.1,
-      #     r2 = round(adj.r.squared, 2)
-      #   ) |> 
-      #   ungroup()
-      
+
       ggplot(
         data = sub_set$obs,
         aes(
-          x = x, 
+          x = S, 
           y = y,
           colour = type,
-          fill = type,
-          lty = factor(fltr)
+          fill = type
         )
       ) +
         facet_grid(
@@ -355,22 +445,11 @@ model_fits <- nested_data |>
           scales = "free",
           switch = "y"
         ) +
-        geom_point() +
-        # geom_ribbon(
-        #   data = sub_set$pred,
-        #   aes(y = fit, ymin = lwr, ymax = upr),
-        #   alpha = 0.15,
-        #   colour = NA
-        # ) +
+        geom_point(colour = "black") +
         geom_line(
           data = sub_set$pred,
           aes(y = fit)
         ) +
-        # geom_text(
-        #   data = label,
-        #   aes(label = paste("R sq:", r2)),
-        #   hjust = 1
-        # ) +
         scale_x_continuous(
           name = idx,
           labels = scales::label_number(),
