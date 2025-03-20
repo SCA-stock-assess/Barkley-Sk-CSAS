@@ -647,7 +647,6 @@ Barkley_catch_esc <- Huc_run_ts |>
     catch_data_source = coalesce(catch_data_source.x, catch_data_source.y)
   ) |> 
   select(-matches("\\.(x|y)")) |> 
-  filter(!if_all(c(catch, escapement, esc_cat), is.na)) |> 
   mutate(
     .by = year,
     Barkley_catch = sum(catch, na.rm = TRUE),
