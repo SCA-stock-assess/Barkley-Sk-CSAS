@@ -3,7 +3,7 @@
 
 pkgs <- c(
   "tidyverse", "rstan", "here", "bayesplot", "tidybayes", 
-  "geomtextpath", "writexl", "readxl"
+  "geomtextpath", "writexl", "readxl", "ggridges"
 )
 #install.packages(pkgs)
 
@@ -15,6 +15,7 @@ library(readxl)
 library(bayesplot)
 library(tidybayes)
 library(geomtextpath)
+library(ggridges)
 library(writexl)
 
 
@@ -768,7 +769,28 @@ posterior_df <- bind_rows(
   post_annual, 
   post_interannual,
   post_by_ttls
-)
+) |> 
+  # Make parameter names more informative
+  mutate(
+    parameter_long = case_when(
+      parameter == "O1" ~ "age1 smolts",
+      parameter == "O2" ~ "age2 smolts",
+      parameter == "BO1" ~ "age1 smolt biomass",
+      parameter == "BO2" ~ "age2 smolt biomass",
+      parameter == "w1" ~ "age1 smolt mean weight",
+      parameter == "w2" ~ "age2 smolt mean weight",
+      parameter == "p1" ~ "age1 smolt proportion",
+      parameter == "p2" ~ "age2 smolt proportion",
+      parameter == "N1" ~ "age1 fry",
+      parameter == "N2" ~ "age2 fry",
+      parameter == "N_lake" ~ "lake total fry abundance",
+      parameter == "theta" ~ "smolting rate",
+      parameter == "M" ~ "age1 to age2 mortality",
+      parameter == "BYB" ~ "brood year smolt biomass production",
+      parameter == "BYO" ~ "brood year smolt production",
+      .default = "NO_ENTRY"
+    )
+  )
 
 
 # Plot posterior versus prior distributions for mu_theta and mu_M
@@ -838,6 +860,7 @@ annual_params <- posterior_df |>
   pull() |> 
   str_subset("_raw", negate = TRUE)
 
+
 # Dataframe with estimated parameters from raw data
 obs_params <- lakes_data |> 
   arrange(lake, year) |> 
@@ -848,7 +871,12 @@ obs_params <- lakes_data |>
     p1 = (1-prop_age2)*smolting_rate,
     p2 = prop_age2,
     theta = smolting_rate,
-    M = NA,
+    M = case_when(
+      lake == "Great Central" ~ lakes_stan_data[["Great Central"]]$mu_M_prior,
+      lake == "Sproat" ~ lakes_stan_data[["Sproat"]]$mu_M_prior,
+      lake == "Hucuktlis" ~ lakes_stan_data[["Hucuktlis"]]$mu_M_prior
+    ) |> 
+      binomial(link = "logit")$linkinv(),
     w1 = WO1_mean,
     w2 = WO2_mean,
     N_lake = ats_est,
@@ -869,66 +897,47 @@ obs_params <- lakes_data |>
 
 # Plot predicted versus estimated values for parameters of interest across years
 (out_plots <- posterior_df |> 
-  filter(
-    !is.na(value),
-    parameter %in% annual_params,
-  ) |> 
-  summarize(
-    .by = c(lake, parameter, year),
-    quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
-  ) |> 
-  unnest_wider(quantiles) |>
-  # Add observed values
-  left_join(obs_params) |> 
-  # Make parameter names more informative
-  mutate(
-    parameter = case_when(
-      parameter == "O1" ~ "age1 smolts",
-      parameter == "O2" ~ "age2 smolts",
-      parameter == "BO1" ~ "age1 smolt biomass",
-      parameter == "BO2" ~ "age2 smolt biomass",
-      parameter == "w1" ~ "age1 smolt mean weight",
-      parameter == "w2" ~ "age2 smolt mean weight",
-      parameter == "p1" ~ "age1 smolt proportion",
-      parameter == "p2" ~ "age2 smolt proportion",
-      parameter == "N_lake" ~ "lake total fry abundance",
-      parameter == "theta" ~ "smolting rate",
-      parameter == "M" ~ "age1 to age2 mortality",
-      parameter == "BYB" ~ "brood year smolt biomass production",
-      parameter == "BYO" ~ "brood year smolt production",
-      .default = "MISSING"
+    filter(
+      !is.na(value),
+      parameter %in% annual_params,
+    ) |> 
+    summarize(
+      .by = c(lake, parameter, parameter_long, year),
+      quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+    ) |> 
+    unnest_wider(quantiles) |>
+    # Add observed values
+    left_join(obs_params) |> 
+    filter(!parameter_long == "NO_ENTRY") %>%
+    split(.$parameter_long) |> 
+    imap(
+      \(x, idx) x |> 
+        ggplot(aes(x = year, y = `50%`)) +
+        facet_wrap(
+          ~lake,
+          scales = "free_y",
+          ncol = 1,
+          strip.position = "right"
+        ) +
+        geom_linerange(
+          aes(
+            ymin = `2.5%`,
+            ymax = `97.5%`
+          ),
+          linewidth = 0.3,
+          alpha = 0.6
+        ) +
+        geom_pointrange(
+          aes(
+            ymin = `10%`,
+            ymax = `90%`
+          ),
+          linewidth = 1
+        ) +
+        geom_point(aes(y = obs), color = "red") +
+        labs(y = idx) +
+        ggtitle(paste("Predicted versus estimated", idx))
     )
-  ) |> 
-    filter(!parameter == "MISSING") %>%
-  split(.$parameter) |> 
-  imap(
-    \(x, idx) x |> 
-      ggplot(aes(x = year, y = `50%`)) +
-      facet_wrap(
-        ~lake,
-        scales = "free_y",
-        ncol = 1,
-        strip.position = "right"
-      ) +
-      geom_linerange(
-        aes(
-          ymin = `2.5%`,
-          ymax = `97.5%`
-        ),
-        linewidth = 0.3,
-        alpha = 0.6
-      ) +
-      geom_pointrange(
-        aes(
-          ymin = `10%`,
-          ymax = `90%`
-        ),
-        linewidth = 1
-      ) +
-      geom_point(aes(y = obs), color = "red") +
-      labs(y = idx) +
-      ggtitle(paste("Predicted versus estimated", idx))
-  )
 )
 
 
@@ -951,6 +960,44 @@ out_plots |>
   )
 
 
+# Make the same plots but with ridges
+(out_plots <- posterior_df |> 
+    filter(
+      !is.na(value),
+      parameter %in% unique(obs_params$parameter)
+    ) |> 
+    # Add observed values
+    left_join(obs_params) %>%
+    split(.$parameter_long) |> 
+    imap(
+      \(x, idx) x |> 
+        ggplot(aes(y = year, x = value, group = year)) +
+        facet_wrap(
+          ~lake,
+          scales = "free_x",
+          nrow = 1
+        ) +
+        stat_summary(
+          aes(x = obs),
+          geom = "point",
+          fun = \(y) median(y, na.rm = TRUE),
+          colour = "red",
+          shape = "|",
+          vjust = 1.5
+        ) +
+        geom_density_ridges(
+          rel_min_height = 0.001,
+          alpha = 0.5
+        ) +
+        scale_y_reverse() +
+        labs(x = idx) +
+        ggtitle(paste("Predicted versus estimated", idx)) +
+        theme_ridges() +
+        theme(strip.background = element_blank())
+    )
+)
+
+
 # Export posterior values of interest (with imputed years) -------------------
 
 
@@ -960,12 +1007,39 @@ annual_estimates <- posterior_df |>
     parameter %in% str_subset(annual_params, "p\\d", negate = TRUE),
     !is.na(value)
   ) |> 
-  summarize(
-    .by = c(lake, parameter, year),
-    quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
-    # How about an SD-esque statistic? 
+  mutate(
+    family = case_when(
+      str_detect(parameter, "N|O|BO|BY") ~ "lognormal",
+      parameter %in% c("theta", "M", "p1", "p2") ~ "logitnormal",
+      parameter %in% c("w1", "w2") ~ "normal",
+      .default = NA
+    ),
+    log = log(value),
+    logit = logit(value)
   ) |> 
-  unnest_wider(quantiles)
+  summarize(
+    .by = c(lake, parameter, year, family),
+    quantiles = list(quantile(value, probs = c(0.025, 0.1, 0.5, 0.9, 0.975))),
+    across(
+      c(value, log, logit), 
+      .fns = list("mean" = mean, "sd" = sd),
+      .names = c("{.fn}_{.col}")
+    )
+  ) |> 
+  unnest_wider(quantiles) |> 
+  mutate(
+    mu = case_when(
+      family == "lognormal" ~ mean_log,
+      family == "logitnormal" ~ mean_logit,
+      family == "normal" ~ mean_value
+    ),
+    sigma = case_when(
+      family == "lognormal" ~ sd_log,
+      family == "logitnormal" ~ sd_logit,
+      family == "normal" ~ sd_value
+    )
+  ) |> 
+  select(-matches("(mean|sd)_(value|log|logit)"))
 
 
 # Metadata sheet
@@ -980,8 +1054,8 @@ metadata <- tibble(
       parameter == "w2" ~ "Posterior estimates for age2 smolts average weight (g)",
       parameter == "BO1" ~ "Posterior estimates for age1 smolt biomass (g)",
       parameter == "BO2" ~ "Posterior estimates for age2 smolt biomass (g)",
-      parameter == "BYO" ~ "Sum of posterior estimates for O1 & O2 (see above)",
-      parameter == "BYB" ~ "Sum of posterior estimates for BO1 & BO2 (see above)",
+      parameter == "BYO" ~ "Brood year sum of posterior estimates for O1 & O2 (see above)",
+      parameter == "BYB" ~ "Brood year sum of posterior estimates for BO1 & BO2 (see above)",
       parameter == "N1" ~ "Posterior estimates for age1 fry abundance in the lake on 1 March",
       parameter == "N2" ~ "Posterior estimates for age2 fry abundance in the lake on 1 March",
       parameter == "N_lake" ~ "Posterior estimates for total fry abundance in the lake on 1 March",
