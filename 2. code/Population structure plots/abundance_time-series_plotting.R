@@ -259,23 +259,37 @@ max_CU_run <- abun_data |>
 
 
 # Dataframe for when fertilizer was applied to each lake
-cu_fertilizer <- tribble(
-    ~CU, ~year_start, ~year_end,
-    "Great Central", 1970, 1973,
-    "Great Central", 1977, max(abun_data$year),
-    "Sproat", 1985, 1985,
-    "Hucuktlis", 1976, 1997,
-    "Hucuktlis", 1999, 1999,
-    "Hucuktlis", 2007, 2007
-  ) |> 
-  rowwise() |> 
+cu_fertilizer <- abun_data0 |> 
+  select(year, CU, fertilized) |> 
+  filter(fertilized == 1) |> 
+  arrange(CU, year) |> 
   mutate(
-    year = list(seq.int(year_start, year_end)),
-    y = max_CU_run[max_CU_run$CU == CU,]$max_run * 1.05,
-    CU = factor(CU, levels = c("Great Central", "Sproat", "Hucuktlis"))
+    .by = CU,
+    min_date = as.Date(paste0(year, "-01-01")),
+    max_date = as.Date(paste0(year, "-12-31")),
+    lag_year = lag(year, 1),
+    gap = if_else(is.na(lag_year), 1, year - lag_year),
   ) |> 
-  unnest_longer(year) |> 
-  select(-contains("year_"))
+  summarize(
+    .by = c(CU, gap),
+    min_date = min(min_date),
+    max_date = max(max_date)
+  ) |> 
+  left_join(max_CU_run) |> 
+  filter(CU != "Somass aggregate") |> 
+  mutate(
+    label = if_else(as.numeric(max_date - min_date) > 365, "fertilized", NA),
+    across(contains("date"), \(x) as.integer(format(x, "%Y"))),
+    max_date = if_else(max_date-min_date == 0, max_date + 1, max_date)
+  )
+
+
+# Dataframe for hatchery releases by CU
+cu_releases <- abun_data0 |> 
+  mutate(releases = if_else(is.na(hatchery_fry_release), hatchery_eggs_release, hatchery_fry_release)) |> 
+  select(year, CU, releases) |> 
+  filter(releases > 0) |> 
+  left_join(max_CU_run)
 
 
 # Prepare CU-level data for plotting
@@ -321,13 +335,6 @@ cu_abun_data <- abun_data |>
       ncol = 1,
       scales = "free_y"
     ) +
-    # Add points showing fertilization years
-     geom_point(
-       data = cu_fertilizer,
-       aes(y = y/1000),
-       shape = "|",
-       size = 2
-     ) +
     # Add shaded area showing where catch wasn't broken out by CU
     geom_rect(
       data = cu_catch,
@@ -354,6 +361,39 @@ cu_abun_data <- abun_data |>
       size = 2,
       colour = "grey40"
     ) +
+    # Add segments showing fertilization years
+    geom_textsegment(
+      data = filter(cu_fertilizer, !is.na(label)),
+      aes(
+        y = 1.02*(max_run/1000),
+        yend = 1.02*(max_run/1000),
+        x = min_date,
+        xend = max_date,
+        label = label
+      ),
+      remove_long = TRUE,
+      linewidth = 0.2,
+      size = 2
+    ) +
+    geom_segment(
+      data = filter(cu_fertilizer, is.na(label)),
+      aes(
+        y = 1.02*(max_run/1000),
+        yend = 1.02*(max_run/1000),
+        x = min_date,
+        xend = max_date,
+      ),
+      linewidth = 0.2
+    ) +
+    # Add points showing the magnitude of hatchery releases
+    geom_point(
+      data = cu_releases,
+      aes(
+        y = 0.98*(max_run/1000),
+        size = releases
+      ),
+      shape = "|"
+    ) +
     # Add the abundance data
     geom_col(
       aes(
@@ -369,6 +409,12 @@ cu_abun_data <- abun_data |>
       guide = "legend",
       labels = levels(cu_abun_data$data_source)
     ) +
+    scale_size_continuous(
+      name = "Hatchery\nreleases",
+      labels = scales::label_number(),
+      breaks = seq(1e6, 9e6, length.out = 5),
+      range = c(0.5,3)
+      ) +
     scale_y_continuous(
       name = "Sockeye abundance (1000s)",
       labels = scales::label_number(),
