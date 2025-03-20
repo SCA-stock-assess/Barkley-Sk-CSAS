@@ -371,7 +371,11 @@ corr_p |>
           idx,
           ".png"
         )
-      )
+      ),
+      width = 9,
+      height = 9,
+      units = "in",
+      dpi = "print"
     )
   )
 
