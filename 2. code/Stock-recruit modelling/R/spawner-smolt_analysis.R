@@ -1,7 +1,7 @@
 # Packages ----------------------------------------------------------------
 
 
-pkgs <- c("here", "readxl", "tidyverse", "broom", "gsl", "rstan")
+pkgs <- c("here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes")
 #install.packages(pkgs)
 
 
@@ -11,6 +11,7 @@ library(readxl)
 library(broom)
 library(gsl)
 library(rstan)
+library(tidybayes)
 
 
 # Load pre-smolt abundance and adult spawner data --------------
@@ -577,23 +578,33 @@ model_plots |>
 # Fit Beverton-Holt AR1 models to Somass data using Stan ------------------
 
 
-# Pull out the Hucuktlis data, which require a different model
+# Prepare data from Somass CUs for modelling
 somass_sr <- spwn_fry |> 
-  filter(cu != "Hucuktlis") |> 
+  filter(
+    # Pull out the Hucuktlis data, which require a different model
+    cu != "Hucuktlis",
+    !if_any(c(mu_R, sigma_R, adult_S, S_cv), is.na)
+  ) |> 
+  # Clean up column names for recruitment values
+  rename_with(
+    \(x) str_remove(paste0("R_", x), "%"),
+    .cols = matches("%")
+  ) |> 
+  # Convert biomass back to g to match mu values
+  mutate(across(matches("R_\\d+"), \(x) if_else(parameter == "BYB", x*1000, x))) |> 
   droplevels()
   
 
 # Make input data for Stan
-make_stan_data_somass <- function(cu_name) {
+make_stan_data_somass <- function(cu_name, R_param) {
   
   cu_data <- somass_sr |> 
     filter(
       cu == cu_name,
-      !if_any(c(mu_R, sigma_R, adult_S, S_cv), is.na),
-      parameter == "BYO" # Use brood year smolt production as recruitment measure
+      parameter == R_param
     ) |> 
     mutate(
-      S_sd = adult_S * S_cv,
+      S_sd = adult_S * S_cv, # Add additional uncertainty to observed spawners?
       mu_S = log(adult_S^2 / sqrt(S_sd^2 + adult_S^2)),
       sigma_S = sqrt(log(1 + (S_sd^2 / adult_S^2)))
     )
@@ -604,21 +615,37 @@ make_stan_data_somass <- function(cu_name) {
   # Best estimates of annual spawner abundance, in log space
   S_obs <- cu_data$mu_S
   
-  # Best estimates of annual smolt recruitment, in log space
+  # Best estimates of annual recruitment, in log space
   R_obs <- cu_data$mu_R
   
   # Annual standard deviation of spawner abundance, in log space
   sigma_S_obs <- cu_data$sigma_S
   
-  # Annual standard deviation of smolt recruitment, in log space
+  # Annual standard deviation of recruitment, in log space
   sigma_R_obs <- cu_data$sigma_R
+  
+  # Alpha prior: plausible maximum number of recruits per spawner
+  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)*2
+  
+  # Beta prior: plausible maximum number of recruits
+  beta_prior <- max(cu_data$R_50)
+  
+  # Alpha variability prior (on log scale)
+  sigma_alpha_prior <- 0.2
+  
+  # Beta variability prior (on log scale)
+  sigma_beta_prior <- 0.4
   
   stan_data <- list(
     Y = Y,
     S_obs = S_obs,
     R_obs = R_obs,
     sigma_S_obs = sigma_S_obs,
-    sigma_R_obs = sigma_R_obs
+    sigma_R_obs = sigma_R_obs,
+    alpha_prior = alpha_prior,
+    beta_prior = beta_prior,
+    sigma_alpha_prior = sigma_alpha_prior,
+    sigma_beta_prior = sigma_beta_prior
   )
   
   return(stan_data)
@@ -627,9 +654,13 @@ make_stan_data_somass <- function(cu_name) {
 
 
 # Save the stan data for each CU
-somass_stan_data <- levels(somass_sr$cu) |> 
-  purrr::set_names() |> 
-  map(make_stan_data_somass)
+somass_stan_data <- expand_grid(
+  cu_name = levels(somass_sr$cu),
+  R_param = c("BYO", "BYB")
+) |> 
+  # Ensure pmap captures names correctly for each model
+  mutate(cu_name = set_names(cu_name, paste(cu_name, R_param, sep = "_"))) |> 
+  pmap(make_stan_data_somass)
 
 
 # Function to fit Stan model 
@@ -644,19 +675,24 @@ fit_stan_somass <- function(stan_data, cu) {
     model_name = cu,
     data = stan_data, 
     iter = 3000, 
-    chains = 4, 
-    warmup = 1000
+    chains = 3, 
+    warmup = 1000,
+    control = list(
+      max_treedepth = 14,
+      adapt_delta = 0.9
+    )
   )
 }
 
 
 # Fit the models for both CUs
 if(
-  FALSE
-  #TRUE
+  #FALSE
+  TRUE
 ) {
   somass_stan_fits <- somass_stan_data |> 
-    imap(fit_stan_somass)}
+    imap(fit_stan_somass)
+}
 
 
 # Save fitted models as RDS objects (toggle to TRUE to run)
@@ -752,7 +788,7 @@ post_interannual <- somass_stan_fits |>
   map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
   map(\(x) map(x, \(y) as_tibble(y, rownames = "draw"))) |> 
   map(\(x) list_rbind(x, names_to = "parameter")) |> 
-  list_rbind(names_to = "cu") 
+  list_rbind(names_to = "cu_Rmeas") 
 
 
 # Posterior values that are year-specific
@@ -762,23 +798,46 @@ post_annual <- somass_stan_fits |>
   map(\(x) keep(.x = x, .p = \(y) is.matrix(y))) |> 
   map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL, rownames = "draw"))) |> 
   map(\(x) list_rbind(x, names_to = "parameter")) |> 
-  list_rbind(names_to = "cu") |> 
+  list_rbind(names_to = "cu_Rmeas") |> 
   pivot_longer(
-    cols = !c(cu, parameter, draw),
+    cols = !c(cu_Rmeas, parameter, draw),
     names_to = "year",
     values_to = "value",
     names_transform = \(x) str_extract(x, "\\d+")
-  ) |> 
-  left_join(min_yrs) |> 
-  mutate(year = as.numeric(year) - 1 + min_yr) |> 
-  select(-min_yr)
+  )
+  
 
 
 # All posterior values
 posterior_df <- bind_rows(
   post_annual, 
   post_interannual
-) 
+) |> 
+  separate(cu_Rmeas, sep = "_", c("cu", "Rmeas")) |> # This step takes curiously long
+  left_join(min_yrs) |> 
+  mutate(year = as.numeric(year) - 1 + min_yr) |> 
+  select(-min_yr)
+
+
+# Observed values for spawners and recruits
+obs_sr <- somass_sr |> 
+  mutate(
+    S_50 = adult_S,
+    S_10 = adult_S - adult_S*S_cv*1.28,
+    S_90 = adult_S + adult_S*S_cv*1.28
+  ) |> 
+  filter(
+    parameter %in% unique(posterior_df$Rmeas),
+    cu != "Hucuktlis"
+  ) |> 
+  select(cu, Rmeas = parameter, year, matches("(S|R)_\\d{2}")) |> 
+  pivot_longer(
+    matches("(S|R)_\\d{2}"),
+    names_sep = "_",
+    names_to = c("parameter", "quantile")
+  ) |> 
+  pivot_wider(names_from = quantile) |> 
+  mutate(set = "obs")
 
 
 # Plot posterior estimates for spawners and recruits
@@ -788,16 +847,176 @@ posterior_df |>
     names_from = parameter,
     values_from = value
   ) |> 
-  ggplot(aes(S_true, R_true, colour = year)) +
-  facet_wrap(~cu) +
-  stat_summary(
-    geom = "linerange",
-    fun.data = mean_cl_boot,
-    orientation = "x"
-  ) +
-  stat_summary(
-    geom = "pointrange",
-    fun.data = mean_cl_boot,
-    orientation = "y"
+  rename_with(\(x) str_remove(x, "_true")) |> 
+  summarize(
+    .by = c(cu, Rmeas, year),
+    across(
+      c(S, R),
+      .fns = list(
+        "50" = median,
+        "10" = ~quantile(.x, 0.1, na.rm = TRUE),
+        "90" = ~quantile(.x, 0.9, na.rm = TRUE)
+      ),
+      .names = "{.col}_{.fn}"
+    )
+  ) |> 
+  pivot_longer(
+    matches("(S|R)_\\d{2}"),
+    names_sep = "_",
+    names_to = c("parameter", "quantile")
+  ) |> 
+  pivot_wider(names_from = quantile) |> 
+  mutate(set = "post") |> 
+  bind_rows(obs_sr) %>% 
+  split(.$Rmeas) |> 
+  imap(
+    \(x, idx) x |> 
+      mutate(parameter = if_else(parameter == "R", idx, parameter)) |> 
+      ggplot(aes(year, `50`, colour = set)) +
+      facet_grid(
+        parameter ~ cu, 
+        switch = "y",
+        scales = "free_y"
+      ) +
+      geom_pointrange(
+        aes(
+          ymin = `10`,
+          ymax = `90`
+        ),
+        alpha = 0.5
+      ) +
+      theme(
+        strip.background.y = element_blank(),
+        axis.title.y = element_blank(),
+        strip.placement = "outside"
+      )
   )
+# Still some shrinkage occurring in the posterior recruitment estimates
+
+# Plot predicted Beverton-Holt curve versus observed data
+
+# Extract posterior samples of alpha and beta
+somass_a_b_draws <- posterior_df |> 
+  filter(parameter %in% c("alpha", "beta")) |> 
+  pivot_wider(names_from = parameter)
+
+
+# Create CU-specific range of spawners to predict across
+S_pred <- somass_sr |> 
+  summarize(
+    .by = cu,
+    min_S = 0,
+    max_S = max(adult_S)
+  ) |> 
+  rowwise() |> 
+  mutate(S = list(seq(min_S, max_S, length.out = 100))) |> 
+  unnest(S) |> 
+  select(cu, S)
+
+
+# Join range of predicted spawners to alpha and beta draws
+somass_pred_frame <- somass_a_b_draws |> 
+  left_join(
+    S_pred,
+    by = "cu",
+    relationship = "many-to-many"
+  )
+
+# Check that the resulting dataframe has the correct number of rows
+stopifnot(
+  all.equal(
+    nrow(somass_pred_frame), 
+    nrow(S_pred)/length(unique(S_pred$cu))*nrow(somass_a_b_draws)
+    )
+  )
+
+
+# Generate predictions for each spawner value
+somass_pred_frame |> 
+  mutate(R_pred = (alpha * S) / (1 + (alpha/beta)*S)) |> 
+  summarize(
+    .by = c(cu, Rmeas, S),
+    R_quant = list(quantile(R_pred, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+  ) |> 
+  unnest_wider(R_quant) |>
+  rename_with(
+    \(x) str_remove(paste0("R_pred_", x), "%"),
+    .cols = matches("%")
+  ) |> 
+  ggplot(aes(x = S, y = R_pred_50)) +
+  facet_grid(
+    Rmeas ~ cu, 
+    scales = "free",
+    switch = "y"
+  ) +
+  geom_line() +
+  geom_ribbon(
+    aes(
+      ymin = R_pred_2.5,
+      ymax = R_pred_97.5
+    ),
+    alpha = 0.25
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = R_pred_10,
+      ymax = R_pred_90
+    ),
+    fill = NA,
+    colour = "black",
+    lty = 2
+  ) +
+  geom_point(
+    data = somass_sr |> 
+      filter(parameter %in% unique(posterior_df$Rmeas)) |> 
+      rename("Rmeas" = parameter),
+    aes(x = adult_S, y = R_50)
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05)),
+    labels = scales::label_number()
+  ) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05)),
+    labels = scales::label_number()
+  ) +
+  theme(
+    strip.background.y = element_blank(),
+    axis.title.y = element_blank(),
+    strip.placement = "outside"
+  )
+
+
+# Draft stock reference points
+somass_a_b_draws |> 
+  mutate(
+    smsy = beta*sqrt(1/alpha) - beta/alpha,
+    umsy = 1 - sqrt(1/alpha)
+  ) |> 
+  summarize(
+    .by = c(cu, Rmeas),
+    across(
+      c(smsy, umsy), 
+      .fns = list(
+        "q25" = ~quantile(.x, 0.25),
+        "q50" = ~quantile(.x, 0.5),
+        "q75" = ~quantile(.x, 0.75)
+      ),
+      .names = "{.col}_{.fn}"
+    )
+  ) |> 
+  pivot_longer(
+    matches("(u|s)msy_q\\d+"),
+    names_sep = "_",
+    names_to = c("refpt", "quantile")
+  ) |> 
+  pivot_wider(names_from = quantile) |> 
+  arrange(refpt, cu, Rmeas)
+  
+
+
+
+
 
