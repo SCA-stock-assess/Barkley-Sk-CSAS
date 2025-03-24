@@ -14,6 +14,19 @@ library(rstan)
 library(tidybayes)
 
 
+# Sgen calculation for B-H model from Carrie Holt
+sGenSolverBH <- function (a, b) {
+  # Function to estimate Sgen from a and b BH parameters
+  # Assuming BH form: R = aS/(1 + (a/b) *S)
+  # Assuming approximation for SMSY: b*sqrt(1/a) - b/a
+  sMSY <- b*sqrt(1/a) - b/a
+  fn <- function(S){ -sum( dnorm ( log(sMSY) - log( a*S/ (1+ (a/b) * S) ), 
+                                   0, 1, log = T)) }
+  fit <- optimize(f = fn, interval = c(0, sMSY))
+  return(fit$minimum)
+}
+
+
 # Load pre-smolt abundance and adult spawner data --------------
 
 
@@ -575,7 +588,7 @@ model_plots |>
 
   
 
-# Fit Beverton-Holt AR1 models to Somass data using Stan ------------------
+# Fit Bayesian Beverton-Holt models to Somass data using Stan ------------------
 
 
 # Prepare data from Somass CUs for modelling
@@ -670,7 +683,7 @@ fit_stan_somass <- function(stan_data, cu) {
       "2. code",
       "Stock-recruit modelling",
       "Stan",
-      "SR_Bev-Holt_AR1.stan"
+      "SR_Bev-Holt_Somass.stan"
     ), 
     model_name = cu,
     data = stan_data, 
@@ -687,8 +700,8 @@ fit_stan_somass <- function(stan_data, cu) {
 
 # Fit the models for both CUs
 if(
-  #FALSE
-  TRUE
+  FALSE
+  #TRUE
 ) {
   somass_stan_fits <- somass_stan_data |> 
     imap(fit_stan_somass)
@@ -718,7 +731,7 @@ if(
 somass_stan_fits <- if(exists("somass_stan_fits")) {
   somass_stan_fits
 } else {
-  levels(somass_sr$cu) |>
+  names(somass_stan_data) |>
     purrr::set_names() |> 
     map(
       \(x) list.files(
@@ -732,6 +745,9 @@ somass_stan_fits <- if(exists("somass_stan_fits")) {
     ) |> 
     map(readRDS)
 }
+# Chain 2 of Sproat BYB explored some weird space but otherwise models look good
+# as of 21 March 2025. Some further work needed to ensure all chains mix well;
+# likely tweaking the priors a bit more will help. 
 
 
 # Assess convergence
@@ -947,7 +963,13 @@ somass_pred_frame |>
   facet_grid(
     Rmeas ~ cu, 
     scales = "free",
-    switch = "y"
+    switch = "y",
+    labeller = labeller(
+      Rmeas = c(
+        "BYB" = "Smolt biomass (g)",
+        "BYO" = "Smolt abundance"
+      )
+    )
   ) +
   geom_line() +
   geom_ribbon(
@@ -985,20 +1007,25 @@ somass_pred_frame |>
   theme(
     strip.background.y = element_blank(),
     axis.title.y = element_blank(),
-    strip.placement = "outside"
+    strip.placement = "outside",
+    panel.spacing.y = unit(1, "lines"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
   )
 
 
-# Draft stock reference points
+# Dummy stock reference points
 somass_a_b_draws |> 
+  rowwise() |> 
   mutate(
     smsy = beta*sqrt(1/alpha) - beta/alpha,
+    sgen = sGenSolverBH(alpha, beta),
     umsy = 1 - sqrt(1/alpha)
   ) |> 
+  ungroup() |> 
   summarize(
     .by = c(cu, Rmeas),
     across(
-      c(smsy, umsy), 
+      c(smsy, umsy, sgen), 
       .fns = list(
         "q25" = ~quantile(.x, 0.25),
         "q50" = ~quantile(.x, 0.5),
@@ -1008,15 +1035,101 @@ somass_a_b_draws |>
     )
   ) |> 
   pivot_longer(
-    matches("(u|s)msy_q\\d+"),
+    matches("(u|s)(msy|gen)"),
     names_sep = "_",
     names_to = c("refpt", "quantile")
   ) |> 
   pivot_wider(names_from = quantile) |> 
   arrange(refpt, cu, Rmeas)
+# Note that these ref points aren't really useful because the 
+# concept of MSY is based on recruitment to fisheries, whereas the outcome
+# variable in these relationships is smolts. Would need to build in 
+# marine survival and a more fulsome life cycle structure before using
+# these data to propose stock reference points through the lens of MSY. 
+
+
+# Fit Bayesian Beverton-Holt models to Hucuktlis data using Stan ----------
+
+
+# Prepare data from Hucuktlis for modelling
+hucuktlis_sr <- spwn_fry |> 
+  filter(
+    cu == "Hucuktlis",
+    !if_any(c(mu_R, sigma_R, adult_S, S_cv), is.na)
+  ) |> 
+  # Clean up column names for recruitment values
+  rename_with(
+    \(x) str_remove(paste0("R_", x), "%"),
+    .cols = matches("%")
+  ) |> 
+  # Convert biomass back to g to match mu values
+  mutate(across(matches("R_\\d+"), \(x) if_else(parameter == "BYB", x*1000, x))) |> 
+  droplevels()
+
+
+# Make input data for Stan
+make_stan_data_hucuktlis <- function(R_param, ...) {
   
+  cu_data <- hucuktlis_sr |> 
+    filter(parameter == R_param) |> 
+    mutate(
+      S_sd = adult_S * S_cv, # Add additional uncertainty to observed spawners?
+      mu_S = log(adult_S^2 / sqrt(S_sd^2 + adult_S^2)),
+      sigma_S = sqrt(log(1 + (S_sd^2 / adult_S^2)))
+    )
+  
+  # Number of years in the time series
+  Y <- nrow(cu_data)
+  
+  # Best estimates of annual spawner abundance, in log space
+  S_obs <- cu_data$mu_S
+  
+  # Best estimates of annual recruitment, in log space
+  R_obs <- cu_data$mu_R
+  
+  # Annual standard deviation of spawner abundance, in log space
+  sigma_S_obs <- cu_data$sigma_S
+  
+  # Annual standard deviation of recruitment, in log space
+  sigma_R_obs <- cu_data$sigma_R
+  
+  # Alpha prior: plausible maximum number of recruits per spawner
+  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)*2
+  
+  # Beta prior: plausible maximum number of recruits
+  beta_prior <- max(cu_data$R_50)
+  
+  # Alpha variability prior (on log scale)
+  sigma_alpha_prior <- 0.2
+  
+  # Beta variability prior (on log scale)
+  sigma_beta_prior <- 0.4
+  
+  stan_data <- list(
+    Y = Y,
+    S_obs = S_obs,
+    R_obs = R_obs,
+    sigma_S_obs = sigma_S_obs,
+    sigma_R_obs = sigma_R_obs,
+    alpha_prior = alpha_prior,
+    beta_prior = beta_prior,
+    sigma_alpha_prior = sigma_alpha_prior,
+    sigma_beta_prior = sigma_beta_prior
+  )
+  
+  return(stan_data)
+  
+}
 
 
+# Save the stan data for each CU
+hucuktlis_stan_data <- expand_grid(
+  cu_name = levels(hucuktlis_sr$cu),
+  R_param = c("BYO", "BYB")
+) |> 
+  # Ensure pmap captures names correctly for each model
+  mutate(cu_name = set_names(cu_name, paste(cu_name, R_param, sep = "_"))) |> 
+  pmap(make_stan_data_hucuktlis)
 
 
 
