@@ -481,17 +481,28 @@ Huc_sr <- Huc_run_ts_infill |>
   filter(!year < 1972) # Remove years prior to 1972
 
 
+# Read in CV values from excel file
+esc_CV <- here(
+  "1. data",
+  "Barkley Sockeye time series of returns.xlsx"
+  ) |> 
+  read_xlsx(sheet = "Escapement_CV") |> 
+  select(year, stock, S_cv = CV)
+
+catch_CV <- here(
+  "1. data",
+  "Barkley Sockeye time series of returns.xlsx"
+) |> 
+  read_xlsx(sheet = "Catch_CV") |> 
+  select(year, stock, H_cv = CV)
+
+
 # Collate the two dataframes
 Barkley_sk_sr <- bind_rows(Som_sr, Huc_sr) |> 
-  mutate(
-    # State CVs for catch and escapement
-    H_cv = if_else(is.na(hr_pred_cv), 0.05, hr_pred_cv),
-    S_cv = case_when(
-      stock != "HED" ~ 0.05,
-      stock == "HED" & year < 2012 ~ 0.2,
-      stock == "HED" & year >= 2012 ~ 0.1
-    )
-  ) |> 
+  # Add annual CV estimates for each CU's catch & escapement data
+  left_join(esc_CV) |> 
+  left_join(catch_CV) |> 
+  mutate(H_cv = if_else(is.na(H_cv), hr_pred_cv, H_cv)) |> 
   select(
     year,
     stock, 
@@ -559,10 +570,8 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
       column_name == "H_cv" ~ paste(
         "Coefficient of variation on harvest data. Historical (prior to 2011)",
         "Hucuktlis Sockeye harvest rate predictions were derived from a",
-        "linear model. CV for these data is calculated as RMSE of the model",
-        "residuals divided by the mean of the observed Hucuktlis Sockeye harvest",
-        "rates that informed the model fit (i.e. the dependent variable).",
-        "Harvest data for Somass and Hucuktlis post-2011 are assumed to be precise."
+        "linear model. Harvest data for Somass and Hucuktlis post-2011 are",
+        "assumed to be precise."
       ),
       column_name == "S_cv" ~ paste(
         "Coefficient of variation on spawner data. Currently based on ____"
