@@ -45,8 +45,41 @@ sr_age_infill <- sr |>
   left_join(stock_age_averages) |> 
   mutate(age.samples = 1) |> 
   bind_rows(sr) |> 
-  filter(!if_all(contains("N.age"), is.na))
-  
+  filter(!if_all(contains("N.age"), is.na)) |> 
+  rowwise() |> 
+  mutate(
+    # Calculate adult spawners for years where ages were infilled
+    adult_S = if_else(is.na(adult_S), S*sum(c_across(matches("N.*(4|5|6)"))), adult_S),
+    # Convert all age columns to proportions
+    across(
+      contains("N.age"), 
+      \(x) x/sum(c_across(contains("N.age")))
+    )
+  ) |> 
+  ungroup() |> 
+  mutate(
+    .by = stock,
+    max.age.samples = max(age.samples),
+    # Assign effective sample size (ESS) values for age data by stock and year, 
+    # ESS = 100 implies high confidence
+    age.ess = case_when(
+      stock %in% c("GCL", "SPL") & year > 2009 ~ 100,
+      age.samples < 15 ~ 10,
+      stock == "HUC" & year > 2020 ~ 100,
+      stock == "HUC" & age.samples/max.age.samples < 0.25 ~ 50,
+      stock %in% c("GCL", "SPL") & age.samples < 400 ~ 60,
+      age.samples/max.age.samples < 0.25 ~ 75,
+      .default = 75
+    )
+  )
+
+
+# Ensure all age columns sum to 1
+sr_age_infill |> 
+  rowwise() |> 
+  summarize(age_comp = sum(c_across(contains("N.age")))) |> 
+  count(age_comp)
+
   
 # Declare a function that transforms data for 1 stock into correct 
 # Stan input format. Need to do this because will be required for both
@@ -56,16 +89,16 @@ make_stan_data <- function(stock_name) {
   fn_data <- sr_age_infill |> 
     filter(
       stock == stock_name,
-      !if_any(c(S, H), is.na)
+      !if_any(c(adult_S, H), is.na)
     )
   
   A_obs <- fn_data |> 
-    mutate(across(contains("N.age"), ~.x*age.samples)) |> 
+    mutate(across(contains("N.age"), ~.x*age.ess)) |> 
     select(contains("N.age")) |> 
     as.matrix() |> 
     round() 
     
-  S_obs <- fn_data$S
+  S_obs <- fn_data$adult_S
   H_obs <- fn_data$H
   H_obs[H_obs<=0] <- 0.01 # Replace 0's with 0.01, otherwise you get ln(0) which breaks
   H_cv <- fn_data$H_cv
@@ -96,8 +129,8 @@ make_stan_data <- function(stock_name) {
     "H_obs" = H_obs,
     "S_cv" = S_cv,
     "H_cv" = H_cv, 
-    "Smax_p" = 0.75*max(fn_data$S), #what do we think Smax is? 
-    "Smax_p_sig" = 1*max(fn_data$S) #can tinker with these values making the factor smaller mean's you've observed density dependence (i.e. the ricker "hump")
+    "Smax_p" = 0.75*max(fn_data$adult_S), #what do we think Smax is? 
+    "Smax_p_sig" = 1*max(fn_data$adult_S) #can tinker with these values making the factor smaller mean's you've observed density dependence (i.e. the Ricker "hump")
   )
   
   return(stan.data)
@@ -169,19 +202,19 @@ if(FALSE) {
 }
 
 
-# Try stan model on HED data
+# Try stan model on HUC data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
 if(FALSE) {
-  HED_AR1 <- fit_stan_mod(stocks_stan_data$HED)
+  HUC_AR1 <- fit_stan_mod(stocks_stan_data$HUC)
   
   # Save the fitted model object
   saveRDS(
-    HED_AR1,
+    HUC_AR1,
     file = here(
       "3. outputs",
       "stock-recruit modelling",
-      "HED_AR1.rds"
+      "HUC_AR1.rds"
     )
   )      
 }
@@ -212,12 +245,12 @@ if(!exists("SPR_AR1")) {
 
 
 # Load fitted models from files (if the code above wasn't run)
-if(!exists("HED_AR1")) {
-  HED_AR1 <- readRDS(
+if(!exists("HUC_AR1")) {
+  HUC_AR1 <- readRDS(
     here(
       "3. outputs",
       "stock-recruit modelling",
-      "HED_AR1.rds"
+      "HUC_AR1.rds"
     )
   )
 }
@@ -227,7 +260,7 @@ if(!exists("HED_AR1")) {
 AR1_mods <- list(
   "GCL" = GCL_AR1,
   "SPR" = SPR_AR1,
-  "HED" = HED_AR1
+  "HUC" = HUC_AR1
 )
 
 
@@ -404,7 +437,7 @@ resids <- model_pars_AR1 |>
     # Not sure these years are being calculated correctly... 
     year = n_year - max(n_year) + max(sr_age_infill$year),
     # Currently sets max n_year = 2023 and back-calculates from there...
-    stock = factor(stock, levels = c("GCL", "SPR", "HED"))
+    stock = factor(stock, levels = c("GCL", "SPR", "HUC"))
   ) |> 
   rename(
     "lwr" = 3,
@@ -605,7 +638,7 @@ plot_data_combined <- plot_data |>
   map(pivot_wider) |> 
   list_transpose() |> 
   map(\(x) list_rbind(x, names_to = "cu")) |> 
-  map(\(x) mutate(x, cu = factor(cu, levels = c("GCL", "SPR", "HED"))))
+  map(\(x) mutate(x, cu = factor(cu, levels = c("GCL", "SPR", "HUC"))))
   
 
 facet_sr_p <- ggplot() +
@@ -618,7 +651,7 @@ facet_sr_p <- ggplot() +
       cu = c(
         "Great Central" = "GCL",
         "Sproat" = "SPR",
-        "Hucuktlis" = "HED"
+        "Hucuktlis" = "HUC"
       )
     )
   ) +
