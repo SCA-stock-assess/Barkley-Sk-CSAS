@@ -179,7 +179,7 @@ fit_stan_mod <- function(stan_data, stock, model_filename) {
       #"SS-SR_AR1.stan"
       model_filename
     ),
-    iter = 4000,
+    iter = 5000, # minor issues achieving ESS for Sproat; increasing iterations
     control = list(max_treedepth = 15),
     model_name = stock,
     data = stan_data
@@ -187,10 +187,10 @@ fit_stan_mod <- function(stan_data, stock, model_filename) {
 }
 
 
-# Try stan model on GCL data
+#  Stan model on GCL data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(TRUE) {
+if(FALSE) {
   GCL_AR1 <- fit_stan_mod(
     stocks_stan_data$GCL, 
     stock = "GCL",
@@ -212,7 +212,7 @@ if(TRUE) {
 # Try stan model on SPR data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(TRUE) {
+if(FALSE) {
   SPR_AR1 <- fit_stan_mod(
     stocks_stan_data$SPR, 
     stock = "SPR",
@@ -260,25 +260,6 @@ Somass_mods <- list(
   "GCL" = GCL_AR1,
   "SPR" = SPR_AR1
 )
-
-
-# # Save summary data from the fitted models
-# AR1_models_summary <- AR1_mods |> 
-#   map(rstan::summary) |> 
-#   map(\(x) x$summary) |> 
-#   map(\(x) as_tibble(x, rownames = "parameter")) |> 
-#   list_rbind(names_to = "stock") |> 
-#   nest(.by = stock, .key = "model_summary")
-
-
-model_pars_Somass <- Somass_mods |> 
-  map(
-    \(x) x |> 
-      rstan::extract() |> 
-      map(as.data.frame) |> 
-      enframe()
-  ) |> 
-  list_rbind(names_to = "stock")
 
 
 # some diagnostics
@@ -433,74 +414,6 @@ corr_p |>
 
 
 
-
-# Time series plots of model residuals ------------------------------------
-
-
-# Residuals from fitted models
-resids <- model_pars_Somass |> 
-  filter(name == "lnresid") |> 
-  select(-name) |> 
-  rowwise() |> 
-  mutate(value = list(pivot_longer(value, everything()))) |> 
-  ungroup() |> 
-  unnest(value) |> 
-  summarize(
-    .by = c(stock, name),
-    probs = list(quantile(value, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)))
-  ) |> 
-  unnest_wider(probs) |> 
-  mutate(
-    .by = stock,
-    n_year = str_extract(name, "\\d+") |> as.integer(),
-    # Not sure these years are being calculated correctly... 
-    year = n_year - max(n_year) + max(sr_age_infill$year),
-    # Currently sets max n_year = 2024 and back-calculates from there...
-  ) |> 
-  rename(
-    "lwr" = 3,
-    "midlwr" = 4,
-    "mid" = 5,
-    "midupr" = 6,
-    "upr" = 7
-  )
-  
-
-# Plot
-ggplot(resids, aes(x=year, y = mid)) +
-  facet_wrap(
-    ~stock, 
-    ncol = 1, 
-    strip.position = "right", 
-    scales = "free_y"
-  ) +
-  geom_abline(
-    intercept = 0, 
-    slope = 0, 
-    col = "dark grey", 
-    lty = 2
-  ) +
-  geom_ribbon(
-    aes(ymin = lwr, ymax = upr),  
-    fill = "darkgrey", 
-    alpha = 0.5
-  ) +
-  geom_ribbon(
-    aes(ymin = midlwr, ymax = midupr),  
-    fill = "black", 
-    alpha=0.2
-  ) + 
-  geom_line(lwd = 1.1) +
-  labs(
-    x = "Return year",
-    y = "Recruitment residuals", 
-  ) +
-  theme(
-    legend.position = "none",
-    panel.grid = element_blank()
-  ) 
-
-
 # Plot Somass stock-recruit curves with latent states ----------------------
 
 
@@ -520,11 +433,11 @@ make_srplot_data <- function(stock, stan_mod, stan_data) {
   
   rec <- model_pars$R
   rec.quant <- apply(rec, 2, quantile, probs=c(0.05,0.5,0.95))[,(A+a_min):nRyrs]
-
+  
   brood_years <- stan_data$brood_years[1:(nyrs-a_min)]
   brood_t <- as.data.frame(cbind(brood_years, t(spwn.quant), t(rec.quant)))
   colnames(brood_t) <- c("BroodYear","S_lwr","S_med","S_upr","R_lwr","R_med","R_upr")
-
+  
   
   # SR relationship
   spw <- seq(0,max(brood_t[,4]),length.out=100)
@@ -552,12 +465,12 @@ make_srplot_data <- function(stock, stan_mod, stan_data) {
 
 
 # Make data for plotting
-plot_data <- names(Somass_mods) |> 
+Somass_sr_plot_data <- names(Somass_mods) |> 
   purrr::set_names() |> 
   map(
     \(x) make_srplot_data(
       stock = x,
-      stan_mod = AR1_mods[[x]],
+      stan_mod = Somass_mods[[x]],
       stan_data = stocks_stan_data[[x]]
     )
   )
@@ -613,7 +526,7 @@ make_sr_plots <- function(sr_plot_data, stock) {
       oob = scales::oob_keep
     ) +
     scale_colour_viridis_c() +
-    #coord_equal(ratio = 1) +
+    #coord_equal(ratio = 1) + # interesting way to show the data, but ultimately just looks crowded 
     labs(
       x = "Spawners",
       y = "Recruits",
@@ -631,10 +544,10 @@ make_sr_plots <- function(sr_plot_data, stock) {
 
 
 # Plot
-(sr_plots <- plot_data |> 
-  imap(make_sr_plots)
+(sr_plots <- Somass_sr_plot_data |> 
+    imap(make_sr_plots)
 )
-  
+
 
 # Save plots
 sr_plots |> 
@@ -656,141 +569,79 @@ sr_plots |>
 
 
 
-# Faceted plot
-plot_data_combined <- plot_data |> 
-  map(enframe) |> 
-  map(pivot_wider) |> 
-  list_transpose() |> 
-  map(\(x) list_rbind(x, names_to = "cu")) |> 
-  map(\(x) mutate(x, cu = factor(cu, levels = c("GCL", "SPR", "HUC"))))
-  
-
-facet_sr_p <- ggplot() +
-  facet_wrap(
-    ~cu, 
-    ncol = 1,
-    scales = "free",
-    strip.position = "right",
-    labeller = labeller(
-      cu = c(
-        "Great Central" = "GCL",
-        "Sproat" = "SPR",
-        "Hucuktlis" = "HUC"
-      )
-    )
-  ) +
-  geom_errorbar(
-    data = plot_data_combined$brood_t, 
-    aes(x= S_med, y = R_med, ymin = R_lwr, ymax = R_upr),
-    colour="grey", 
-    width = 0,
-    size = 0.3
-  ) +
-  geom_abline(intercept = 0, slope = 1,col="dark grey") +
-  geom_ribbon(
-    data = plot_data_combined$SR_pred, 
-    aes(x = Spawn, ymin = Rec_lwr, ymax = Rec_upr),
-    fill = "grey80", 
-    alpha = 0.5, 
-    linetype = 2, 
-    colour = "grey46"
-  ) +
-  geom_line(
-    data = plot_data_combined$SR_pred, 
-    aes(x = Spawn, y = Rec_med), 
-    color = "black", 
-    size = 1
-  ) +
-  geom_errorbarh(
-    data = plot_data_combined$brood_t, 
-    aes(y = R_med, xmin = S_lwr, xmax = S_upr),
-    height = 0, 
-    colour = "grey", 
-    size = 0.3
-  ) +
-  geom_point(
-    data = plot_data_combined$brood_t, 
-    aes(x = S_med, y = R_med, color=BroodYear), 
-    size = 2,
-    alpha = 0.7
-  ) +
-  scale_x_continuous(
-    #limits = c(0, max(plot_data_combined$brood_t[,4])),
-    labels = scales::label_number(),
-    breaks = scales::pretty_breaks(n = 3),
-    expand = expansion(c(0, 0.05))
-  ) +
-  scale_y_continuous(
-    #limits = c(0, max(plot_data_combined$brood_t[,6])),
-    labels = scales::label_number(),
-    expand = expansion(c(0, 0.05)),
-    oob = scales::oob_keep
-  ) +
-  scale_colour_viridis_c() +
-  #coord_equal(ratio = 1) +
-  guides(colour = guide_colorbar(title.position = "top")) +
-  labs(
-    x = "Spawners",
-    y = "Recruits"
-  ) +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.key.width = unit(2, "lines"),
-    legend.title = element_text(size=9),
-    legend.text = element_text(size=8),
-    legend.position = "top"
-  )
-
-
-# Save the faceted plot
-ggsave(
-  facet_sr_p,
-  filename = here(
-    "3. outputs",
-    "Plots",
-    "State-space_stock-recruit_predictions_combined.png"
-  ),
-  width = 4,
-  height = 8,
-  units = "in",
-  dpi = "print"
-)
-
-
-
-
 # Test method of data exclusion on Hucuktlis data -------------------------
 
 
-# List of stan data for Hucuktlis with and without the 1993 observation
+# Lists of stan data for Hucuktlis with and without the 1993 observation
 HUC_stan_full <- make_stan_data("HUC")
 HUC_stan_full$use <- rep(1, length(HUC_stan_full$use))
-
-HUC_stan_trim <- make_stan_data("HUC")
+HUC_stan_trim <- make_stan_data("HUC") # default 'use' in make_stan_data excludes 1993
 
 HUC_stan_data <- list(
   "HUC_full" = HUC_stan_full,
   "HUC_trim" = HUC_stan_trim
 )  
+
+
+# Fit two models: one with and one without 1993 data in the state space model  
+# Round 1 because round 2 (following) will include the fertilization component
+if(FALSE) {
   
-HUC_AR1_mods <- HUC_stan_data |> 
-  imap(
-    \(x, idx) fit_stan_mod(
-      stan_data = x,
-      stock = idx, 
-      model_filename = "SS-SR_AR1_semi_beta_Somass.stan"
+  HUC_round1_mods <- HUC_stan_data |> 
+    set_names(\(x) paste0(x, "_nofert")) |> # Rename so model names have "_nofert" suffix
+    imap(
+      \(x, idx) fit_stan_mod(
+        stan_data = x,
+        stock = idx, 
+        # Using the Somass model for simplicity in this section
+        # The difference is that only 1 value each for lnalpha and beta are estimated
+        # (i.e. irrespective of fertilization state, which comes in the next section)
+        model_filename = "SS-SR_AR1_semi_beta_Somass.stan"
+      )
     )
-  )
   
+  # Save the fitted models
+  HUC_round1_mods |> 
+    iwalk(
+      \(x, idx) saveRDS(
+        x,
+        file = here(
+          "3. outputs",
+          "stock-recruit modelling",
+          paste0(idx, "_AR1.rds")
+        )
+      )     
+    )
+}
+
+
+# Read fitted model objects from RDS if code above is not run
+if(!exists("HUC_round1_mods")) {
+  HUC_round1_mods <- names(HUC_stan_data) |> 
+    paste0("_nofert") |> 
+    purrr::set_names() |> 
+    map(
+      \(x) readRDS(
+        here(
+          "3. outputs",
+          "stock-recruit modelling",
+          paste0(x, "_AR1.rds")
+        )
+      )
+    )
+}
+
+
+# Skip straight to SR plots to see if/how much the line shifts
 HUC_sr_plots_data <- pmap(
   list(
-    purrr::set_names(names(HUC_AR1_mods)),
-    HUC_AR1_mods,
+    purrr::set_names(names(HUC_round1_mods)),
+    HUC_round1_mods,
     HUC_stan_data
   ),
   make_srplot_data
 )
+
 
 HUC_sr_plots_data |> 
   imap(make_sr_plots)
@@ -798,28 +649,66 @@ HUC_sr_plots_data |>
 
 
 
-
 # Fit Hucuktlis model with fertilization-specific a and b vals --------
 
 
-HUC_AR1_mods_fert <- HUC_stan_data  |> 
-  imap(
-    \(x, idx) fit_stan_mod(
-      stan_data = x,
-      stock = idx, 
-      model_filename = "SS-SR_AR1_semi_beta_Hucuktlis.stan"
+# This time use the Hucuktlis-specific Stan model
+if(FALSE) {
+
+  HUC_round2_mods <- HUC_stan_data |> 
+    set_names(\(x) paste0(x, "_fert")) |> # Rename so model names have "_fert" suffix
+    imap(
+      \(x, idx) fit_stan_mod(
+        stan_data = x,
+        stock = idx, 
+        model_filename = "SS-SR_AR1_semi_beta_Hucuktlis.stan"
+      )
     )
-  )
+
+  # Save the fitted models
+  HUC_round2_mods |> 
+    iwalk(
+      \(x, idx) saveRDS(
+        x,
+        file = here(
+          "3. outputs",
+          "stock-recruit modelling",
+          paste0(idx, "_AR1.rds")
+        )
+      )     
+    )
+}
 
 
+# Read fitted model objects from RDS if code above is not run
+if(!exists("HUC_round2_mods")) {
+  HUC_round2_mods <- names(HUC_stan_data) |> 
+    paste0("_fert") |> 
+    purrr::set_names() |> 
+    map(
+      \(x) readRDS(
+        here(
+          "3. outputs",
+          "stock-recruit modelling",
+          paste0(x, "_AR1.rds")
+        )
+      )
+    )
+}
 
+
+# Make a list of all 4 fitted Hucuktlis models
+HUC_mods <- c(HUC_round1_mods, HUC_round2_mods)
+
+
+# Run the diagnostic plots on all 4 Hucuktlis models
 # n_eff versus Rhat
-HUC_AR1_mods_fert |> 
+HUC_mods |> 
   map(\(x) summary(x)$summary) |>  
   map(as.data.frame) |> 
-  list_rbind(names_to = "stock") |> 
+  list_rbind(names_to = "model") |> 
   ggplot(aes(x = n_eff, y = Rhat))+
-  facet_wrap(~stock) +
+  facet_wrap(~model) +
   geom_point() +
   stat_density_2d(
     alpha = 0.6,
@@ -835,17 +724,425 @@ HUC_AR1_mods_fert |>
 
 
 # check the chains directly
-# leading pars
-lead_pars_HUC <- c("beta_fert", "lnalpha_fert", "beta_unfert", "lnalpha_unfert", "sigma_R", "phi")
+(lead_pars_HUC_p <- HUC_mods |> 
+    map(
+      function(x) {
+        
+        lead_pars_mod <- str_subset(
+          names(x),
+          "lnalpha|beta|phi|sigma_R$|lnresid_0|phi"
+        )
+        
+        mcmc_combo(
+          x, 
+          pars = lead_pars_mod,
+          combo = c("dens_overlay", "trace"),
+          gg_theme = legend_none()
+        )
+      }
+    )
+)
 
-(HUC_AR1_mods_fert |> 
+
+# Save the plots
+lead_pars_HUC_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Leading_parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
+
+
+# age pars
+(age_pars_HUC_p <- HUC_mods |> 
     map(
       \(x) mcmc_combo(
         x, 
-        pars = lead_pars_HUC,
+        pars = c("D_scale", "D_sum"),
         combo = c("dens_overlay", "trace"),
         gg_theme = legend_none()
-      ) 
+      )
     )
+)
+
+
+# Save the plots
+age_pars_HUC_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Age_parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
+
+
+# Dirichlet parameters  
+(Dir_pars_HUC_p <- HUC_mods |> 
+    map(
+      \(x) mcmc_combo(
+        x, 
+        pars = paste0("Dir_alpha[", 1:4, "]"),
+        combo = c("dens_overlay", "trace"),
+        gg_theme = legend_none()
+      )
+    )
+)
+
+
+# Save the plots
+Dir_pars_HUC_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Dirichlet_parameters_",
+          idx,
+          ".png"
+        )
+      )
+    )
+  )
+
+
+# how do correlations in leading parameters look?
+(corr_HUC_p <- HUC_mods |> 
+    map(
+      function(x) {
+        corr_pars <- str_subset(
+          names(x),
+          "lnalpha|beta|phi"
+        )
+        
+        pairs(
+          x, 
+          pars = corr_pars
+        )
+      }
+    )
+)
+
+
+# Save the correlation plots
+corr_HUC_p |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Bayesian state-space diagnostics",
+        paste0(
+          "Correlation_leading-parameters_",
+          idx,
+          ".png"
+        )
+      ),
+      width = 9,
+      height = 9,
+      units = "in",
+      dpi = "print"
+    )
+  )
+
+
+# Time series plots of model residuals ------------------------------------
+
+
+# Residuals from fitted models
+resids <- c(Somass_mods, HUC_mods) |> 
+  map(\(x) rstan::extract(x, "lnresid")) |> 
+  map(\(x) map(x, \(y) as_tibble(y, rownames = "draw", .name_repair = NULL))) |> 
+  list_flatten(name_spec = "{outer}") |> 
+  map(\(x) pivot_longer(x, !draw, names_to = "Ryr")) |> 
+  list_rbind(names_to = "model") |> 
+  mutate(
+    .by = model,
+    Ryr = as.integer(str_extract(Ryr, "\\d+")),
+    max_Ryr = max(Ryr),
+    max_yr = max(sr$year),
+    brood_year = max_yr - max_Ryr + Ryr
+  ) |> 
+  filter(brood_year <= max(sr$year - 6)) |> 
+  summarize(
+    .by = c(model, brood_year),
+    probs = list(quantile(value, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)))
+  ) |> 
+  unnest_wider(probs) |> 
+  rename(
+    "lwr" = 3,
+    "midlwr" = 4,
+    "mid" = 5,
+    "midupr" = 6,
+    "upr" = 7
+  )
+
+
+# Plot
+ggplot(resids, aes(x=brood_year, y = mid)) +
+  facet_wrap(
+    ~model, 
+    ncol = 1, 
+    strip.position = "right", 
+    scales = "free_y"
+  ) +
+  geom_abline(
+    intercept = 0, 
+    slope = 0, 
+    col = "dark grey", 
+    lty = 2
+  ) +
+  geom_ribbon(
+    aes(ymin = lwr, ymax = upr),  
+    fill = "darkgrey", 
+    alpha = 0.5
+  ) +
+  geom_ribbon(
+    aes(ymin = midlwr, ymax = midupr),  
+    fill = "black", 
+    alpha=0.2
+  ) + 
+  geom_line(lwd = 1.1) +
+  labs(
+    x = "Return year",
+    y = "Recruitment residuals", 
+  ) +
+  theme(
+    legend.position = "none",
+    panel.grid = element_blank()
+  ) 
+
+
+# Combined SR plots for all CUs -------------------------------------------
+
+
+# Posterior draws of alpha and beta for all models
+ab_posterior <- c(HUC_mods, Somass_mods) |> 
+  map(rstan::extract) |> 
+  map(\(x) keep_at(x, \(y) str_detect(y, "lnalpha|beta"))) |> 
+  map(\(x) map(x, \(y) as_tibble(y, rownames = "draw"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "model") |> 
+  mutate(
+    stock = str_extract(model, "GCL|SPR|HUC"),
+    fert = case_when(
+      str_detect(parameter, "_fert") ~ 1, 
+      stock == "GCL" ~ 1,
+      .default = 0
+    ),
+    data_scope = if_else(str_detect(model, "trim"), "trim", "full"),
+    parameter = str_remove_all(parameter, "_.*")
+  ) |> 
+  nest(ab_draws = c(parameter, value, draw)) |> 
+  rowwise() |> 
+  mutate(ab_draws = list(pivot_wider(ab_draws, names_from = parameter)))
+
+
+# Posterior draws of spawners and recruits
+sr_draws <- c(HUC_mods, Somass_mods) |> 
+  map(\(x) rstan::extract(x, c("S", "R"))) |> 
+  map(\(x) map(x, \(y) as_tibble(y, rownames = "draw", .name_repair = NULL))) |> 
+  map(\(x) map(x, \(y) pivot_longer(y, !draw, names_to = "yr"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "model") |> 
+  mutate(
+    .by = c(model, parameter),
+    yr = as.integer(str_extract(yr, "\\d+")),
+    max_yr = max(yr),
+    max_sr_yr = max(sr$year),
+    brood_year = max_sr_yr - max_yr + yr,
+    stock = str_extract(model, "GCL|SPR|HUC"),
+    data_scope = if_else(str_detect(model, "trim"), "trim", "full")
+  ) |> 
+  # Constrain range of brood years to only those that are observed in the time series
+  filter(
+    .by = stock,
+    between(brood_year, min(brood_year) + 3, max(brood_year) - 6)
+  ) |> 
+  select(-contains("yr")) |> 
+  pivot_wider(names_from = parameter, values_from = value) |> 
+  # Add fertilization metadata from input dataframe
+  left_join(
+    select(.data = sr, brood_year = year, stock, fert = fertilized),
+    by = c("brood_year", "stock")
+  ) |> 
+  summarize(
+    .by = c(model, stock, fert, brood_year, data_scope),
+    across(
+      c(S, R), 
+      .fns = list(
+        `5` = ~quantile(.x, 0.05),
+        `50` = ~quantile(.x, 0.5),
+        `95` = ~quantile(.x, 0.95)
+      ),
+      .names = "{.col}_{.fn}"
+    )
+  ) |> 
+  nest(brood_t = c(brood_year, fert, matches("_\\d+")))
+  
+
+# Merge data for SR plotting
+all_mods_data <- left_join(
+  ab_posterior,
+  sr_draws,
+  by = c("stock", "model", "data_scope")
+) |> 
+  rowwise() |> 
+  mutate(
+    long_name = factor(
+      model,
+      levels = c(
+        "GCL", 
+        "SPR", 
+        "HUC_full_nofert", 
+        "HUC_trim_nofert", 
+        "HUC_full_fert", 
+        "HUC_trim_fert"
+      ),
+      labels = c(
+        "Great Central Lake",
+        "Sproat Lake",
+        "Hucuktlis Lake (all data)",
+        "Hucuktlis Lake (excl. 1993)",
+        "Hucuktlis Lake (w/fertilization)",
+        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+      ) 
+    ),
+    # Calculate predicted spawner values from posterior lnalpha and beta draws
+    pred_frame = list(
+      data.frame("S" = seq(0, max(brood_t$S_95), length.out = 100)) |> 
+        expand_grid(ab_draws) |> 
+        mutate(
+          R = exp(lnalpha)*S*exp(-beta*S),
+          long_name = long_name,
+          fert = factor(fert)
+        ) |> 
+        summarize(
+          .by = c(S, long_name, fert),
+          quantiles = list(quantile(R, c(0.05, 0.5, 0.95)))
+        ) |> 
+        unnest_wider(quantiles)
+    ),
+    brood_t = list(mutate(brood_t, long_name = long_name))
+  ) |> 
+  ungroup() 
+
+
+# Data frame with latent states of spawners and recruits
+all_mods_brood_t <- list_rbind(all_mods_data$brood_t) |> 
+  mutate(across(matches("_\\d+"), \(x) x/1000))
+
+
+# Data frame with predicted recruits per spawner by model
+all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |> 
+  mutate(
+    across(c(S, matches("%")), \(x) x/1000),
+    fert = if_else(str_detect(long_name, "fertilization"), fert, NA)
+  )
+
+
+
+# Make tidy SR plots
+(all_mods_sr_plots <- ggplot(
+  data = all_mods_pred_frame,
+  aes(x = S, y = `50%`)
+) +
+    facet_wrap(
+      ~long_name,
+      scales = "free"
+    ) +
+    geom_abline(intercept = 0, slope = 1,col="dark grey") +
+    geom_line(aes(colour = fert)) +
+    geom_ribbon(
+      aes(
+        ymin = `5%`, 
+        ymax = `95%`,
+        fill = fert,
+        colour = fert
+      ),
+      alpha = 0.3,
+      lty = 2
+    ) +
+    geom_errorbar(
+      data = all_mods_brood_t, 
+      aes(x= S_50, y = R_50, ymin = R_5, ymax = R_95),
+      colour="grey", 
+      width = 0,
+      size = 0.3
+    ) +
+    geom_errorbarh(
+      data = all_mods_brood_t, 
+      aes(y = R_50, x = S_50, xmin = S_5, xmax = S_95),
+      height = 0, 
+      colour = "grey", 
+      size = 0.3
+    ) +
+    geom_point(
+      data = all_mods_brood_t, 
+      aes(x = S_50, y = R_50, colour = factor(fert)), 
+      size = 2,
+      alpha = 0.6
+    ) +
+    scale_colour_manual(
+      name = "Fertilization\nstate",
+      values = c("red", "blue"),
+      aesthetics = c("colour", "fill")
+    ) +
+    scale_x_continuous(
+      limits = c(0, NA),
+      labels = scales::label_number(),
+      breaks = scales::pretty_breaks(n = 3),
+      expand = expansion(c(0, 0))
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      labels = scales::label_number(),
+      expand = expansion(c(0, 0.05)),
+      oob = scales::oob_keep
+    ) +
+    labs(
+      x = "Spawners (1000s)",
+      y = "Recruits (1000s)"
+    ) +
+    theme(
+      strip.background = element_blank()
+    )
+)
+
+
+# Save the plotted model fits
+ggsave(
+  plot = all_mods_sr_plots,
+  here(
+    "3. outputs", 
+    "Plots",
+    "All_Barkley_Sk_AR1_fits.png"
+  ),
+  height = 7, 
+  width = 10,
+  units = "in",
+  dpi = "print"
 )
 
