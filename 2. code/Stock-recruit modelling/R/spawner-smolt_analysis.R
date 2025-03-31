@@ -165,8 +165,9 @@ sr_plot_data <- spwn_fry |>
       ) +
       geom_errorbarh(
         aes(
-          xmin = value - 1.96*value*S_cv,
-          xmax = value + 1.96*value*S_cv,
+          # 90% CIs
+          xmin = value - 1.65*value*S_cv,
+          xmax = value + 1.65*value*S_cv,
         )
       ) +
       geom_pointrange(
@@ -617,7 +618,7 @@ make_stan_data_somass <- function(cu_name, R_param) {
       parameter == R_param
     ) |> 
     mutate(
-      S_sd = adult_S * S_cv, # Add additional uncertainty to observed spawners?
+      S_sd = adult_S * S_cv, 
       mu_S = log(adult_S^2 / sqrt(S_sd^2 + adult_S^2)),
       sigma_S = sqrt(log(1 + (S_sd^2 / adult_S^2)))
     )
@@ -1041,7 +1042,7 @@ somass_a_b_draws |>
   ) |> 
   pivot_wider(names_from = quantile) |> 
   arrange(refpt, cu, Rmeas)
-# Note that these ref points aren't really useful because the 
+# Note that these ref points aren't useful for fish management because the 
 # concept of MSY is based on recruitment to fisheries, whereas the outcome
 # variable in these relationships is smolts. Would need to build in 
 # marine survival and a more fulsome life cycle structure before using
