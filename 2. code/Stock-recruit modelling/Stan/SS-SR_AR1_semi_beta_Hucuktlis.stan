@@ -181,8 +181,11 @@ model{
   //A_obs[t,1:A]) ~ multinomial(q[t,1:A]);
     target += multinomial_lpmf(A_obs[t,1:A]|to_vector(q[t,1:A]));
     U[t] ~ beta(1,1);
-    H_obs[t] ~ lognormal(lnC[t], sqrt(log((H_cv[t]^2) + 1)));
-    S_obs[t] ~ lognormal(lnS[t], sqrt(log((S_cv[t]^2) + 1)));
+    //exclude chosen years from the observation model for harvest and spawners
+    if(use[t]) {
+      H_obs[t] ~ lognormal(lnC[t], sqrt(log((H_cv[t]^2) + 1)));
+      S_obs[t] ~ lognormal(lnS[t], sqrt(log((S_cv[t]^2) + 1)));
+    }
   }
 }
 
