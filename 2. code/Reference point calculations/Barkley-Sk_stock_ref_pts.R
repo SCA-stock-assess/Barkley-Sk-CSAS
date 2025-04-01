@@ -28,8 +28,11 @@ AR1_fits <- here(
     pattern = "_AR1.rds",
     full.names = TRUE
   ) |> 
-  purrr::set_names(~str_extract(.x, ".{3}(?=_AR1.rds)")) |> 
   map(readRDS)
+
+
+# Use model_name attribute to assign names to the list of models
+names(AR1_fits) <- map(AR1_fits, \(x) attr(x, "model_name")) |> list_c()
 
 
 # Functions to calculate benchmarks ---------------------------------------
@@ -84,68 +87,169 @@ get_benchmarks <- function(AR1_model) {
 # Bootstrap reference points from AR1 parameters --------------------------
 
 
-# Iterate over CUs
-ref_pts <- AR1_fits |> 
-  map(get_benchmarks) |> 
-  map(as_tibble) |> 
-  list_rbind(names_to = "stock") |> 
-  mutate(Smsy_0.8 = 0.8*Smsy) |> 
+# Add AR1 model alpha and beta posterior draws to a dataframe
+AR1_frame <- AR1_fits |> 
+  enframe(name = "spec", value = "model") |> 
+  rowwise() |> 
+  mutate(parameter = list(str_subset(names(model), "lnalpha|beta"))) |> 
+  unnest_longer(parameter) |> 
+  rowwise() |> 
+  mutate(
+    posterior = list(as.data.frame(rstan::extract(model, pars = parameter))),
+    stock = str_extract(spec, "GCL|SPR|HUC"),
+    fert = case_when(
+      str_detect(parameter, "_fert") ~ 1, 
+      str_detect(parameter, "_unfert") ~ 0,
+      .default = NA
+    ),
+    data_scope = if_else(str_detect(spec, "trim"), "trim", "full"),
+    parameter = str_remove_all(parameter, "_.*")
+  ) |>
+  # Ensure '_fert' and '_unfert' suffixes are excluded from dataframe column names
+  mutate(posterior = list(rename_with(.data = posterior, ~str_remove_all(.x, "_.*")))) |> 
+  select(-model) |> 
+  pivot_wider(names_from = parameter, values_from = posterior) |> 
+  rowwise() |> 
+  mutate(
+    parameters = list(cbind(lnalpha, beta)),
+    .keep = "unused"
+  ) |> 
+  ungroup()
+
+
+# Use posterior draws to estimate reference points
+ref_pts <- AR1_frame |> 
+  rowwise() |> 
+  # Take 5000 random samples from the posterior draws
+  mutate(parameters = list(slice_sample(parameters, n = 5000, replace = TRUE))) |> 
+  unnest(parameters) |> 
+  rowwise() |> 
+  # Calculate reference points from the 5000 random samples
+  mutate(
+    Smsy = get_Smsy(lnalpha, beta),
+    Smsy0.8 = 0.8*Smsy,
+    Sgen = get_Sgen(exp(lnalpha), beta, -1, 1/beta*2, Smsy),
+    Umsy = (1 - lambert_W0(exp(1 - lnalpha))),
+    Seq = lnalpha/beta
+  ) |> 
+  ungroup()
+
+
+# Summary values for each model and reference point
+ref_pts_summary <- ref_pts |> 
+  summarize(
+    .by = !c(lnalpha, beta, Smsy, Smsy0.8, Sgen, Umsy, Seq),
+    across(
+      c(lnalpha, beta, Smsy, Smsy0.8, Sgen, Umsy, Seq),
+      .fns = c(
+        `5` = ~quantile(.x, 0.05),
+        `50` = ~quantile(.x, 0.5),
+        `95` = ~quantile(.x, 0.95)
+      ),
+      .names = "{.col}_{.fn}"
+    )
+  ) |> 
   pivot_longer(
-    !stock,
-    names_to = "ref_pt",
+    cols = matches("_\\d+"),
+    names_sep = "_",
+    names_to = c("ref_pt", "quantile"),
     values_to = "value"
   ) |> 
+  pivot_wider(names_from = quantile, names_prefix = "q") |>
   mutate(
+    long_name = factor(
+      spec,
+      levels = c(
+        "GCL", 
+        "SPR", 
+        "HUC_full_nofert", 
+        "HUC_trim_nofert", 
+        "HUC_full_fert", 
+        "HUC_trim_fert"
+      ),
+      labels = c(
+        "Great Central Lake",
+        "Sproat Lake",
+        "Hucuktlis Lake (all data)",
+        "Hucuktlis Lake (excl. 1993)",
+        "Hucuktlis Lake (w/fertilization)",
+        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+      ) 
+    ),
     stock = factor(
-      stock, 
-      levels = c("GCL", "SPR", "HED"),
-      labels = c("GCL", "SPR", "HUC")
+      stock,
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
     )
-  )
-
-
-# Median values for each stock and reference point
-ref_pts_median <- ref_pts |> 
-  summarize(
-    .by = c(stock, ref_pt),
-    median = median(value)
-  ) |> 
-  mutate(median = if_else(ref_pt == "Umsy", round(median, 2), round(median, 0)))
+  ) 
 
 
 # Plot distributions of bootstrapped reference points
-(ref_pts_plot <- ref_pts |> 
-  filter(!ref_pt == "Smsy") |> 
-  ggplot(aes(x = value, y = fct_rev(stock))) +
-  facet_wrap(
-    ~ ref_pt, 
-    scales = "free_x"
-  ) +
-  geom_density_ridges(
-    fill = "grey",
-    quantile_lines = TRUE,
-    quantiles = 2,
-    vline_colour = "red",
-    scale = 1.2,
-    colour = alpha("black", 0.5),
-    alpha = 0.75
-  ) +
-  geom_text(
-    data = filter(ref_pts_median, !ref_pt == "Smsy"),
-    aes(
-      label = median,
-      x = median
-    ),
-    hjust = -0.2, 
-    vjust = -1.5
-  ) +
-  scale_x_continuous(
-    breaks = scales::pretty_breaks(n = 3),
-    expand = c(0, 0)
-  ) +
-  scale_y_discrete(expand = expand_scale(mult = c(0.01, .7))) + 
-  labs(y = "Conservation Unit")
+(ref_pts_plot <- ref_pts_summary |> 
+    mutate(
+      label = case_when(
+        str_detect(ref_pt, "^S") ~ as.character(round(q50, 0)),
+        ref_pt == "lnalpha" ~ as.character(round(q50, 2)),
+        ref_pt == "Umsy" ~ paste0(round(q50*100, 0), "%"),
+        ref_pt == "beta" ~ as.character(format(q50, digits = 2, scientific = TRUE))
+      )
+    ) |>
+    ggplot(aes(x = q50, y = fct_rev(long_name))) +
+    facet_wrap(
+      ~ ref_pt, 
+      strip.position = "bottom",
+      scales = "free_x"
+    ) +
+    geom_pointrange(
+      aes(
+        colour = factor(fert),
+        xmin = q5, 
+        xmax = q95
+      ),
+      position = position_dodge(width = 0.7),
+      orientation = "y"
+    ) +
+    geom_text(
+      aes(
+        label = label,
+        colour = factor(fert)
+      ),
+      hjust = -0.2, 
+      vjust = -0.3,
+      position = position_dodge(width = 0.7),
+      show.legend = FALSE
+    ) +
+    scale_x_continuous(
+      breaks = scales::pretty_breaks(n = 3),
+      expand = c(0, 0)
+    ) +
+    scale_colour_manual(values = c("red", "blue")) +
+    guides(
+      colour = guide_legend(
+        title = "Fertilization state",
+        theme = theme(
+          legend.direction = "horizontal",
+          legend.title.position = "top",
+          legend.text.position = "bottom"
+        )
+      )
+    ) +
+    theme(
+      axis.title = element_blank(),
+      strip.placement = "outside",
+      strip.background = element_blank(),
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      panel.spacing.y = unit(1, "lines"),
+      legend.position = "inside",
+      legend.position.inside = c(0.95, 0),
+      legend.justification.inside = c(1, 0),
+      legend.background = element_rect(fill = alpha("grey", 0.25))
+    )
 )
+# Note that Umsy values look low but Umsy is a function only of 
+# alpha, which reflects productivity at low spawner abundances but not
+# overall carrying capacity
 
 
 # Save plot
@@ -156,39 +260,25 @@ ggsave(
     "Plots",
     "Barkley-Sk_bootstrapped_ref_pts.png"
   ),
-  width = 6.5,
+  width = 10,
+  height = 10,
   units = "in",
   dpi = "print"
 )
 
 
-# Build summary dataframe of reference points to export -------------------
-
-
-# Summary stats for each reference point
-ref_pts_summary <- ref_pts |> 
-  summarize(
-    .by = c(stock, ref_pt),
-    quant = list(quantile(value, c(0.05, 0.25, 0.5, 0.75, 0.95))),
-    mean = mean(value),
-    sd = sd(value)
-  ) |> 
-  unnest_wider(quant) |> 
-  rename("median" = `50%`) |> 
-  rename_with(
-    .cols = matches("\\d"),
-    \(x) str_remove_all(paste0("q", x), "[:punct:]")
-  )
+# Export summary dataframe of reference points -------------------
 
 
 # Export reference points
-write.csv(
-  ref_pts_summary,
-  file = here(
-    "3. outputs",
-    "Stock-recruit modelling",
-    "Barkley-Sk_CU_ref_pts_summary.csv"
-  ),
-  row.names = FALSE
-)
+ref_pts_summary |> 
+  arrange(long_name, desc(ref_pt), data_scope, fert) |> 
+  write.csv(
+    file = here(
+      "3. outputs",
+      "Stock-recruit modelling",
+      "Barkley-Sk_CU_ref_pts_summary.csv"
+    ),
+    row.names = FALSE
+  )
 
