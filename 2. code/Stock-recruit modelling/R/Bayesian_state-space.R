@@ -169,17 +169,15 @@ stocks_stan_data <- unique(sr_age_infill$stock) |>
 
 
 # Embrace Stan model in a function call to iterate over stocks
-fit_stan_mod <- function(stan_data, stock, model_filename) {
+fit_stan_mod <- function(stan_data, stock, model_filename, iterations) {
   stan(
     file = here(
       "2. code",
       "Stock-recruit modelling",
       "Stan",
-      # toggle which model to fit
-      #"SS-SR_AR1.stan"
       model_filename
     ),
-    iter = 5000, # minor issues achieving ESS for Sproat; increasing iterations
+    iter = iterations,
     control = list(max_treedepth = 15),
     model_name = stock,
     data = stan_data
@@ -194,7 +192,8 @@ if(FALSE) {
   GCL_AR1 <- fit_stan_mod(
     stocks_stan_data$GCL, 
     stock = "GCL",
-    model_filename = "SS-SR_AR1_semi_beta_Somass.stan"
+    model_filename = "SS-SR_AR1_semi_beta_Somass.stan",
+    iterations = 6000
   )
   
   # Save the fitted model object
@@ -212,11 +211,12 @@ if(FALSE) {
 # Try stan model on SPR data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(FALSE) {
+if(TRUE) {
   SPR_AR1 <- fit_stan_mod(
-    stocks_stan_data$SPR, 
+    stan_data = stocks_stan_data$SPR, 
     stock = "SPR",
-    model_filename = "SS-SR_AR1_semi_beta_Somass.stan"
+    model_filename = "SS-SR_AR1_semi_beta_Somass.stan",
+    iterations = 1e5 # Bulk ESS issues with Sproat
   )
   
   # Save the fitted model object
@@ -229,6 +229,15 @@ if(FALSE) {
     )
   )      
 }
+
+# Note: a weird quirk is that the model_name seems to be fixed by whichever 
+# of the above models is run first. E.g. if GCL is run before SPR, the 
+# model_name for SPR is 'GCL' (despite assigning model_name = stock = "SPR" 
+# via function argument). This doesn't appear to have any bearing on the
+# fitting or predictions, just the object name. My current, unsatisfying
+# solution is to simply clear the workspace between fitting and saving
+# each model, then load them both from the RDS files in a new session to 
+# proceed. 
 
 
 # Load fitted models from files (if the code above wasn't run)
@@ -585,7 +594,7 @@ HUC_stan_data <- list(
 
 # Fit two models: one with and one without 1993 data in the state space model  
 # Round 1 because round 2 (following) will include the fertilization component
-if(FALSE) {
+if(TRUE) {
   
   HUC_round1_mods <- HUC_stan_data |> 
     set_names(\(x) paste0(x, "_nofert")) |> # Rename so model names have "_nofert" suffix
@@ -596,7 +605,8 @@ if(FALSE) {
         # Using the Somass model for simplicity in this section
         # The difference is that only 1 value each for lnalpha and beta are estimated
         # (i.e. irrespective of fertilization state, which comes in the next section)
-        model_filename = "SS-SR_AR1_semi_beta_Somass.stan"
+        model_filename = "SS-SR_AR1_semi_beta_Somass.stan",
+        iterations = 6000
       )
     )
   
@@ -661,7 +671,8 @@ if(FALSE) {
       \(x, idx) fit_stan_mod(
         stan_data = x,
         stock = idx, 
-        model_filename = "SS-SR_AR1_semi_beta_Hucuktlis.stan"
+        model_filename = "SS-SR_AR1_semi_beta_Hucuktlis.stan",
+        iterations = 6000
       )
     )
 
