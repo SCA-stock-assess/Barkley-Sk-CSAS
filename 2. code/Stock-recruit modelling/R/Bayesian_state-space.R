@@ -211,7 +211,7 @@ if(FALSE) {
 # Try stan model on SPR data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(TRUE) {
+if(FALSE) {
   SPR_AR1 <- fit_stan_mod(
     stan_data = stocks_stan_data$SPR, 
     stock = "SPR",
@@ -594,7 +594,7 @@ HUC_stan_data <- list(
 
 # Fit two models: one with and one without 1993 data in the state space model  
 # Round 1 because round 2 (following) will include the fertilization component
-if(TRUE) {
+if(FALSE) {
   
   HUC_round1_mods <- HUC_stan_data |> 
     set_names(\(x) paste0(x, "_nofert")) |> # Rename so model names have "_nofert" suffix
@@ -1138,7 +1138,8 @@ all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |>
       y = "Recruits (1000s)"
     ) +
     theme(
-      strip.background = element_blank()
+      strip.background = element_blank(),
+      panel.grid = element_blank()
     )
 )
 
