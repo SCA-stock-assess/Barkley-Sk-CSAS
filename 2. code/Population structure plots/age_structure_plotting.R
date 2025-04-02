@@ -259,7 +259,10 @@ run_ages_brood <- bind_rows(huc_data_brood, som_data_brood) |>
 
 # Update plot with brood year data
 (ages_base_p2 <- ages_base_p %+% run_ages_brood +
-  labs(x = "Brood year")
+  labs(
+    x = "Brood year",
+    y = "Percentage returning by age"
+  )
 ) 
 
 
