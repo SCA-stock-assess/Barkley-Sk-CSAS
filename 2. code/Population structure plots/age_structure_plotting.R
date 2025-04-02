@@ -169,3 +169,119 @@ list(
       units = "in"
     )
   )
+
+
+# Plot age compositions by brood year -------------------------------------
+
+
+
+# Need raw data, which contains fw and marine ages
+som_data_brood <- here(
+  "1. data",
+  "Barkley Sockeye time series of returns.xlsx"
+) |> 
+  read_xlsx(sheet = "Somass") |> 
+  mutate(
+    age = paste0(
+      ttl_age,
+      "[",
+      fw_age,
+      "]"
+    ),
+    sockeye = as.numeric(escapement) + catch,
+    brood_year = return_year - ttl_age
+  ) |> 
+  rename("year" = brood_year) |> 
+  mutate(
+    .by = c(year, stock),
+    ttl = sum(sockeye),
+    prop = sockeye/sum(sockeye)
+  ) |> 
+  select(year, stock, prop, age)
+
+
+huc_data_brood <- here(
+  "1. data",
+  "Barkley Sockeye time series of returns.xlsx"
+) |> 
+  read_xlsx(sheet = "Hucuktlis") |> 
+  mutate(across(matches("age_\\d+"), \(x) x * age_sample_size)) |> 
+  summarize(
+    .by = c(year, escapement, catch),
+    across(matches("age_(sample_size|\\d+)"), sum)
+  ) |> 
+  mutate(across(matches("age_\\d+"), \(x) x / age_sample_size)) |> 
+  pivot_longer(
+    matches("age_\\d+"),
+    names_prefix = "age_",
+    names_to = "age",
+    values_to = "prop"
+  ) |> 
+  filter(
+    .by = year, 
+    !any(is.na(prop))
+  ) |> 
+  mutate(
+    catch = if_else(is.na(catch), 100, catch), # Hacky fix
+    stock = "HUC",
+    age = paste0(
+      str_sub(age, 1, 1),
+      "[",
+      str_sub(age, 2, 2),
+      "]"
+    ),
+    ttl_age = as.numeric(str_sub(age, 1, 1)),
+    brood_year = year - ttl_age,
+    sockeye = (catch + escapement) * prop
+  ) |> 
+  summarize(
+    .by = c(brood_year, age, stock),
+    sockeye = sum(sockeye)
+  ) |> 
+  mutate(
+    .by = brood_year,
+    ttl = sum(sockeye),
+    prop = sockeye/ttl
+  ) |> 
+  select(year = brood_year, age, stock, prop)
+
+
+run_ages_brood <- bind_rows(huc_data_brood, som_data_brood) |> 
+  mutate(stock = factor(stock, levels = c("GCL", "SPR", "HUC"))) |> 
+  filter(!str_detect(age, "NA")) |>
+  # Remove incomplete brood years
+  add_count(stock, year) |> 
+  filter(
+    .by = stock,
+    !n < max(n)
+  )
+
+
+# Update plot with brood year data
+(ages_base_p2 <- ages_base_p %+% run_ages_brood +
+  labs(x = "Brood year")
+) 
+
+
+# Add stacked columns
+(ages_brood_p <- ages_base_p2 +
+  geom_col(
+    position = "fill",
+    width = 1
+  ) 
+)
+
+
+# Save the stacked column chart
+ggsave(
+  plot = ages_brood_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Stock_brood-year_age-compositions.png"
+    ),
+  dpi = "print",
+  width = 6.5,
+  height = 5,
+  units = "in"
+)
