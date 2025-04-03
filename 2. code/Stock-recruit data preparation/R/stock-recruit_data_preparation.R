@@ -115,9 +115,9 @@ Som_sr <- Som_run_ts |>
   ) |> 
   rowwise() |> 
   mutate(
-    run = sum(c_across(contains("age"))),
+    run = sum(c_across(matches("N\\.age\\.\\d"))),
     # Convert age #s to proportions
-    across(contains("age\\.\\d"), \(x) x/run),
+    across(matches("N\\.age\\.\\d"), \(x) x/run),
     H = run - spawners,
   ) |> 
   ungroup() |> 
@@ -550,8 +550,7 @@ Barkley_sk_sr_metadata <- Barkley_sk_sr |>
         "Binary variable describing whether (1) or not (0) the CU nursary",
         "lake was fertilized in each year. Note that fertilization affects",
         "abundances of pre-smolts in year + 1 (e.g. fertilizing a lake in",
-        "2010 is expected to bolster the abundances of pre-smolts counted",
-        "during the winter 2011 ATS."
+        "2010 is expected to affect the fry arising from brood year 2009)."
       ),
       column_name == "hatchery_fry_release" ~ paste(
         "Numbers of Sockeye fry released by the Hucuktlis/Henderson hatchery",

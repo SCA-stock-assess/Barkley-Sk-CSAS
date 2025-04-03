@@ -49,11 +49,10 @@ sr_age_infill <- sr |>
   rowwise() |> 
   mutate(
     # Calculate adult spawners for years where ages were infilled
-    adult_S = if_else(is.na(adult_S), S*sum(c_across(matches("N.*(4|5|6)"))), adult_S),
-    # Convert all age columns to proportions
-    across(
-      contains("N.age"), 
-      \(x) x/sum(c_across(contains("N.age")))
+    adult_S = if_else(
+      is.na(adult_S), 
+      S*sum(c_across(matches("N.*(4|5|6)"))), 
+      adult_S
     )
   ) |> 
   ungroup() |> 
