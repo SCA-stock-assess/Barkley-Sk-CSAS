@@ -79,7 +79,7 @@ sr_age_infill |>
   summarize(age_comp = sum(c_across(contains("N.age")))) |> 
   count(age_comp)
 
-  
+
 # Declare a function that transforms data for 1 stock into correct 
 # Stan input format. Need to do this because will be required for both
 # SPR and GCL.
@@ -110,7 +110,9 @@ make_stan_data <- function(stock_name) {
       f = case_when(
         stock == "GCL" ~ 1, # changes nothing: all GCL years already = 1
         stock == "SPR" ~ 0, # overwrites 1985, the one year Sproat was fertilized
-        stock == "HUC" ~ fertilized
+        # fertilization affects previous brood year, so bump back the time series
+        # by 1 year to align fertilization with affected broods
+        stock == "HUC" ~ lead(fertilized, 1, default = 0) 
       )
     ) |> 
     pull(f)
@@ -654,7 +656,6 @@ HUC_sr_plots_data <- pmap(
 
 HUC_sr_plots_data |> 
   imap(make_sr_plots)
-# Doesn't look like the relationship is affected much by exclusion of 1993...
 
 
 
@@ -893,12 +894,32 @@ resids <- c(Somass_mods, HUC_mods) |>
     Ryr = as.integer(str_extract(Ryr, "\\d+")),
     max_Ryr = max(Ryr),
     max_yr = max(sr$year),
-    brood_year = max_yr - max_Ryr + Ryr
+    brood_year = max_yr - max_Ryr + Ryr,
+    long_name = factor(
+      model,
+      levels = c(
+        "GCL", 
+        "SPR", 
+        "HUC_full_nofert", 
+        "HUC_trim_nofert", 
+        "HUC_full_fert", 
+        "HUC_trim_fert"
+      ),
+      labels = c(
+        "Great Central Lake",
+        "Sproat Lake",
+        "Hucuktlis Lake (all data)",
+        "Hucuktlis Lake (excl. 1993)",
+        "Hucuktlis Lake (w/fertilization)",
+        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+      ) 
+    )
   ) |> 
   filter(brood_year <= max(sr$year - 6)) |> 
   summarize(
-    .by = c(model, brood_year),
-    probs = list(quantile(value, probs = c(0.1, 0.25, 0.5, 0.75, 0.9)))
+    .by = c(long_name, brood_year),
+    probs = list(quantile(value, probs = c(0.1, 0.25, 0.5, 0.75, 0.9))),
+    
   ) |> 
   unnest_wider(probs) |> 
   rename(
@@ -911,11 +932,11 @@ resids <- c(Somass_mods, HUC_mods) |>
 
 
 # Plot
-ggplot(resids, aes(x=brood_year, y = mid)) +
+(resid_ts_p <- ggplot(resids, aes(x=brood_year, y = mid)) +
   facet_wrap(
-    ~model, 
-    ncol = 1, 
-    strip.position = "right", 
+    ~long_name, 
+    ncol = 2, 
+    #strip.position = "right", 
     scales = "free_y"
   ) +
   geom_abline(
@@ -936,13 +957,31 @@ ggplot(resids, aes(x=brood_year, y = mid)) +
   ) + 
   geom_line(lwd = 1.1) +
   labs(
-    x = "Return year",
-    y = "Recruitment residuals", 
+    x = "Recruitment year",
+    y = "Recruits-per-spawner residuals", 
   ) +
   theme(
     legend.position = "none",
-    panel.grid = element_blank()
+    panel.grid = element_blank(),
+    strip.background = element_blank()
   ) 
+)
+  
+
+# Save the recruitment residuals time series plot
+ggsave(
+  plot = resid_ts_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "SS_models_recruitment-residuals_time-series.png"
+  ),
+  width = 6.5,
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
+
 
 
 # Combined SR plots for all CUs -------------------------------------------
