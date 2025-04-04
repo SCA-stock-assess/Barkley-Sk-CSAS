@@ -955,7 +955,7 @@ resids <- c(Somass_mods, HUC_mods) |>
     fill = "black", 
     alpha=0.2
   ) + 
-  geom_line(lwd = 1.1) +
+  geom_line(lwd = 0.5) +
   labs(
     x = "Recruitment year",
     y = "Recruits-per-spawner residuals", 
