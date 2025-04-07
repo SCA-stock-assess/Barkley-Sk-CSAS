@@ -1,13 +1,14 @@
 # Packages ----------------------------------------------------------------
 
 
-pkgs <- c("here", "tidyverse", "readxl", "rstan")
+pkgs <- c("here", "tidyverse", "readxl", "rstan", "ggrepel")
 #install.packages(pkgs)
 
 
 library(here)
 library(tidyverse); theme_set(theme_bw())
 library(readxl)
+library(ggrepel)
 
 
 
@@ -20,7 +21,9 @@ sr_data <- here(
   "Stock-recruit data",
   "Barkley_Sockeye_stock-recruit_infilled.xlsx"
 ) |> 
-  read_xlsx(sheet = "S-R data")
+  read_xlsx(sheet = "S-R data") |> 
+  # Calculate harvest rates
+  mutate(hr = H/N)
 
 
 # Fitted state-space spawner-recruit models
@@ -103,11 +106,76 @@ hr_err_boot <- hr_err |>
   )
 
 
+# Fit simple LM to relate Hucuktlis HR to Somass HR
+Hucuktlis_hr_lm <- hr_err |> 
+  distinct(year, Somass_hr, Hucuktlis_hr) %>% 
+  lm(Hucuktlis_hr ~ Somass_hr, data = .)
+
+
+summary(Hucuktlis_hr_lm) # Fit looks pretty strong, 
+# should be good for simulation purposes
+
+
+# Plot Hucuktlis versus Somass HR in recent years
+(hr_corr_p <- sr_data |> 
+    # Calculate annual harvest rates on Somass and Hucuktlis
+    mutate(group = if_else(stock == "HUC", "Hucuktlis", "Somass")) |> 
+    filter(year > 2004) |> 
+    summarize(
+      .by = c(group, year),
+      across(c(N, H), sum)
+    ) |> 
+    mutate(hr = H/N) |> 
+    pivot_wider(
+      id_cols = year,
+      names_from = group,
+      values_from = hr,
+      names_glue = "{group}_hr"
+    ) |> 
+    ggplot(aes(x = Somass_hr, y = Hucuktlis_hr)) +
+    geom_abline(slope = 1, lty = 2) +
+    geom_smooth(method = "lm") +
+    geom_point(aes(colour = year), size = 2) +
+    geom_text_repel(aes(label = year)) +
+    scale_x_continuous(
+      limits = c(0, 0.75),
+      expand = c(0, 0),
+      labels = scales::percent,
+      oob = scales::oob_keep
+    ) +
+    scale_y_continuous(
+      limits = c(0, 0.75),
+      expand = c(0, 0),
+      labels = scales::percent,
+      oob = scales::oob_keep
+    ) +
+    scale_color_viridis_c() + 
+    coord_fixed(1) +
+    labs(
+      x = "Somass harvest rate",
+      y = "Hucuktlis harvest rate"
+    )
+)
+
+
+# Save the plot
+ggsave(
+  plot = hr_corr_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Hucuktlis_vs_Somass_HRs_2005-2024.png"
+  ),
+  width = 6,
+  units = "in",
+  dpi = "print"
+)
+  
 
 # Extract data required for the forward simulation ------------------------
 
   
-  
+
 sim_params <- AR1_frame |> 
   # Start with a list of model parameters whose posteriors we need
   # to extract
