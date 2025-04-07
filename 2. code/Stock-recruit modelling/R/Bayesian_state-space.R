@@ -1052,6 +1052,20 @@ sr_draws <- c(HUC_mods, Somass_mods) |>
   nest(brood_t = c(brood_year, fert, matches("_\\d+")))
   
 
+# Save latent states of spawners and recruits to send to Sue G
+# unnest(sr_draws, cols = brood_t) |> 
+#   filter(stock != "HUC") |> 
+#   select(stock, year = brood_year, matches("S_\\d+")) |> 
+#   write.csv(
+#     here(
+#       "3. outputs",
+#       "Stock-recruit modelling",
+#       "Barkley_sk_latent_spawners_for-SueG.csv"
+#     ),
+#     row.names = FALSE
+#   )
+
+
 # Merge data for SR plotting
 all_mods_data <- left_join(
   ab_posterior,
