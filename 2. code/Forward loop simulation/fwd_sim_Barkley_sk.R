@@ -14,6 +14,7 @@ library(readxl)
 # Load in data and fitted models ------------------------------------------
 
 
+# Spawner-recruit data time series
 sr_data <- here(
   "3. outputs",
   "Stock-recruit data",
@@ -22,6 +23,7 @@ sr_data <- here(
   read_xlsx(sheet = "S-R data")
 
 
+# Fitted state-space spawner-recruit models
 AR1_frame <- list.files(
   here(
     "3. outputs",
@@ -35,6 +37,72 @@ AR1_frame <- list.files(
   enframe(name = "spec", value = "model") 
   
   
+# Historic management forecast error
+fcst_err <- here(
+  "1. data",
+  "Somass_Sockeye_forecast_error.xlsx"
+) |> 
+  read_xlsx() |> 
+  rename_with(tolower) |> 
+  filter(forecast == "MGT") 
+
+
+# Show distribution of forecast errors
+ggplot(fcst_err, aes(x = err_pct)) +
+  geom_density(fill = "grey") +
+  scale_y_continuous(expand = c(0, 0.05))
+
+
+# Bootstrap mean & SD of forecast errors
+fcst_err_boot <- fcst_err |> 
+  select(err_pct) |> 
+  expand_grid(sample = seq(1:1000)) |> 
+  nest(.by = sample) |> 
+  rowwise() |> 
+  mutate(boot = list(sample(data, length(data), replace = TRUE))) |> 
+  select(boot) |> 
+  unnest(boot) |> 
+  summarize(
+    mean = mean(err_pct),
+    sd = sd(err_pct)
+  )
+
+
+# Harvest rate implementation error
+hr_err <- sr_data |> 
+  # Calculate annual harvest rates on Somass and Hucuktlis
+  mutate(group = if_else(stock == "HUC", "Hucuktlis", "Somass")) |> 
+  summarize(
+    .by = c(group, year),
+    across(c(N, H), sum)
+  ) |> 
+  mutate(hr = H/N) |> 
+  pivot_wider(
+    id_cols = year,
+    names_from = group,
+    values_from = hr,
+    names_glue = "{group}_hr"
+  ) |> 
+  right_join(fcst_err) |> 
+  # Calculate harvest rate error
+  mutate(hr_err = Somass_hr-target_hr) 
+
+
+# Bootstrap mean & SD of HR implementation error
+hr_err_boot <- hr_err |> 
+  select(hr_err) |> 
+  expand_grid(sample = seq(1:1000)) |> 
+  nest(.by = sample) |> 
+  rowwise() |> 
+  mutate(boot = list(sample(data, length(data), replace = TRUE))) |> 
+  select(boot) |> 
+  unnest(boot) |> 
+  summarize(
+    mean = mean(hr_err),
+    sd = sd(hr_err)
+  )
+
+
 
 # Extract data required for the forward simulation ------------------------
 
