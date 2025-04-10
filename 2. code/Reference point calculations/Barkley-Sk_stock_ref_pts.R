@@ -53,37 +53,6 @@ get_Sgen <- function(a, b, int_lower, int_upper, Smsy){
 }
 
 
-# Wrap benchmark bootstrapping into a function for iteration
-get_benchmarks <- function(AR1_model) {
-  
-  model_pars <- rstan::extract(AR1_model)
-
-  bench <- matrix(
-    NA,
-    1000,
-    4,
-    dimnames = list(
-      seq(1:1000), 
-      c("Sgen","Smsy","Umsy", "Seq")
-    )
-  )
-  
-  for(i in 1:1000){
-    r <- sample(seq(1,1000),1,replace=TRUE)
-    ln_a <- model_pars$lnalpha[r]
-    b <- model_pars$beta[r]
-    
-    bench[i,2] <- get_Smsy(ln_a, b) #S_MSY
-    bench[i,1] <- get_Sgen(exp(ln_a),b,-1,1/b*2, bench[i,2]) #S_gen
-    bench[i,3] <- (1 - lambert_W0(exp(1 - ln_a))) #U_MSY
-    bench[i,4] <- ln_a/b #S_eq
-  }
-  
-  
-  return(bench)
-}
-
-
 # Bootstrap reference points from AR1 parameters --------------------------
 
 
