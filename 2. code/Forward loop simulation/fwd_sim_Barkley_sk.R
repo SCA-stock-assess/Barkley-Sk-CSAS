@@ -363,9 +363,9 @@ get_HR <- function(total_abundance) {
 # ---- Simulation function ----
 simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years = 25) {
   
-  ns <- length(model_samps_list)      # Number of CUs (3)
+  ns <- length(model_samps_list)      # Number of CUs
   A <- 4                              # Age classes (3-6)
-  total_years <- A + n_years          # Buffer for lag
+  total_years <- A + n_years          # Buffer for age lag
   
   # Prep storage
   R <- matrix(0, total_years, ns)
@@ -379,27 +379,30 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
   # ----- 1. Initialize from posterior samples -----
   init_vals <- lapply(model_samps_list, function(samps) {
     sampled_row <- samps[sample(nrow(samps), 1), ]
+    
+    # Debug
+    cat("\n--- Selected Posterior Draw ---\n")
+    print(sampled_row[grep("^alpha_", names(sampled_row))])
+    print(sampled_row[grep("^beta_", names(sampled_row))])
+    
     process_iteration(sampled_row)
   })
   
-  # Pull alpha, beta, ps, resid, and seed R/S
   alpha <- sapply(init_vals, function(x) x$alpha)
   beta <- sapply(init_vals, function(x) x$beta)
   last_resid <- sapply(init_vals, function(x) x$last_resid)
   ps <- lapply(init_vals, function(x) x$ps)
   
-  # First 3 years use posteriors directly from the model
   for (i in 1:ns) {
     R[1:3, i] <- init_vals[[i]]$R
     S[4:7, i] <- init_vals[[i]]$S
     v[4, i] <- last_resid[i]
   }
   
-  # ----- 2. Simulate correlated recruitment errors -----
+  # ----- 2. Simulate recruitment errors -----
   epi <- MASS::mvrnorm(n = total_years, mu = rep(0, ns), Sigma = cov_matrix)
   
-  # ----- 3. Fill in years 4–7 using previous R and v -----
-  
+  # ----- 3. Fill years 4–7 -----
   for (i in 1:ns) {
     mu <- log(alpha[i]) + log(S[4, i]) - beta[i] * S[4, i]
     predR[4, i] <- exp(mu)
@@ -416,10 +419,9 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
     }
   }
   
-  # Fill N for years 4–7 based on ps (age-at-return proportions)
   for (t in 4:7) {
     for (a in 1:A) {
-      true_age <- a + 2  # age 3–6
+      true_age <- a + 2
       for (i in 1:ns) {
         brood_year <- t - true_age
         if (brood_year > 0) {
@@ -429,20 +431,12 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
     }
   }
   
-  # Clean any NaNs in v
   v[is.nan(v)] <- 0
-  
   
   # ----- 4. Forward simulation loop -----
   for (t in 8:total_years) {
-    for (i in 1:ns) {
-      mu <- log(alpha[i]) + log(S[t, i]) - beta[i] * S[t, i]
-      predR[t, i] <- exp(mu)
-      R[t, i] <- predR[t, i] * exp(phi * v[t - 1, i] + epi[t, i])
-      v[t, i] <- log(R[t, i]) - log(predR[t, i])
-    }
     
-    # Assign recruits to return years via age-at-return
+    ## 1. Calculate N[t, , ]
     for (a in 1:A) {
       true_age <- a + 2
       for (i in 1:ns) {
@@ -453,46 +447,48 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
       }
     }
     
-    # ----- 5. Harvest Rule -----
-    # For Somass (CU 1 and 2); need to add forecast error
-    somass_N <- sum(N[t, ,1:2])
-    if(is.na(somass_N)) {somass_N <- 0}
+    ## 2. Harvest Rule
+    somass_N <- sum(N[t, , 1:2])
+    if (is.na(somass_N)) { somass_N <- 0 }
     target_HR <- get_HR(somass_N)
-    true_HR <- target_HR + target_HR * rnorm(
-      1, 
-      mean = hr_err_boot$mean, 
-      sd = hr_err_boot$sd
-    )
-    
-    # Assign HRs
+    true_HR <- target_HR + target_HR * rnorm(1, mean = hr_err_boot$mean, sd = hr_err_boot$sd)
     HR[t, 1:2] <- pmax(pmin(true_HR, 1), 0)
-    # Hucuktlis offset; need to add noise based on model error
-    HR[t, 3] <- predict(Hucuktlis_hr_lm, data.frame(Somass_hr = true_HR)) 
-    if(HR[t, 3] < 0){HR[t, 3] <- 0} # Prevent HR from going negative
+    HR[t, 3] <- predict(Hucuktlis_hr_lm, data.frame(Somass_hr = true_HR))
+    if (HR[t, 3] < 0) { HR[t, 3] <- 0 }
     
-    # ----- 6. Calculate escapement and catch -----
+    ## 3. Spawners and Catch
     for (i in 1:ns) {
-      S[t, i] <- sum(N[t, ,i] * (1 - HR[t, i]))
-      C[t, i] <- sum(N[t, ,i] * HR[t, i])
+      S[t, i] <- sum(N[t, , i] * (1 - HR[t, i]))
+      C[t, i] <- sum(N[t, , i] * HR[t, i])
+    }
+    
+    ## 4. Recruitment
+    for (i in 1:ns) {
+      mu <- log(alpha[i]) + log(S[t, i]) - beta[i] * S[t, i]
+      predR[t, i] <- exp(mu)
+      R[t, i] <- predR[t, i] * exp(phi * v[t - 1, i] + epi[t, i])
+      v[t, i] <- log(R[t, i]) - log(predR[t, i])
     }
   }
   
-  # ----- 7. Return output -----
   return(list(
     R = R,
+    #mu = mu,
+    predR = predR,
     S = S,
     C = C,
     N = N,
     HR = HR,
     v = v,
-    mat = ps,
-    somass_N = somass_N,
-    epi = epi
+    mat = ps#,
+    #somass_N = somass_N,
+    #epi = epi
   ))
 }
 
 
 # Test out one iteration of the simulation
 sim_result <- simulate_forward(model_samps_list, phi = 0.75, cov_matrix = epi)
-# Sim seems to be failing around year 8; recruits go to 0 despite >0 spawners
-# Issue being that v goes to NaN in year 8?
+
+
+
