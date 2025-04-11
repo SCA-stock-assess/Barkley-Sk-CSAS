@@ -304,7 +304,7 @@ for (i in seq_along(AR1_subset)) {
 epi <- cov(sig_R_samps)
 colnames(epi) <- names(model_samps_list)
 
-# Key function used in the simulation to slice posterior ----------------------------
+# Define function used to slice posterior states from the models ----------------------------
 
 
 # below fun adapted from BC's kusko code (https://github.com/brendanmichaelconnors/Kusko-harvest-diversity-tradeoffs/blob/master/functions.R#L237)
