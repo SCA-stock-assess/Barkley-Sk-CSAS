@@ -28,11 +28,8 @@ AR1_fits <- here(
     pattern = "_AR1.rds",
     full.names = TRUE
   ) |> 
+  set_names(~str_extract(.x, "(?<=/)(GCL|SPR|HUC).*(?=_AR1)")) |> 
   map(readRDS)
-
-
-# Use model_name attribute to assign names to the list of models
-names(AR1_fits) <- map(AR1_fits, \(x) attr(x, "model_name")) |> list_c()
 
 
 # Functions to calculate benchmarks ---------------------------------------
@@ -42,7 +39,7 @@ names(AR1_fits) <- map(AR1_fits, \(x) attr(x, "model_name")) |> list_c()
 # https://github.com/Pacific-salmon-assess/FR-PK-ResDoc/blob/main/analysis/R/functions.R
 get_Smsy <- function(a, b){
   Smsy <- (1 - lambert_W0(exp(1 - a))) / b
-  if(Smsy <0){Smsy <- 0.001} #dumb hack for low draws so Smsy doesnt go negative
+  if(Smsy <0){Smsy <- 0.001} #hack for low draws so Smsy doesnt go negative
   return(Smsy)
 }
 
@@ -111,9 +108,9 @@ ref_pts_summary <- ref_pts |>
     across(
       c(lnalpha, beta, Smsy, Smsy0.8, Sgen, Umsy, Seq),
       .fns = c(
-        `5` = ~quantile(.x, 0.05),
+        `10` = ~quantile(.x, 0.10),
         `50` = ~quantile(.x, 0.5),
-        `95` = ~quantile(.x, 0.95)
+        `90` = ~quantile(.x, 0.90)
       ),
       .names = "{.col}_{.fn}"
     )
@@ -134,7 +131,8 @@ ref_pts_summary <- ref_pts |>
         "HUC_full_nofert", 
         "HUC_trim_nofert", 
         "HUC_full_fert", 
-        "HUC_trim_fert"
+        "HUC_trim_fert",
+        "HUC_recent"
       ),
       labels = c(
         "Great Central Lake",
@@ -142,7 +140,8 @@ ref_pts_summary <- ref_pts |>
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
         "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+        "Hucuktlis Lake (w/fertilization; excl. 1993)",
+        "Hucuktlis Lake (w/enhancement)"
       ) 
     ),
     stock = factor(
@@ -172,8 +171,8 @@ ref_pts_summary <- ref_pts |>
     geom_pointrange(
       aes(
         colour = factor(fert),
-        xmin = q5, 
-        xmax = q95
+        xmin = q10, 
+        xmax = q90
       ),
       position = position_dodge(width = 0.7),
       orientation = "y"
