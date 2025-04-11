@@ -109,7 +109,8 @@ hr_err_boot <- hr_err |>
 
 # Fit simple LM to relate Hucuktlis HR to Somass HR
 Hucuktlis_hr_lm <- hr_err |> 
-  distinct(year, Somass_hr, Hucuktlis_hr) %>% 
+  distinct(year, Somass_hr, Hucuktlis_hr) |> 
+  filter(year > 2011) %>% # Constrain to post-Maa-nulth Treaty time period 
   lm(Hucuktlis_hr ~ Somass_hr, data = .)
 
 
@@ -121,7 +122,7 @@ summary(Hucuktlis_hr_lm) # Fit looks pretty strong,
 (hr_corr_p <- sr_data |> 
     # Calculate annual harvest rates on Somass and Hucuktlis
     mutate(group = if_else(stock == "HUC", "Hucuktlis", "Somass")) |> 
-    filter(year > 2004) |> 
+    filter(year > 2011) |> 
     summarize(
       .by = c(group, year),
       across(c(N, H), sum)
@@ -348,20 +349,104 @@ lapply(model_samps_list, function(samps) {
   process_iteration(sampled_row)
 })
 
-# Take ChatGPT's build for a spin -----------------------------------------
 
 
-# Placeholder harvest control rule for Somass
-get_HR <- function(total_abundance) {
-  if (total_abundance < 200000) return(0)
-  else if (total_abundance < 350000) return(0.25)
-  else if (total_abundance < 700000) return(0.45)
-  else return(0.70)
+# Stipulate Harvest Control Rules -----------------------------------------
+
+
+# Current management plan
+status_quo_HCR <- function(fcst_run) {
+  
+  if (fcst_run < 200000)  {Somass_HR <- 0}
+  else if (fcst_run < 250000)  {Somass_HR <- 0.15}
+  else if (fcst_run < 300000)  {Somass_HR <- 0.2}
+  else if (fcst_run < 350000)  {Somass_HR <- 0.229166667}
+  else if (fcst_run < 400000)  {Somass_HR <- 0.25}
+  else if (fcst_run < 450000)  {Somass_HR <- 0.291666667}
+  else if (fcst_run < 500000)  {Somass_HR <- 0.324074074}
+  else if (fcst_run < 550000)  {Somass_HR <- 0.35}
+  else if (fcst_run < 600000)  {Somass_HR <- 0.397727273}
+  else if (fcst_run < 650000)  {Somass_HR <- 0.4375}
+  else if (fcst_run < 700000)  {Somass_HR <- 0.471153846}
+  else if (fcst_run < 750000)  {Somass_HR <- 0.5}
+  else if (fcst_run < 800000)  {Somass_HR <- 0.522222222}
+  else if (fcst_run < 850000)  {Somass_HR <- 0.541666667}
+  else if (fcst_run < 900000)  {Somass_HR <- 0.558823529}
+  else if (fcst_run < 950000)  {Somass_HR <- 0.574074074}
+  else if (fcst_run < 1000000)  {Somass_HR <- 0.587719298}
+  else if (fcst_run < 1050000)  {Somass_HR <- 0.6}
+  else if (fcst_run < 1100000)  {Somass_HR <- 0.618253968}
+  else if (fcst_run < 1150000)  {Somass_HR <- 0.634848485}
+  else if (fcst_run < 1200000)  {Somass_HR <- 0.65}
+  else if (fcst_run < 1250000)  {Somass_HR <- 0.658928571}
+  else if (fcst_run < 1300000)  {Somass_HR <- 0.667142857}
+  else if (fcst_run < 1350000)  {Somass_HR <- 0.674725275}
+  else if (fcst_run < 1400000)  {Somass_HR <- 0.681746032}
+  else if (fcst_run < 1450000)  {Somass_HR <- 0.688265306}
+  else if (fcst_run < 1500000)  {Somass_HR <- 0.694334975}
+  else {Somass_HR <- 0.7}
+ 
+ Somass_HR_realized <- Somass_HR + Somass_HR * rnorm(1, mean = hr_err_boot$mean, sd = hr_err_boot$sd)
+ if(Somass_HR_realized < 0) {Somass_HR_realized <- 0}
+ if(Somass_HR_realized >= 1) {Somass_HR_realized <- 0.99}
+  
+ # Predict the Hucuktlis Harvest Rate
+ huc_pred <- predict(
+   Hucuktlis_hr_lm, 
+   newdata = data.frame(Somass_hr = Somass_HR_realized), 
+   se.fit = TRUE
+ )
+ 
+ Hucuktlis_HR <- if(Somass_HR_realized == 0) {0} else {
+   # Can go below 0 but this is fixed in the simulation
+   rnorm(1, mean = huc_pred$fit, sd = huc_pred$residual.scale)
+ }
+ 
+  return(
+    list(
+      fcst_run = fcst_run,
+      Somass = Somass_HR_realized,
+      Hucuktlis = Hucuktlis_HR
+    )
+  )
 }
 
 
-# ---- Simulation function ----
-simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years = 25) {
+# See how the HCR function performs on some random data
+rlnorm(n = 1000, meanlog = log(500000), sdlog = 0.5) |>
+  set_names(1:1000) |> 
+  map(status_quo_HCR) |> 
+  map(enframe) |> 
+  list_rbind(names_to = "iter") |> 
+  unnest(value) |> 
+  pivot_wider() |> 
+  pivot_longer(c(Somass, Hucuktlis)) |> 
+  ggplot(aes(x = fcst_run, y = value)) +
+  geom_line(aes(colour = name)) +
+  scale_y_continuous(
+    limits = c(0, 1),
+    expand = c(0, 0),
+    labels = scales::percent
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_colour_viridis_d(end = 0.8, direction = -1) +
+  labs(x = "Forecast Somass run", y = "Harvest rate", colour = "Stock")
+
+
+# Simulation function -----------------------------------------------------
+
+
+
+simulate_forward <- function(
+    model_samps_list, 
+    phi = 0.75, 
+    cov_matrix, 
+    n_years = 25,
+    HCR_fn
+) {
   
   ns <- length(model_samps_list)      # Number of CUs
   A <- 4                              # Age classes (3-6)
@@ -379,12 +464,6 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
   # ----- 1. Initialize from posterior samples -----
   init_vals <- lapply(model_samps_list, function(samps) {
     sampled_row <- samps[sample(nrow(samps), 1), ]
-    
-    # Debug
-    cat("\n--- Selected Posterior Draw ---\n")
-    print(sampled_row[grep("^alpha_", names(sampled_row))])
-    print(sampled_row[grep("^beta_", names(sampled_row))])
-    
     process_iteration(sampled_row)
   })
   
@@ -436,7 +515,7 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
   # ----- 4. Forward simulation loop -----
   for (t in 8:total_years) {
     
-    ## 1. Calculate N[t, , ]
+    ## I. Calculate N[t, , ]
     for (a in 1:A) {
       true_age <- a + 2
       for (i in 1:ns) {
@@ -447,22 +526,23 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
       }
     }
     
-    ## 2. Harvest Rule
+    ## II. Harvest Rule
     somass_N <- sum(N[t, , 1:2])
-    if (is.na(somass_N)) { somass_N <- 0 }
-    target_HR <- get_HR(somass_N)
-    true_HR <- target_HR + target_HR * rnorm(1, mean = hr_err_boot$mean, sd = hr_err_boot$sd)
-    HR[t, 1:2] <- pmax(pmin(true_HR, 1), 0)
-    HR[t, 3] <- predict(Hucuktlis_hr_lm, data.frame(Somass_hr = true_HR))
-    if (HR[t, 3] < 0) { HR[t, 3] <- 0 }
+    #if (is.na(somass_N)) { somass_N <- 0 }
+    somass_fcst <- somass_N + somass_N * rnorm(1, fcst_err_boot$mean, fcst_err_boot$sd) # Add forecast error
+    # Note, it is ok if somass_fcst occasionally dips below 0, the HCR_fn will set HR = 0 for negative inputs
+    HR <- HCR_fn(somass_fcst) # Includes implementation error
+    HR[t, 1:2] <- HR$Somass
+    HR[t, 3] <- HR$Hucuktlis
+    if (HR[t, 3] < 0) { HR[t, 3] <- 0 } # Ensure Hucuktlis HR doesn't drop below 0
     
-    ## 3. Spawners and Catch
+    ## III. Spawners and Catch
     for (i in 1:ns) {
       S[t, i] <- sum(N[t, , i] * (1 - HR[t, i]))
       C[t, i] <- sum(N[t, , i] * HR[t, i])
     }
     
-    ## 4. Recruitment
+    ## IV. Recruitment
     for (i in 1:ns) {
       mu <- log(alpha[i]) + log(S[t, i]) - beta[i] * S[t, i]
       predR[t, i] <- exp(mu)
@@ -471,24 +551,61 @@ simulate_forward <- function(model_samps_list, phi = 0.75, cov_matrix, n_years =
     }
   }
   
-  return(list(
-    R = R,
-    #mu = mu,
-    predR = predR,
-    S = S,
-    C = C,
-    N = N,
-    HR = HR,
-    v = v,
-    mat = ps#,
-    #somass_N = somass_N,
-    #epi = epi
-  ))
+  # ----- 5. Combine into a dataframe -----
+  output <- data.frame()
+  for (i in 1:ns) {
+    df_cu <- data.frame(
+      year = 1:total_years,
+      CU = paste0("CU", i),
+      S = S[, i],
+      R = R[, i],
+      C = C[, i],
+      HR = HR[, i],
+      N_age3 = N[, 1, i],
+      N_age4 = N[, 2, i],
+      N_age5 = N[, 3, i],
+      N_age6 = N[, 4, i]
+    )
+    output <- rbind(output, df_cu)
+  }
+  
+  rownames(output) <- NULL
+  return(output)
 }
 
 
 # Test out one iteration of the simulation
-sim_result <- simulate_forward(model_samps_list, phi = 0.75, cov_matrix = epi)
+sim_result <- simulate_forward(
+  model_samps_list, 
+  phi = 0.75,
+  cov_matrix = epi,
+  HCR_fn = status_quo_HCR
+)
 
 
+# Plot the resulting time series
+sim_result |> 
+  rowwise() |> 
+  mutate(N = sum(c_across(contains("N_age")))) |> 
+  pivot_longer(cols = c(S, C, R, HR, N)) |> 
+  ggplot(aes(x = year, y = value)) +
+  facet_grid(name ~ CU, scales = "free_y") +
+  geom_line()
 
+
+# Run the simulation 1000 times -------------------------------------------
+
+sims <- c(1:1e3) |> 
+  set_names() |> 
+  map(\(x) simulate_forward(model_samps_list, phi = 0.75, cov_matrix = epi)) |> 
+  list_rbind(names_to = "sim")
+
+
+# Plot the resulting time series
+sims |> 
+  rowwise() |> 
+  mutate(N = sum(c_across(contains("N_age")))) |> 
+  pivot_longer(cols = c(S, C, R, HR, N)) |> 
+  ggplot(aes(x = year, y = value)) +
+  facet_grid(name ~ CU, scales = "free_y") +
+  geom_line(aes(group = sim), linewidth = 0.2, alpha = 0.2)
