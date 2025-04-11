@@ -166,7 +166,7 @@ ggsave(
   filename = here(
     "3. outputs",
     "Plots",
-    "Hucuktlis_vs_Somass_HRs_2005-2024.png"
+    "Hucuktlis_vs_Somass_HRs_2012-2024.png"
   ),
   width = 6,
   units = "in",
