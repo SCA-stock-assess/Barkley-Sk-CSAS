@@ -691,6 +691,35 @@ if(FALSE) {
 }
 
 
+# Another round of Hucuktlis models
+# This time, hack the fertilization term so it encompasses all enhanced
+# years (i.e. including hatchery)
+HUC_stan_recent <- HUC_stan_full
+HUC_stan_recent$f <- if_else(HUC_stan_full$brood_years < 2007, 1, 0)
+
+
+if(FALSE) {
+  
+  HUC_round3_mods <- HUC_stan_recent |> 
+    fit_stan_mod(
+      stock = "HUC_recent", 
+      model_filename = "SS-SR_AR1_semi_beta_Hucuktlis.stan",
+      iterations = 6000
+    )
+  
+  
+  # Save the fitted models
+  HUC_round3_mods |> 
+    saveRDS(
+      file = here(
+        "3. outputs",
+        "stock-recruit modelling",
+        paste0("HUC_recent", "_AR1.rds")
+      )
+    )     
+}
+
+
 # Read fitted model objects from RDS if code above is not run
 if(!exists("HUC_round2_mods")) {
   HUC_round2_mods <- names(HUC_stan_data) |> 
@@ -707,9 +736,19 @@ if(!exists("HUC_round2_mods")) {
     )
 }
 
+if(!exists("HUC_round3_mods")) {
+  HUC_round2_mods <- readRDS(
+    here(
+      "3. outputs",
+      "stock-recruit modelling",
+      paste0("HUC_recent", "_AR1.rds")
+    )
+  )
+}
 
-# Make a list of all 4 fitted Hucuktlis models
-HUC_mods <- c(HUC_round1_mods, HUC_round2_mods)
+
+# Make a list of all fitted Hucuktlis models
+HUC_mods <- c(HUC_round1_mods, HUC_round2_mods, "HUC_recent" = HUC_round3_mods)
 
 
 # Run the diagnostic plots on all 4 Hucuktlis models
@@ -903,7 +942,8 @@ resids <- c(Somass_mods, HUC_mods) |>
         "HUC_full_nofert", 
         "HUC_trim_nofert", 
         "HUC_full_fert", 
-        "HUC_trim_fert"
+        "HUC_trim_fert",
+        "HUC_recent"
       ),
       labels = c(
         "Great Central Lake",
@@ -911,7 +951,8 @@ resids <- c(Somass_mods, HUC_mods) |>
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
         "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+        "Hucuktlis Lake (w/fertilization; excl. 1993)",
+        "Hucuktlis Lake (excl. enhancement)" # Need a better name
       ) 
     )
   ) |> 
@@ -1082,7 +1123,8 @@ all_mods_data <- left_join(
         "HUC_full_nofert", 
         "HUC_trim_nofert", 
         "HUC_full_fert", 
-        "HUC_trim_fert"
+        "HUC_trim_fert",
+        "HUC_recent"
       ),
       labels = c(
         "Great Central Lake",
@@ -1090,7 +1132,8 @@ all_mods_data <- left_join(
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
         "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+        "Hucuktlis Lake (w/fertilization; excl. 1993)",
+        "Hucuktlis Lake (excl. enhancement)" # Need a better name
       ) 
     ),
     # Calculate predicted spawner values from posterior lnalpha and beta draws
@@ -1122,7 +1165,7 @@ all_mods_brood_t <- list_rbind(all_mods_data$brood_t) |>
 all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |> 
   mutate(
     across(c(S, matches("%")), \(x) x/1000),
-    fert = if_else(str_detect(long_name, "fertilization"), fert, NA)
+    fert = if_else(str_detect(long_name, "fert|enhance"), fert, NA)
   )
 
 
