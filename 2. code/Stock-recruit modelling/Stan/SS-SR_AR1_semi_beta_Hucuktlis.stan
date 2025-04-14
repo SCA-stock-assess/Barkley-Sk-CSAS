@@ -11,7 +11,7 @@ data{
   vector[nyrs] H_obs; // observed harvest
   vector[nyrs] S_cv;  // spawner observation error CV
   vector[nyrs] H_cv;  // harvest observation error CV
-  int f[nyrs];     // binary variable indicating whether lake was fertilized in a given year
+  int e[nyrs];        // binary variable indicating whether lake was enhanced in a given year
   real Smax_p;        // prior for Smax
   real Smax_p_sig;    // prior for Smax
   vector[nyrs] use;   // binary variable determining whether to use data for state space model
@@ -23,18 +23,16 @@ transformed data{
   real Smax_p_sig_corr;
 
   Smax_p_sig_corr = sqrt(log(1+(Smax_p_sig^2)/(Smax_p^2))); //this converts sigma on the untransformed scale to a log scale
-  // ChatGPT thinks the below calculation of Smax_p_corr is incorrect and suggested the following alteration:
-  // Smax_p_corr = log(Smax_p) - 0.5 * pow(sqrt(log(1 + pow(Smax_p_sig, 2) / pow(Smax_p, 2))), 2);
   Smax_p_corr = log(Smax_p)-0.5*(Smax_p_sig_corr)^2; //convert smax prior to per capita slope - transform to log scale with bias correction
 }
 
 parameters{
   // [Is it appropriate for the log parameters to have a lower bound of 0?]
   vector<lower=0>[nRyrs] lnR;             // log recruitment states
-  real<lower=0> lnalpha_fert;             // lnalpha for fertilized state
-  real<lower=0> lnalpha_unfert;           // lnalpha for unfertilized state
-  real<lower=0> Smax_fert;                // Smax for fertilized state
-  real<lower=0> Smax_unfert;              // Smax for unfertilized state  
+  real<lower=0> lnalpha_enh;              // lnalpha for enhanced state
+  real<lower=0> lnalpha_unenh;            // lnalpha for unenhanced state
+  real<lower=0> Smax_enh;                 // Smax for enhanced state
+  real<lower=0> Smax_unenh;               // Smax for unenhanced state  
   real<lower=0> sigma_R;                  // process error
   real<lower=0> sigma_R0;                 // process error for first a.max years with no spawner link
   real<lower=-1,upper=1> phi;             // lag-1 correlation in process error
@@ -63,8 +61,8 @@ transformed parameters{
   real<lower=0> D_sum;                  // inverse of D_scale which governs variability of age proportion vectors across cohorts
   vector<lower=0>[A] Dir_alpha;         // Dirichlet shape parameter for gamma distribution used to generate vector of age-at-maturity proportions
   matrix<lower=0, upper=1>[nyrs, A] q;  // age composition by year/age classr matrix
-  real beta_fert;                       // Ricker b for fertilized state
-  real beta_unfert;                     // Ricker b for unfertilized state
+  real beta_enh;                        // Ricker b for enhanced state
+  real beta_unenh;                      // Ricker b for unenhanced state
 
   // Maturity schedule: use a common maturation schedule to draw the brood year specific schedules
   pi[1] = prob[1];
@@ -82,8 +80,8 @@ transformed parameters{
 
   // simple calculations
   R = exp(lnR);
-  beta_fert = 1/Smax_fert;
-  beta_unfert = 1/Smax_unfert;
+  beta_enh = 1/Smax_enh;
+  beta_unenh = 1/Smax_unenh;
   sigma_R_corr = (sigma_R*sigma_R)/2;
 
   // Calculate the numbers at age matrix as brood year recruits at age (proportion that matured that year)
@@ -117,12 +115,12 @@ transformed parameters{
   }
 
 
-// allow different alpha/beta for each fertilization state
-// could try above approach but allowing only alpha or only beta to vary according to fertilzation
-// fertilization maybe has more an effect on beta than alpha?
+// allow different alpha/beta for each enhancement state
+// could try above approach but allowing only alpha or only beta to vary according to enhancement
+// enhancement maybe has more an effect on beta than alpha?
   for (y in (A+a_min):nRyrs) {
-    real beta = f[y - a_max] ? beta_fert : beta_unfert;
-    real lnalpha = f[y - a_max] ? lnalpha_fert : lnalpha_unfert;
+    real beta = e[y - a_max] ? beta_enh : beta_unenh;
+    real lnalpha = e[y - a_max] ? lnalpha_enh : lnalpha_unenh;
     lnRm_1[y] = lnS[y-a_max] + lnalpha - beta * S[y-a_max];
     lnresid[y] = lnR[y] - lnRm_1[y];
   }
@@ -137,10 +135,10 @@ transformed parameters{
 
 model{
   // Priors
-  lnalpha_fert ~ normal(1, 2);
-  lnalpha_unfert ~ normal(1, 2);
-  Smax_fert ~ lognormal(Smax_p_corr, Smax_p_sig_corr); // 1/beta
-  Smax_unfert ~ lognormal(Smax_p_corr, Smax_p_sig_corr); // 1/beta
+  lnalpha_enh ~ normal(1, 2);
+  lnalpha_unenh ~ normal(1, 2);
+  Smax_enh ~ lognormal(Smax_p_corr, Smax_p_sig_corr); // 1/beta
+  Smax_unenh ~ lognormal(Smax_p_corr, Smax_p_sig_corr); // 1/beta
   sigma_R ~ normal(0,2);
   lnresid_0 ~ normal(0,10);
   mean_ln_R0 ~ normal(0,10);
@@ -171,10 +169,6 @@ model{
       lnR[y] ~ normal(lnRm_2[y], sigma_R_corr);
     }
   }
-  // could create a loop where this is applied only on chosen years (e.g. 
-  // remove the 1993 data point)
-  // wrap above in if statement, if(a+amin /= 1993) {fit normal model to obs}
-  // no "else" required...
 
   // Observation model
   for(t in 1:nyrs){
