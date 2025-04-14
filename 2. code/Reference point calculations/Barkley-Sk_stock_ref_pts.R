@@ -63,15 +63,15 @@ AR1_frame <- AR1_fits |>
   mutate(
     posterior = list(as.data.frame(rstan::extract(model, pars = parameter))),
     stock = str_extract(spec, "GCL|SPR|HUC"),
-    fert = case_when(
-      str_detect(parameter, "_fert") ~ 1, 
-      str_detect(parameter, "_unfert") ~ 0,
+    enh = case_when(
+      str_detect(parameter, "_enh") ~ 1, 
+      str_detect(parameter, "_unenh") ~ 0,
       .default = NA
     ),
     data_scope = if_else(str_detect(spec, "trim"), "trim", "full"),
     parameter = str_remove_all(parameter, "_.*")
   ) |>
-  # Ensure '_fert' and '_unfert' suffixes are excluded from dataframe column names
+  # Ensure '_enh' and '_unenh' suffixes are excluded from dataframe column names
   mutate(posterior = list(rename_with(.data = posterior, ~str_remove_all(.x, "_.*")))) |> 
   select(-model) |> 
   pivot_wider(names_from = parameter, values_from = posterior) |> 
@@ -128,20 +128,18 @@ ref_pts_summary <- ref_pts |>
       levels = c(
         "GCL", 
         "SPR", 
-        "HUC_full_nofert", 
-        "HUC_trim_nofert", 
-        "HUC_full_fert", 
-        "HUC_trim_fert",
-        "HUC_recent"
+        "HUC_full_noenh", 
+        "HUC_trim_noenh", 
+        "HUC_full_enh", 
+        "HUC_trim_enh"
       ),
       labels = c(
         "Great Central Lake",
         "Sproat Lake",
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
-        "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)",
-        "Hucuktlis Lake (w/enhancement)"
+        "Hucuktlis Lake (w/enhancement term)",
+        "Hucuktlis Lake (w/enhancement term; excl. 1993)"
       ) 
     ),
     stock = factor(
@@ -170,7 +168,7 @@ ref_pts_summary <- ref_pts |>
     ) +
     geom_pointrange(
       aes(
-        colour = factor(fert),
+        colour = factor(enh),
         xmin = q10, 
         xmax = q90
       ),
@@ -180,7 +178,7 @@ ref_pts_summary <- ref_pts |>
     geom_text(
       aes(
         label = label,
-        colour = factor(fert)
+        colour = factor(enh)
       ),
       hjust = -0.2, 
       vjust = -0.3,
@@ -194,7 +192,7 @@ ref_pts_summary <- ref_pts |>
     scale_colour_manual(values = c("red", "blue")) +
     guides(
       colour = guide_legend(
-        title = "Fertilization state",
+        title = "Enhancement state",
         theme = theme(
           legend.direction = "horizontal",
           legend.title.position = "top",
@@ -240,7 +238,7 @@ ggsave(
 
 # Export reference points
 ref_pts_summary |> 
-  arrange(long_name, desc(ref_pt), data_scope, fert) |> 
+  arrange(long_name, desc(ref_pt), data_scope, enh) |> 
   write.csv(
     file = here(
       "3. outputs",
