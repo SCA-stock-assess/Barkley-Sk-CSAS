@@ -69,7 +69,8 @@ sr_age_infill <- sr |>
       stock %in% c("GCL", "SPL") & age.samples < 400 ~ 60,
       age.samples/max.age.samples < 0.25 ~ 75,
       .default = 75
-    )
+    ),
+    hatchery_fry_release = replace_na(hatchery_fry_release, 0)
   )
 
 
@@ -103,8 +104,8 @@ make_stan_data <- function(stock_name) {
   H_cv <- fn_data$H_cv
   S_cv <- fn_data$S_cv
   
-  # Vector describing whether the lake was fertilized each year
-  f <- fn_data |> 
+  # Vector describing whether the lake was enhanced each year
+  e <- fn_data |> 
     mutate(
       # Simplify the information for Great Central and Sproat
       f = case_when(
@@ -113,9 +114,11 @@ make_stan_data <- function(stock_name) {
         # fertilization affects previous brood year, so bump back the time series
         # by 1 year to align fertilization with affected broods
         stock == "HUC" ~ lead(fertilized, 1, default = 0) 
-      )
+      ),
+      h = if_else(lead(hatchery_fry_release, 1, default = 0) > 0, 1, 0),
+      e = if_else(f == 1 | h == 1, 1, 0)
     ) |> 
-    pull(f)
+    pull(e)
   
   # Extract a vector of the observed total age classes
   a_years <- fn_data |> 
@@ -151,7 +154,7 @@ make_stan_data <- function(stock_name) {
     "S_cv" = S_cv,
     "H_cv" = H_cv, 
     "use" = use,
-    "f" = f,
+    "e" = e,
     "Smax_p" = 0.75*max(fn_data$adult_S), #what do we think Smax is? 
     "Smax_p_sig" = 1*max(fn_data$adult_S) #can tinker with these values making the factor smaller mean's you've observed density dependence (i.e. the Ricker "hump")
   )
@@ -494,7 +497,7 @@ make_sr_plots <- function(sr_plot_data, stock) {
       aes(x= S_med, y = R_med, ymin = R_lwr, ymax = R_upr),
       colour="grey", 
       width = 0,
-      size = 0.3
+      linewidth = 0.3
     ) +
     geom_abline(intercept = 0, slope = 1,col="dark grey") +
     geom_ribbon(
@@ -509,14 +512,14 @@ make_sr_plots <- function(sr_plot_data, stock) {
       data = sr_plot_data$SR_pred, 
       aes(x = Spawn, y = Rec_med), 
       color = "black", 
-      size = 1
+      linewidth = 1
     ) +
     geom_errorbarh(
       data = sr_plot_data$brood_t, 
       aes(y = R_med, xmin = S_lwr, xmax = S_upr),
       height = 0, 
       colour = "grey", 
-      size = 0.3
+      linewidth = 0.3
     ) +
     geom_point(
       data = sr_plot_data$brood_t, 
@@ -594,18 +597,18 @@ HUC_stan_data <- list(
 
 
 # Fit two models: one with and one without 1993 data in the state space model  
-# Round 1 because round 2 (following) will include the fertilization component
+# Round 1 because round 2 (following) will include the enhancement component
 if(FALSE) {
   
   HUC_round1_mods <- HUC_stan_data |> 
-    set_names(\(x) paste0(x, "_nofert")) |> # Rename so model names have "_nofert" suffix
+    set_names(\(x) paste0(x, "_noenh")) |> # Rename so model names have "_noenh" suffix
     imap(
       \(x, idx) fit_stan_mod(
         stan_data = x,
         stock = idx, 
         # Using the Somass model for simplicity in this section
         # The difference is that only 1 value each for lnalpha and beta are estimated
-        # (i.e. irrespective of fertilization state, which comes in the next section)
+        # (i.e. irrespective of enhancement state, which comes in the next section)
         model_filename = "SS-SR_AR1_semi_beta_Somass.stan",
         iterations = 6000
       )
@@ -629,7 +632,7 @@ if(FALSE) {
 # Read fitted model objects from RDS if code above is not run
 if(!exists("HUC_round1_mods")) {
   HUC_round1_mods <- names(HUC_stan_data) |> 
-    paste0("_nofert") |> 
+    paste0("_noenh") |> 
     purrr::set_names() |> 
     map(
       \(x) readRDS(
@@ -666,7 +669,7 @@ HUC_sr_plots_data |>
 if(FALSE) {
 
   HUC_round2_mods <- HUC_stan_data |> 
-    set_names(\(x) paste0(x, "_fert")) |> # Rename so model names have "_fert" suffix
+    set_names(\(x) paste0(x, "_enh")) |> # Rename so model names have "_enh" suffix
     imap(
       \(x, idx) fit_stan_mod(
         stan_data = x,
@@ -691,39 +694,10 @@ if(FALSE) {
 }
 
 
-# Another round of Hucuktlis models
-# This time, hack the fertilization term so it encompasses all enhanced
-# years (i.e. including hatchery)
-HUC_stan_recent <- HUC_stan_full
-HUC_stan_recent$f <- if_else(HUC_stan_full$brood_years < 2007, 1, 0)
-
-
-if(FALSE) {
-  
-  HUC_round3_mods <- HUC_stan_recent |> 
-    fit_stan_mod(
-      stock = "HUC_recent", 
-      model_filename = "SS-SR_AR1_semi_beta_Hucuktlis.stan",
-      iterations = 6000
-    )
-  
-  
-  # Save the fitted models
-  HUC_round3_mods |> 
-    saveRDS(
-      file = here(
-        "3. outputs",
-        "stock-recruit modelling",
-        paste0("HUC_recent", "_AR1.rds")
-      )
-    )     
-}
-
-
 # Read fitted model objects from RDS if code above is not run
 if(!exists("HUC_round2_mods")) {
   HUC_round2_mods <- names(HUC_stan_data) |> 
-    paste0("_fert") |> 
+    paste0("_enh") |> 
     purrr::set_names() |> 
     map(
       \(x) readRDS(
@@ -736,19 +710,9 @@ if(!exists("HUC_round2_mods")) {
     )
 }
 
-if(!exists("HUC_round3_mods")) {
-  HUC_round2_mods <- readRDS(
-    here(
-      "3. outputs",
-      "stock-recruit modelling",
-      paste0("HUC_recent", "_AR1.rds")
-    )
-  )
-}
-
 
 # Make a list of all fitted Hucuktlis models
-HUC_mods <- c(HUC_round1_mods, HUC_round2_mods, "HUC_recent" = HUC_round3_mods)
+HUC_mods <- c(HUC_round1_mods, HUC_round2_mods)
 
 
 # Run the diagnostic plots on all 4 Hucuktlis models
@@ -939,20 +903,18 @@ resids <- c(Somass_mods, HUC_mods) |>
       levels = c(
         "GCL", 
         "SPR", 
-        "HUC_full_nofert", 
-        "HUC_trim_nofert", 
-        "HUC_full_fert", 
-        "HUC_trim_fert",
-        "HUC_recent"
+        "HUC_full_noenh", 
+        "HUC_trim_noenh", 
+        "HUC_full_enh", 
+        "HUC_trim_enh"
       ),
       labels = c(
         "Great Central Lake",
         "Sproat Lake",
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
-        "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)",
-        "Hucuktlis Lake (excl. enhancement)" # Need a better name
+        "Hucuktlis Lake (w/enhancement term)",
+        "Hucuktlis Lake (w/enhancement term; excl. 1993)"
       ) 
     )
   ) |> 
@@ -1037,8 +999,8 @@ ab_posterior <- c(HUC_mods, Somass_mods) |>
   list_rbind(names_to = "model") |> 
   mutate(
     stock = str_extract(model, "GCL|SPR|HUC"),
-    fert = case_when(
-      str_detect(parameter, "_fert") ~ 1, 
+    enh = case_when(
+      str_detect(parameter, "_enh") ~ 1, 
       stock == "GCL" ~ 1,
       .default = 0
     ),
@@ -1048,6 +1010,22 @@ ab_posterior <- c(HUC_mods, Somass_mods) |>
   nest(ab_draws = c(parameter, value, draw)) |> 
   rowwise() |> 
   mutate(ab_draws = list(pivot_wider(ab_draws, names_from = parameter)))
+
+
+# Enhanced years metadata from stan data objects
+enh_yrs <- stocks_stan_data |> 
+  map(\(x) keep_at(x, c("e", "brood_years"))) |> 
+  as_tibble() |> 
+  pivot_longer(
+    cols = everything(),
+    names_to = "stock",
+  ) |> 
+  mutate(variable = names(value)) |> 
+  unnest(value) |> 
+  mutate(.by = c(stock, variable), id = row_number()) |> 
+  pivot_wider(names_from = variable) |> 
+  select(-id) |> 
+  rename("enh" = e)
 
 
 # Posterior draws of spawners and recruits
@@ -1073,13 +1051,16 @@ sr_draws <- c(HUC_mods, Somass_mods) |>
   ) |> 
   select(-contains("yr")) |> 
   pivot_wider(names_from = parameter, values_from = value) |> 
-  # Add fertilization metadata from input dataframe
+  # Add enhancement metadata from input dataframe
   left_join(
-    select(.data = sr, brood_year = year, stock, fert = fertilized),
-    by = c("brood_year", "stock")
+    enh_yrs,    
+    by = join_by(
+      "brood_year" == "brood_years", 
+      "stock"
+    )
   ) |> 
   summarize(
-    .by = c(model, stock, fert, brood_year, data_scope),
+    .by = c(model, stock, enh, brood_year, data_scope),
     across(
       c(S, R), 
       .fns = list(
@@ -1090,21 +1071,23 @@ sr_draws <- c(HUC_mods, Somass_mods) |>
       .names = "{.col}_{.fn}"
     )
   ) |> 
-  nest(brood_t = c(brood_year, fert, matches("_\\d+")))
+  nest(brood_t = c(brood_year, enh, matches("_\\d+")))
   
 
 # Save latent states of spawners and recruits to send to Sue G
-# unnest(sr_draws, cols = brood_t) |> 
-#   filter(stock != "HUC") |> 
-#   select(stock, year = brood_year, matches("S_\\d+")) |> 
-#   write.csv(
-#     here(
-#       "3. outputs",
-#       "Stock-recruit modelling",
-#       "Barkley_sk_latent_spawners_for-SueG.csv"
-#     ),
-#     row.names = FALSE
-#   )
+if(FALSE) {
+  unnest(sr_draws, cols = brood_t) |> 
+    filter(stock != "HUC") |> 
+    select(stock, year = brood_year, matches("S_\\d+")) |> 
+    write.csv(
+      here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Barkley_sk_latent_spawners_for-SueG.csv"
+      ),
+      row.names = FALSE
+    )
+}
 
 
 # Merge data for SR plotting
@@ -1120,20 +1103,18 @@ all_mods_data <- left_join(
       levels = c(
         "GCL", 
         "SPR", 
-        "HUC_full_nofert", 
-        "HUC_trim_nofert", 
-        "HUC_full_fert", 
-        "HUC_trim_fert",
-        "HUC_recent"
+        "HUC_full_noenh", 
+        "HUC_trim_noenh", 
+        "HUC_full_enh", 
+        "HUC_trim_enh"
       ),
       labels = c(
         "Great Central Lake",
         "Sproat Lake",
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
-        "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)",
-        "Hucuktlis Lake (excl. enhancement)" # Need a better name
+        "Hucuktlis Lake (w/enhancement term)",
+        "Hucuktlis Lake (w/enhancement term; excl. 1993)"
       ) 
     ),
     # Calculate predicted spawner values from posterior lnalpha and beta draws
@@ -1143,10 +1124,10 @@ all_mods_data <- left_join(
         mutate(
           R = exp(lnalpha)*S*exp(-beta*S),
           long_name = long_name,
-          fert = factor(fert)
+          enh = factor(enh)
         ) |> 
         summarize(
-          .by = c(S, long_name, fert),
+          .by = c(S, long_name, enh),
           quantiles = list(quantile(R, c(0.05, 0.5, 0.95)))
         ) |> 
         unnest_wider(quantiles)
@@ -1165,7 +1146,7 @@ all_mods_brood_t <- list_rbind(all_mods_data$brood_t) |>
 all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |> 
   mutate(
     across(c(S, matches("%")), \(x) x/1000),
-    fert = if_else(str_detect(long_name, "fert|enhance"), fert, NA)
+    enh = if_else(str_detect(long_name, "enhance"), enh, NA)
   )
 
 
@@ -1180,13 +1161,13 @@ all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |>
       scales = "free"
     ) +
     geom_abline(intercept = 0, slope = 1,col="dark grey") +
-    geom_line(aes(colour = fert)) +
+    geom_line(aes(colour = enh)) +
     geom_ribbon(
       aes(
         ymin = `5%`, 
         ymax = `95%`,
-        fill = fert,
-        colour = fert
+        fill = enh,
+        colour = enh
       ),
       alpha = 0.3,
       lty = 2
@@ -1207,12 +1188,12 @@ all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |>
     ) +
     geom_point(
       data = all_mods_brood_t, 
-      aes(x = S_50, y = R_50, colour = factor(fert)), 
+      aes(x = S_50, y = R_50, colour = factor(enh)), 
       size = 2,
       alpha = 0.6
     ) +
     scale_colour_manual(
-      name = "Fertilization\nstate",
+      name = "Enhancement\nstate",
       values = c("red", "blue"),
       aesthetics = c("colour", "fill")
     ) +
@@ -1248,7 +1229,7 @@ ggsave(
     "All_Barkley_Sk_AR1_fits.png"
   ),
   height = 7, 
-  width = 10,
+  width = 11,
   units = "in",
   dpi = "print"
 )
