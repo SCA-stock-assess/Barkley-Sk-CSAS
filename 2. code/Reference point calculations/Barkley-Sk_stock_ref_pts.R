@@ -1,6 +1,6 @@
 # Packages ----------------------------------------------------------------
 
-pkgs <- c("here", "tidyverse", "gsl", "rstan", "ggridges")
+pkgs <- c("here", "tidyverse", "rstan", "ggridges")
 #install.packages(pkgs)
 
 
@@ -8,8 +8,11 @@ pkgs <- c("here", "tidyverse", "gsl", "rstan", "ggridges")
 library(here)
 library(tidyverse); theme_set(theme_bw())
 library(ggridges)
-library(gsl)
 library(rstan)
+
+
+# Source common functions
+source(here("2. code", "0. functions", "common_functions.R"))
 
 
 set.seed(19)
@@ -30,24 +33,6 @@ AR1_fits <- here(
   ) |> 
   set_names(~str_extract(.x, "(?<=/)(GCL|SPR|HUC).*(?=_AR1)")) |> 
   map(readRDS)
-
-
-# Functions to calculate benchmarks ---------------------------------------
-
-
-# Both taken from Dylan Glaser's Fraser Pink analysis:
-# https://github.com/Pacific-salmon-assess/FR-PK-ResDoc/blob/main/analysis/R/functions.R
-get_Smsy <- function(a, b){
-  Smsy <- (1 - lambert_W0(exp(1 - a))) / b
-  if(Smsy <0){Smsy <- 0.001} #hack for low draws so Smsy doesnt go negative
-  return(Smsy)
-}
-
-get_Sgen <- function(a, b, int_lower, int_upper, Smsy){
-  fun_Sgen <- function(Sgen, a, b, Smsy) {Sgen * a * exp(-b * Sgen) - Smsy}
-  Sgen <- uniroot(fun_Sgen, interval=c(int_lower, int_upper), a=a, b=b, Smsy=Smsy)$root
-  return(Sgen)
-}
 
 
 # Bootstrap reference points from AR1 parameters --------------------------
