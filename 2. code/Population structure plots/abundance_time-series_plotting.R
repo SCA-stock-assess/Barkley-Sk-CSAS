@@ -177,31 +177,37 @@ agg_abun_data <- abun_data |>
   filter(value > 0) #remove the shoreline estimates
   
 
+# Calculate 1970+ average annual catch, escapement, and total return
+agg_abun_data |>
+  #filter(year > 1969) |> 
+  pivot_wider(
+    id_cols = year,
+    values_fn = sum,
+    values_fill = 0
+  ) |> 
+  mutate(run = catch + escapement) |> 
+  summarize(
+    across(
+      !year,
+      .fns = list(
+        "q25" = ~quantile(.x, 0.25),
+        "median" = median,
+        "q75" = ~quantile(.x, 0.75)
+      ),
+      .names = "{col}_{fn}"
+    )
+  ) |> 
+  pivot_longer(
+    everything(),
+    names_sep = "_",
+    names_to = c("stat", "quantile")
+  ) |> 
+  pivot_wider(names_from = quantile)
+
+
 # Plot total returns broken out between catch and escapement
 (abun_p <- agg_abun_data |> 
    ggplot(aes(x = year, y = value/1000)) +
-   geom_textvline(
-     xintercept = 1968.5, 
-     lty = 2, 
-     colour = "grey50",
-     label = "Great Central Lake fertilization begins",
-     size = 3,
-     hjust = 0.75
-   ) +
-   geom_col(
-     aes(
-       group = data_source,
-       fill = colour
-     ),
-     position = "stack",
-     colour = "black",
-     linewidth = 0.25
-   ) +
-   scale_fill_identity(
-     name = "Catch (grey) and\nescapement (colour)\ndata sources",
-     guide = "legend",
-     labels = levels(agg_abun_data$data_source)
-   ) +
    scale_y_continuous(
      name = "Barkley Sockeye abundance (1000s)",
      labels = scales::label_number(),
@@ -217,18 +223,63 @@ agg_abun_data <- abun_data |>
 )
 
 
-# Save plot
-abun_p |> 
-  ggsave(
-    filename = here(
-      "3. outputs",
-      "Plots",
-      "Barkley-Sk_total_abundance_time-series.png"
-    ),
-    width = 7.5,
-    height = 4,
-    units = "in",
-    dpi = "print"
+# Simple version with just catch and escapement
+(abun_p1 <- abun_p +
+    geom_col(
+      aes(fill = name),
+      position = "stack",
+      colour = "black",
+      linewidth = 0.25
+    ) +
+    scale_fill_manual(values = c("grey", "black")) +
+    theme(legend.title = element_blank())
+)
+
+
+(abun_p2 <- abun_p +
+    geom_textvline(
+      xintercept = 1968.5, 
+      lty = 2, 
+      colour = "grey50",
+      label = "Great Central Lake fertilization begins",
+      size = 3,
+      hjust = 0.75
+    ) +
+    geom_col(
+      aes(
+        group = data_source,
+        fill = colour
+      ),
+      position = "stack",
+      colour = "black",
+      linewidth = 0.25
+    ) +
+    scale_fill_identity(
+      name = "Catch (grey) and\nescapement (colour)\ndata sources",
+      guide = "legend",
+      labels = levels(agg_abun_data$data_source)
+    )
+)
+
+
+# Save plots
+list(
+  "simple" = abun_p1,
+  "methods" = abun_p2
+) |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        paste0("Barkley-Sk_total_abundance_time-series_", idx, ".png")
+      ),
+      width = 7.5,
+      height = 4,
+      units = "in",
+      dpi = "print"
+    )
   )
 
 
