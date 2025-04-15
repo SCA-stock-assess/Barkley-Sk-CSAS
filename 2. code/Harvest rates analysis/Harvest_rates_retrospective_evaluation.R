@@ -46,10 +46,10 @@ hr_data <- sr_data |>
   rowwise() |> 
   mutate(
     hr = catch/run,
-    target_hr = if_else(
-      group == "Somass",
-      somass_mgt_rule(run),
-      hucuktlis_mgt_rule(run)
+    target_hr = case_when(
+      group == "Somass" ~ somass_mgt_rule(run),
+      group == "Hucuktlis" & year > 2011 ~ hucuktlis_mgt_rule(run),
+      .default = NA
     )
   )
 
@@ -60,13 +60,7 @@ hr_data <- sr_data |>
 
 # Data frame constraining years to only those when the management plan applies
 hr_data_trim <- hr_data |> 
-  filter(
-    case_when(
-     group == "Somass" & year > 2000 ~ TRUE,
-     group == "Hucuktlis" & year > 2007 ~ TRUE,
-     .default = FALSE
-    )
-  )  |> 
+  filter(year > 2000)  |> 
   pivot_longer(contains("hr")) |> 
   mutate(
     .by = group,
@@ -130,6 +124,7 @@ sec_axis_txt <- hr_data_trim |>
   labs(y = "Run size (1000s)") +
   theme(
     panel.spacing.y = unit(1, "lines"),
+    panel.grid.minor = element_blank(),
     legend.title = element_blank(),
     legend.position = "inside",
     legend.position.inside = c(0.05, 0.95),
