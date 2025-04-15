@@ -103,7 +103,14 @@ smolts <- list(smolts0, smolts1) |>
 # Hyatt and all have vetted annual summary tables;
 # will take those at face value and model the 2018+ data accordingly
 
-
+smolts0 |> 
+  filter(fnlage %in% c(1, 2)) |> 
+  summarize(
+    .by = c(cu, year, fnlage),
+    sd_wt = sd(fresh_std_weight),
+    mean = mean(fresh_std_weight)
+  ) |> 
+  write.table("clipboard", row.names = FALSE)
 
 # Plots -------------------------------------------------------------------
 
@@ -426,3 +433,5 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+
