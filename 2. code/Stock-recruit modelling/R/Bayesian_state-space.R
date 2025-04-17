@@ -283,7 +283,7 @@ Somass_mods |>
   map(as.data.frame) |> 
   list_rbind(names_to = "stock") |> 
   ggplot(aes(x = n_eff, y = Rhat))+
-  facet_wrap(~stock) +
+  facet_wrap(~stock, scales = "free") +
   geom_point() +
   stat_density_2d(
     alpha = 0.6,
@@ -960,7 +960,7 @@ resids <- c(Somass_mods, HUC_mods) |>
   ) + 
   geom_line(lwd = 0.5) +
   labs(
-    x = "Recruitment year",
+    x = "Brood year",
     y = "Recruits-per-spawner residuals", 
   ) +
   theme(
