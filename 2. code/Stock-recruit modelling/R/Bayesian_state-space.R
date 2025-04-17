@@ -275,6 +275,9 @@ Somass_mods <- list(
 )
 
 
+# Run diagnostic plots?
+if(FALSE) {
+
 # some diagnostics
 
 # n_eff versus Rhat
@@ -425,6 +428,7 @@ corr_p |>
     )
   )
 
+} # end of 'if' statement toggling diagnostic plots
 
 
 # Plot Somass stock-recruit curves with latent states ----------------------
@@ -576,6 +580,8 @@ sr_plots |>
           ".png"
         )
       ),
+      width = 6.5,
+      units = "in",
       dpi = "print"
     )
   )
@@ -715,6 +721,8 @@ if(!exists("HUC_round2_mods")) {
 HUC_mods <- c(HUC_round1_mods, HUC_round2_mods)
 
 
+# run diagnostic plots?
+if(FALSE) {
 # Run the diagnostic plots on all 4 Hucuktlis models
 # n_eff versus Rhat
 HUC_mods |> 
@@ -881,6 +889,8 @@ corr_HUC_p |>
     )
   )
 
+} # end of 'if' statement toggling diagnostic plots
+
 
 # Time series plots of model residuals ------------------------------------
 
@@ -1045,10 +1055,10 @@ sr_draws <- c(HUC_mods, Somass_mods) |>
     data_scope = if_else(str_detect(model, "trim"), "trim", "full")
   ) |> 
   # Constrain range of brood years to only those that are observed in the time series
-  filter(
-    .by = stock,
-    between(brood_year, min(brood_year) + 3, max(brood_year) - 6)
-  ) |> 
+   filter(
+     .by = stock,
+     between(brood_year, min(brood_year) + 3, max(brood_year) - 6)
+   ) |> 
   select(-contains("yr")) |> 
   pivot_wider(names_from = parameter, values_from = value) |> 
   # Add enhancement metadata from input dataframe
@@ -1077,13 +1087,13 @@ sr_draws <- c(HUC_mods, Somass_mods) |>
 # Save latent states of spawners and recruits to send to Sue G
 if(FALSE) {
   unnest(sr_draws, cols = brood_t) |> 
-    filter(stock != "HUC") |> 
+    #filter(stock != "HUC") |> 
     select(stock, year = brood_year, matches("S_\\d+")) |> 
     write.csv(
       here(
         "3. outputs",
         "Stock-recruit modelling",
-        "Barkley_sk_latent_spawners_for-SueG.csv"
+        "Barkley_sk_latent_spawners_for-SueG2.csv"
       ),
       row.names = FALSE
     )
