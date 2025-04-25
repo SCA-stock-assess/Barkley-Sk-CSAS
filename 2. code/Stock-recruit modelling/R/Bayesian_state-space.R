@@ -1087,7 +1087,7 @@ sr_draws <- c(HUC_mods, Somass_mods) |>
 # Save latent states of spawners and recruits to send to Sue G
 if(FALSE) {
   unnest(sr_draws, cols = brood_t) |> 
-    #filter(stock != "HUC") |> 
+    filter(model %in% c("GCL", "SPR", "HUC_full_enh")) |> 
     select(stock, year = brood_year, matches("S_\\d+")) |> 
     write.csv(
       here(
