@@ -1,7 +1,9 @@
 # Packages ----------------------------------------------------------------
 
 
-pkgs <- c("here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes")
+pkgs <- c(
+  "here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes"
+  )
 #install.packages(pkgs)
 
 
@@ -12,6 +14,7 @@ library(broom)
 library(gsl)
 library(rstan)
 library(tidybayes)
+library(cowplot)
 
 
 # Sgen calculation for B-H model from Carrie Holt
@@ -52,11 +55,13 @@ spwn <- here(
   rename("cu" = stock, "brood_year" = year) |> 
   filter(brood_year >= 1972) |> # Remove older years' data
   mutate(
-    # Simplify the fertilization data for GCL and SPR
-    fertilized = case_when(
-      cu == "GCL" ~ 1,
-      cu == "SPR" ~ 0,
-      cu == "HUC" ~ fertilized
+    # Align hatchery fry releases by brood year
+    hatchery_fry_release = lead(hatchery_fry_release, 2),
+    # Binary variable distinguishing enhanced years
+    enhanced = case_when(
+      fertilized == 1 ~ 1,
+      hatchery_fry_release > 0 ~ 1,
+      .default = 0
     ) |> factor(),
     # Assume 100% adults for Hucuktlis in years with missing age data
     adult_S = if_else(is.na(adult_S) & cu == "HUC", S, adult_S),
@@ -65,11 +70,9 @@ spwn <- here(
       cu == "GCL" ~ "Great Central",
       cu == "SPR" ~ "Sproat",
       cu == "HUC" ~ "Hucuktlis"
-    ),
-    # Align hatchery fry releases by brood year
-    hatchery_fry_release = lead(hatchery_fry_release, 2)
+    )
   ) |> 
-  select(brood_year, cu, S, adult_S, S_cv, R, fertilized, hatchery_fry_release)
+  select(brood_year, cu, S, adult_S, S_cv, R, enhanced, hatchery_fry_release)
 
 
 # Join spawner data to fry data
@@ -93,8 +96,8 @@ spwn_fry <- left_join(
       # When releases > number fry, assume 90% hatchery. 
       # This is following a footnote in Table 13 of the unpublished draft 
       # Henderson Stock Status PSARC report (from 2008). 
-      parameter == "N1" & cu == "Hucuktlis" & hatchery_fry_release > x ~ x*0.1, 
-      parameter == "N1" ~ x - hatchery_fry_release,
+      #parameter == "N1" & cu == "Hucuktlis" & hatchery_fry_release > x ~ x*0.1, 
+      #parameter == "N1" ~ x - hatchery_fry_release,
       parameter == "BYB" ~ x/1000, # Convert biomass to kg
       .default = x
       )
@@ -130,10 +133,12 @@ sr_plot_data <- spwn_fry |>
     "Spawners" = S
   ) |> 
   mutate(
+    # Put smolts on reasonable scale,
+    across(matches("%"), \(x) if_else(parameter %in% c("N1", "BYO"), x/1000, x)),
     # Give parameters informative names
     parameter = case_when(
-      parameter == "N1" ~ "Age-1 fry production",
-      parameter == "BYO" ~ "Smolt production",
+      parameter == "N1" ~ "Age-1 fry production (1000s)",
+      parameter == "BYO" ~ "Smolt production (1000s)",
       parameter == "BYB" ~ "Smolt biomass (kg)",
       parameter == "R" ~ "Adult returns"
     )
@@ -174,7 +179,7 @@ sr_plot_data <- spwn_fry |>
         aes(
           ymin = `10%`,
           ymax = `90%`,
-          fill = fertilized
+          fill = enhanced
         ),
         linewidth = 0.5,
         fatten = 3,
@@ -219,6 +224,107 @@ sr_plot_data |>
       scale_y_continuous()
   )}
 
+
+# plot all CUs together versus just adult spawners
+(cu_sr_plots <- sr_plot_data |> 
+    filter(
+      name == "Adult spawners",
+      parameter != "Adult returns"
+    ) |> 
+    mutate(group = if_else(cu == "Hucuktlis", "Hucuktlis", "Somass")) %>%
+    split(.$group) |> 
+    map(
+      \(x) x |> 
+        ggplot(aes(value, `50%`)) +
+        facet_grid(
+          parameter ~ cu,
+          scales = "free",
+          switch = "y"
+        ) +
+        geom_errorbarh(
+          aes(
+            # 90% CIs
+            xmin = value - 1.65*value*S_cv,
+            xmax = value + 1.65*value*S_cv,
+          ),
+          colour = "grey50",
+          linewidth = 0.25
+        ) +
+        geom_pointrange(
+          aes(
+            ymin = `10%`,
+            ymax = `90%`,
+            fill = enhanced
+          ),
+          linewidth = 0.25,
+          colour = "grey50",
+          fatten = 3,
+          shape = 21,
+          stroke = 0.25
+        ) +
+        #scale_fill_viridis_c() +
+        scale_y_continuous(
+          limits = c(0, NA),
+          labels = scales::label_number(),
+          expand = expansion(mult = c(0, 0.05))
+        ) +
+        scale_x_continuous(
+          limits = c(0, NA),
+          labels = scales::label_number(),
+          expand = expansion(mult = c(0, 0.05))
+        ) +
+        scale_fill_manual(values = c("red", "blue")) +
+        theme(
+          axis.title = element_blank(),
+          axis.text.x = element_text(angle = 45, hjust = 1),
+          strip.placement = "outside",
+          strip.background = element_blank(),
+          panel.grid = element_blank()
+        )
+    )
+)
+
+
+# Assemble plots in a grid
+grid1 <- plot_grid(
+  cu_sr_plots[[1]] +
+    guides(fill = "none"), 
+  cu_sr_plots[[2]] +
+    theme(
+      strip.text.y = element_blank(),
+      strip.background.y = element_blank()
+    ),
+  rel_widths = c(1, 2)
+)
+
+
+# Add shared x axis label
+(cu_sr_grid <- plot_grid(
+  grid1,
+  ggdraw() +
+    draw_label(
+      "Brood year adult spawners",
+      size = 12
+    ),
+  ncol = 1,
+  rel_heights = c(1, 0.075)
+)
+)
+
+
+# Save the gridded plots 
+ggsave(
+  cu_sr_grid,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Spawner-smolt_relationships_allCUs.png"
+  ),
+  width = 9,
+  height = 7,
+  units = "in",
+  dpi = "print"
+)
 
 
 # Examine stock-recruit relationships ---------------------------------------
