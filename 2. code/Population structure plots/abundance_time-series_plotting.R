@@ -343,6 +343,16 @@ cu_releases <- abun_data0 |>
   left_join(max_CU_run)
 
 
+# Dataframe describing fishway installation dates
+fishway_dates <- tribble(
+  ~CU, ~label, ~year,
+  "Great Central", "Stamp Falls fishway built", 1926.5,
+  "Great Central", "Major fishway upgrade", 1954.5,
+  "Sproat", "Sproat Falls fishway built", 1951.5
+) |> 
+  mutate(CU = factor(CU, levels = c("Great Central", "Sproat", "Hucuktlis"))) 
+
+
 # Prepare CU-level data for plotting
 cu_abun_data <- abun_data |> 
   rename_with(.cols = c(catch, escapement), \(x) paste0(x, "_value")) |> 
@@ -412,6 +422,18 @@ cu_abun_data <- abun_data |>
       size = 2,
       colour = "grey40"
     ) +
+    # Labeled lines showing fishway installs
+    geom_textvline(
+      data = fishway_dates,
+      aes(
+        xintercept = year,
+        label = label
+      ),
+      lty = 2,
+      size = 2,
+      linewidth = 0.2,
+      hjust = 0.3
+    ) +
     # Add segments showing fertilization years
     geom_textsegment(
       data = filter(cu_fertilizer, !is.na(label)),
@@ -478,7 +500,8 @@ cu_abun_data <- abun_data |>
     ) +
     theme(
       legend.position = "right",
-      strip.background = element_rect(colour = "black", fill = "white")
+      strip.background = element_rect(colour = "black", fill = "white"),
+      panel.grid.minor = element_blank()
     )
 )
 
@@ -497,3 +520,154 @@ cu_abun_p |>
     dpi = "print"
   )
 
+
+
+# Grey scale plot with all panels shown together --------------------------
+
+
+# Append aggregate abundance data to the CU-specific data
+all_panels_data <- agg_abun_data |> 
+  mutate(CU = "Barkley Aggregate") |> 
+  bind_rows(cu_abun_data) |> 
+  mutate(
+    CU = factor(
+      CU,
+      levels = c(
+        "Barkley Aggregate",
+        "Great Central",
+        "Sproat",
+        "Hucuktlis"
+      )
+    ),
+    name = factor(name, levels = c("catch", "escapement"))
+  )
+
+
+# Build grey scale plot and add annotations
+(all_ts_plot <- all_panels_data |> 
+  ggplot(aes(year, value/1000)) +
+  facet_wrap(
+    ~CU,
+    strip.position = "right",
+    ncol = 1,
+    scales = "free_y"
+  ) +
+  # Add shaded area showing where catch wasn't broken out by CU
+  geom_rect(
+    data = cu_catch,
+    aes(
+      y = ymax,
+      x = year_start,
+      xmin = year_start,
+      xmax = year_end,
+      ymin = ymin,
+      ymax = ymax
+    ),
+    fill = "grey",
+    alpha = 0.5,
+    colour = NA
+  ) +
+  # Add text to shaded years without CU-specific catch
+  geom_text(
+    data = cu_catch,
+    aes(
+      x = (year_end - year_start)/2+year_start,
+      y = y,
+      label = label
+    ),
+    size = 2,
+    colour = "grey40"
+  ) +
+  # Labeled lines showing fishway installs
+  geom_textvline(
+    data = fishway_dates,
+    aes(
+      xintercept = year,
+      label = label
+    ),
+    lty = 2,
+    size = 2,
+    linewidth = 0.2,
+    hjust = 0.3
+  ) +
+  # Add segments showing fertilization years
+  geom_textsegment(
+    data = filter(cu_fertilizer, !is.na(label)),
+    aes(
+      y = 1.02*(max_run/1000),
+      yend = 1.02*(max_run/1000),
+      x = min_date,
+      xend = max_date,
+      label = label
+    ),
+    remove_long = TRUE,
+    linewidth = 0.2,
+    size = 2
+  ) +
+  geom_segment(
+    data = filter(cu_fertilizer, is.na(label)),
+    aes(
+      y = 1.02*(max_run/1000),
+      yend = 1.02*(max_run/1000),
+      x = min_date,
+      xend = max_date,
+    ),
+    linewidth = 0.2
+  ) +
+  # Add points showing the magnitude of hatchery releases
+  geom_point(
+    data = cu_releases,
+    aes(
+      y = 0.98*(max_run/1000),
+      size = releases
+    ),
+    shape = "|"
+  ) +
+  # Add the abundance data
+  geom_col(
+    aes(fill = name),
+    position = "stack",
+    colour = "black",
+    linewidth = 0.25
+  ) +
+  scale_size_continuous(
+    name = "Hatchery\nreleases",
+    labels = scales::label_number(),
+    breaks = seq(1e6, 9e6, length.out = 5),
+    range = c(0.5,3)
+  ) +
+  scale_y_continuous(
+    name = "Sockeye abundance (1000s)",
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_continuous(
+    name = "Return year",
+    limits = c(1908, max(abun_data$year) +2),
+    expand = c(0, 0)
+  ) +
+  scale_fill_manual(
+    name = "Data type",
+    values = c("grey", "black")
+  ) +
+  theme(
+    legend.position = "right",
+    strip.background = element_rect(fill = "white"),
+    panel.grid.minor = element_blank()
+  )
+)
+  
+
+# Save the overall grey-scale plot
+all_ts_plot |> 
+  ggsave(
+    filename = here(
+      "3. outputs",
+      "Plots",
+      "Barkley-Sk_all_abundance_time-series.png"
+    ),
+    width = 7.5,
+    height = 7.5,
+    units = "in",
+    dpi = "print"
+  )
