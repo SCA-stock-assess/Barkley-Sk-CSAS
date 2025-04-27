@@ -344,7 +344,7 @@ nested_data <- expand_grid(
     data = list(
       spwn_fry |> 
         pivot_wider(
-          id_cols = c(cu, brood_year, S, adult_S, fertilized),
+          id_cols = c(cu, brood_year, S, adult_S, enhanced),
           names_from = parameter,
           values_from = `50%` # Use the median estimates for now
         )
@@ -364,7 +364,7 @@ nested_data <- expand_grid(
       response == "log_smolta_spwn" ~ list(mutate(data, y = log(BYO/S))),
       response == "log_smoltb_spwn" ~ list(mutate(data, y = log(BYB/S)))
     ),
-    data = list(select(data, brood_year, cu, S, y, fertilized)),
+    data = list(select(data, brood_year, cu, S, y, enhanced)),
     # Filter the Hucuktlis data to remove 1993 outlier
     data = if_else(
       fltr == 1,
@@ -431,13 +431,13 @@ model_fits <- nested_data |>
   mutate(
     # Fit Ricker and Beverton-Holt models
     ricker_model = if(cu == "Hucuktlis")
-      list(lm(log(y/S) ~ S + fertilized, data = data)) 
+      list(lm(log(y/S) ~ S + enhanced, data = data)) 
     else 
       list(lm(log(y/S) ~ S, data = data)),
     bevholt_model = if(cu == "Hucuktlis")
       list(
         glm(
-          y ~ I(1/S) + fertilized, 
+          y ~ I(1/S) + enhanced, 
           family = gaussian(link = "inverse"), 
           #start = c(0, 3), # Research how to choose appropriate starting values
           data = data
@@ -461,7 +461,7 @@ model_fits <- nested_data |>
             max(data$S, na.rm = TRUE), 
             length.out = 100
           ),
-          fertilized = factor(c(0, 1))
+          enhanced = factor(c(0, 1))
         )
       ),
       cu == "Sproat" ~ list(
@@ -471,7 +471,7 @@ model_fits <- nested_data |>
             max(data$S, na.rm = TRUE), 
             length.out = 100
           ),
-          fertilized = factor(0)
+          enhanced = factor(0)
         )
       ),
       cu == "Great Central" ~ list(
@@ -481,7 +481,7 @@ model_fits <- nested_data |>
             max(data$S, na.rm = TRUE), 
             length.out = 100
           ),
-          fertilized = factor(1)
+          enhanced = factor(1)
         )
       )
     )
@@ -502,13 +502,13 @@ model_fits <- nested_data |>
           across(matches("^a"), exp),
           b = -b,
           pred_y = if_else(
-            fertilized == "0",
+            enhanced == "0",
             a0*S*exp(-b*S),
             a1*S*exp(-b*S)
           )
         ) |> 
         summarize(
-          .by = c(S, fertilized),
+          .by = c(S, enhanced),
           fit = mean(pred_y),
           lwr = quantile(pred_y, 0.025),
           upr = quantile(pred_y, 0.975)
@@ -530,7 +530,7 @@ model_fits <- nested_data |>
             pred_y = a*S*exp(-b*S)
           ) |> 
           summarize(
-            .by = c(S, fertilized),
+            .by = c(S, enhanced),
             fit = mean(pred_y),
             lwr = quantile(pred_y, 0.025),
             upr = quantile(pred_y, 0.975)
@@ -587,14 +587,14 @@ model_fits <- nested_data |>
           switch = "both"
         ) +
         geom_point(
-          aes(shape = fertilized),
+          aes(shape = enhanced),
           colour = "black"
         ) +
         geom_line(
           data = sub_set$pred,
           aes(
             y = fit,
-            lty = fertilized
+            lty = enhanced
           )
         ) +
         scale_shape_manual(values = c(19, 4)) +
@@ -662,14 +662,14 @@ model_plots |>
             labeller = labeller(response_long = ~paste0("log(", .x, "/spawner)"))
           ) +
           geom_point(
-            aes(shape = fertilized),
+            aes(shape = enhanced),
             colour = "black"
           ) +
           geom_line(
             data = sub_set$pred,
             aes(
               y = log(fit/S),
-              lty = fertilized
+              lty = enhanced
             )
           ) +
           scale_shape_manual(values = c(19, 4)) +
@@ -807,8 +807,8 @@ fit_stan_somass <- function(stan_data, cu) {
 
 # Fit the models for both CUs
 if(
-  FALSE
-  #TRUE
+  #FALSE
+  TRUE
 ) {
   somass_stan_fits <- somass_stan_data |> 
     imap(fit_stan_somass)
@@ -852,9 +852,7 @@ somass_stan_fits <- if(exists("somass_stan_fits")) {
     ) |> 
     map(readRDS)
 }
-# Chain 2 of Sproat BYB explored some weird space but otherwise models look good
-# as of 21 March 2025. Some further work needed to ensure all chains mix well;
-# likely tweaking the priors a bit more will help. 
+
 
 
 # Assess convergence
@@ -1055,7 +1053,7 @@ stopifnot(
 
 
 # Generate predictions for each spawner value
-somass_pred_frame |> 
+(somass_bevholt_fits <- somass_pred_frame |> 
   mutate(R_pred = (alpha * S) / (1 + (alpha/beta)*S)) |> 
   summarize(
     .by = c(cu, Rmeas, S),
@@ -1118,41 +1116,95 @@ somass_pred_frame |>
     panel.spacing.y = unit(1, "lines"),
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+)
 
 
-# Dummy stock reference points
-somass_a_b_draws |> 
-  rowwise() |> 
-  mutate(
-    smsy = beta*sqrt(1/alpha) - beta/alpha,
-    sgen = sGenSolverBH(alpha, beta),
-    umsy = 1 - sqrt(1/alpha)
+# Save the fitted Beverton-holt curves
+ggsave(
+  somass_bevholt_fits,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt_production_Beverton-Holt_Somass.png"
+  ),
+  width = 6.5, 
+  height = 5.5,
+  units = "in",
+  dpi = "print"
+)
+
+
+# Time series of R/S residuals
+(somass_R_resid_p <- posterior_df |> 
+  filter(
+    parameter == "lnresid",
+    !is.na(value)
   ) |> 
-  ungroup() |> 
   summarize(
-    .by = c(cu, Rmeas),
-    across(
-      c(smsy, umsy, sgen), 
-      .fns = list(
-        "q25" = ~quantile(.x, 0.25),
-        "q50" = ~quantile(.x, 0.5),
-        "q75" = ~quantile(.x, 0.75)
-      ),
-      .names = "{.col}_{.fn}"
+    .by = c(cu, Rmeas, year),
+    resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+  ) |> 
+  unnest_wider(resid) |> 
+  filter(year > min(year)) |> 
+  ggplot(aes(x = year, y = `50%`)) +
+  facet_grid(
+    Rmeas ~ cu, 
+    scales = "free",
+    switch = "y",
+    labeller = labeller(
+      Rmeas = c(
+        "BYB" = "Smolt biomass per spawner residuals",
+        "BYO" = "Smolt abundance per spawner residuals"
+      )
     )
-  ) |> 
-  pivot_longer(
-    matches("(u|s)(msy|gen)"),
-    names_sep = "_",
-    names_to = c("refpt", "quantile")
-  ) |> 
-  pivot_wider(names_from = quantile) |> 
-  arrange(refpt, cu, Rmeas)
-# Note that these ref points aren't useful for fish management because the 
-# concept of MSY is based on recruitment to fisheries, whereas the outcome
-# variable in these relationships is smolts. Would need to build in 
-# marine survival and a more fulsome life cycle structure before using
-# these data to propose stock reference points through the lens of MSY. 
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    lty = 2, 
+    colour = "grey"
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = `2.5%`,
+      ymax = `97.5%`
+    ),
+    alpha = 0.2
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = `10%`,
+      ymax = `90%`
+    ),
+    alpha = 0.3
+  ) +
+  geom_line() +
+  theme(
+    strip.background = element_blank(),
+    axis.title.y = element_blank(),
+    strip.placement = "outside",
+    panel.spacing.y = unit(1, "lines"),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+)
+# Have to think about whether including last year makes sense??
+
+
+# Save the plot
+ggsave(
+  somass_R_resid_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt-per-spawner_residuals_timeseries_Somass.png"
+  ),
+  width = 6.5, 
+  height = 5.5,
+  units = "in",
+  dpi = "print"
+)
+
+
 
 
 # Fit Bayesian Beverton-Holt models to Hucuktlis data using Stan ----------
@@ -1188,6 +1240,9 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
   # Number of years in the time series
   Y <- nrow(cu_data)
   
+  # Binary variable indicating enhanced years
+  enhanced <- as.integer(as.character(cu_data$enhanced))
+  
   # Best estimates of annual spawner abundance, in log space
   S_obs <- cu_data$mu_S
   
@@ -1214,6 +1269,7 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
   
   stan_data <- list(
     Y = Y,
+    enhanced = enhanced,
     S_obs = S_obs,
     R_obs = R_obs,
     sigma_S_obs = sigma_S_obs,
@@ -1229,7 +1285,7 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
 }
 
 
-# Save the stan data for each CU
+# Save the Stan data for Hucuktlis smolt abundance and biomass
 hucuktlis_stan_data <- expand_grid(
   cu_name = levels(hucuktlis_sr$cu),
   R_param = c("BYO", "BYB")
@@ -1240,3 +1296,414 @@ hucuktlis_stan_data <- expand_grid(
 
 
 
+# Function to fit Stan model 
+fit_stan_hucuktlis <- function(stan_data, cu = "hucuktlis") {
+  stan(
+    file = here(
+      "2. code",
+      "Stock-recruit modelling",
+      "Stan",
+      "SR_Bev-Holt_Hucuktlis.stan"
+    ), 
+    model_name = cu,
+    data = stan_data, 
+    iter = 4000, 
+    chains = 3, 
+    control = list(
+      max_treedepth = 14,
+      adapt_delta = 0.9
+    )
+  )
+}
+
+
+# Fit the models for Hucuktlis
+if(
+  FALSE
+  #TRUE
+) {
+  hucuktlis_stan_fits <- hucuktlis_stan_data |> 
+    imap(fit_stan_hucuktlis)
+}
+
+
+# Save fitted models as RDS objects (toggle to TRUE to run)
+if(
+  #TRUE
+  FALSE
+) {
+  hucuktlis_stan_fits |> 
+    iwalk(
+      \(x, idx) x |> 
+        saveRDS(
+          file = here(
+            "3. outputs",
+            "Stock-recruit modelling",
+            paste("Bayesian Beverton-Holt", idx, "spawner-smolt.rds")
+          )
+        )
+    )
+}
+
+
+# Load fitted models from RDS files (if not already in global environment)
+hucuktlis_stan_fits <- if(exists("hucuktlis_stan_fits")) {
+  hucuktlis_stan_fits
+} else {
+  names(hucuktlis_stan_data) |>
+    purrr::set_names() |> 
+    map(
+      \(x) list.files(
+        here(
+          "3. outputs",
+          "Stock-recruit modelling"
+        ),
+        pattern = paste("Bayesian Beverton-Holt", x, "spawner-smolt.rds"),
+        full.names = TRUE
+      )
+    ) |> 
+    map(readRDS)
+}
+
+
+
+# Assess convergence
+worst_Rhat <- hucuktlis_stan_fits |> 
+  map(\(x) summary(x)$summary) |>  
+  map(as.data.frame) |> 
+  list_rbind(names_to = "lake") |> 
+  mutate(Rhat = round(Rhat, 3)) |> 
+  arrange(desc(Rhat))
+
+worst_Rhat %>% 
+  filter(n_eff>3) %>% 
+  ggplot(aes(x = n_eff, y = Rhat))+
+  facet_wrap(~lake) +
+  geom_point()+
+  geom_hline(yintercept = 1.01, lty = 2)+
+  geom_vline(xintercept = 400, lty = 2)
+
+head(worst_Rhat, n = 20)
+
+
+# Trace plots
+hucuktlis_stan_fits |> 
+  imap(
+    \(x, idx)
+    traceplot(
+      x, 
+      pars = rownames(filter(worst_Rhat, lake == idx))[1:20]
+    ) +
+      ggtitle(label = idx)
+  )
+
+
+# Pair plots
+hucuktlis_stan_fits |> 
+  map(\(x) pairs(x, pars = c("alpha_noenh", "beta_noenh")))
+
+
+# Explore the posterior
+
+# Dataframe with first year in time series for each lake
+# used to properly code years in the Stan outputs
+min_yrs_huc <- hucuktlis_sr |> 
+  summarize(
+    .by = cu,
+    min_yr = min(year)
+  )
+
+
+# Posterior values that are not year-specific
+post_interannual_huc <- hucuktlis_stan_fits |> 
+  map(extract) |> 
+  # Discard all parameters with year-specific estimates
+  map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
+  map(\(x) map(x, \(y) as_tibble(y, rownames = "draw"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "cu_Rmeas") 
+
+
+# Posterior values that are year-specific
+post_annual_huc <- hucuktlis_stan_fits |> 
+  map(extract) |> 
+  # Keep only parameters with year-specific estimates
+  map(\(x) keep(.x = x, .p = \(y) is.matrix(y))) |> 
+  map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL, rownames = "draw"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "cu_Rmeas") |> 
+  pivot_longer(
+    cols = !c(cu_Rmeas, parameter, draw),
+    names_to = "year",
+    values_to = "value",
+    names_transform = \(x) str_extract(x, "\\d+")
+  )
+
+
+
+# All posterior values
+posterior_df_huc <- bind_rows(
+  post_annual_huc, 
+  post_interannual_huc
+) |> 
+  separate(cu_Rmeas, sep = "_", c("cu", "Rmeas")) |> # This step takes curiously long
+  left_join(min_yrs_huc) |> 
+  mutate(year = as.numeric(year) - 1 + min_yr) |> 
+  select(-min_yr) |> 
+  left_join(
+    hucuktlis_sr |> 
+      filter(parameter != "N1") |> 
+      distinct(enhanced, year)
+  )
+
+
+# Observed values for spawners and recruits
+obs_sr_huc <- hucuktlis_sr |> 
+  mutate(
+    S_50 = adult_S,
+    S_10 = adult_S - adult_S*S_cv*1.28,
+    S_90 = adult_S + adult_S*S_cv*1.28
+  ) |> 
+  filter(parameter %in% unique(posterior_df_huc$Rmeas)) |> 
+  select(cu, Rmeas = parameter, year, matches("(S|R)_\\d{2}")) |> 
+  pivot_longer(
+    matches("(S|R)_\\d{2}"),
+    names_sep = "_",
+    names_to = c("parameter", "quantile")
+  ) |> 
+  pivot_wider(names_from = quantile) |> 
+  mutate(set = "obs")
+
+
+# Plot posterior estimates for spawners and recruits
+posterior_df_huc |> 
+  filter(parameter %in% c("S_true", "R_true")) |> 
+  pivot_wider(
+    names_from = parameter,
+    values_from = value
+  ) |> 
+  rename_with(\(x) str_remove(x, "_true")) |> 
+  summarize(
+    .by = c(cu, Rmeas, year),
+    across(
+      c(S, R),
+      .fns = list(
+        "50" = median,
+        "10" = ~quantile(.x, 0.1, na.rm = TRUE),
+        "90" = ~quantile(.x, 0.9, na.rm = TRUE)
+      ),
+      .names = "{.col}_{.fn}"
+    )
+  ) |> 
+  pivot_longer(
+    matches("(S|R)_\\d{2}"),
+    names_sep = "_",
+    names_to = c("parameter", "quantile")
+  ) |> 
+  pivot_wider(names_from = quantile) |> 
+  mutate(set = "post") |> 
+  bind_rows(obs_sr_huc) %>% 
+  split(.$Rmeas) |> 
+  imap(
+    \(x, idx) x |> 
+      mutate(parameter = if_else(parameter == "R", idx, parameter)) |> 
+      ggplot(aes(year, `50`, colour = set)) +
+      facet_grid(
+        parameter ~ cu, 
+        switch = "y",
+        scales = "free_y"
+      ) +
+      geom_pointrange(
+        aes(
+          ymin = `10`,
+          ymax = `90`
+        ),
+        alpha = 0.5
+      ) +
+      theme(
+        strip.background.y = element_blank(),
+        axis.title.y = element_blank(),
+        strip.placement = "outside"
+      )
+  )
+# Still some shrinkage occurring in the posterior recruitment estimates
+
+# Plot predicted Beverton-Holt curve versus observed data
+
+# Extract posterior samples of alpha and beta
+hucuktlis_a_b_draws <- posterior_df_huc |> 
+  filter(str_detect(parameter, "alpha|beta")) |> 
+  pivot_wider(names_from = parameter) |> 
+  select(-enhanced)
+
+
+# Create CU-specific range of spawners to predict across
+S_pred_huc <- hucuktlis_sr |> 
+  summarize(
+    .by = c(cu, enhanced),
+    min_S = 0,
+    max_S = max(adult_S)
+  ) |> 
+  rowwise() |> 
+  mutate(S = list(seq(min_S, max_S, length.out = 100))) |> 
+  unnest(S) |> 
+  select(cu, S, enhanced)
+
+
+# Join range of predicted spawners to alpha and beta draws
+hucuktlis_pred_frame <- hucuktlis_a_b_draws |> 
+  left_join(
+    S_pred_huc,
+    by = "cu",
+    relationship = "many-to-many"
+  )
+
+# Check that the resulting dataframe has the correct number of rows
+stopifnot(
+  all.equal(
+    nrow(hucuktlis_pred_frame), 
+    nrow(S_pred)/length(unique(S_pred$cu))*nrow(hucuktlis_a_b_draws)
+  )
+)
+
+
+# Generate predictions for each spawner value
+hucuktlis_pred_frame |> 
+  mutate(
+    R_pred = if_else(
+      enhanced == 1,
+      (alpha_enh * S) / (1 + (alpha_enh/beta_enh)*S),
+      (alpha_noenh * S) / (1 + (alpha_noenh/beta_noenh)*S)
+    )
+  ) |> 
+  summarize(
+    .by = c(cu, Rmeas, S, enhanced),
+    R_quant = list(quantile(R_pred, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+  ) |> 
+  unnest_wider(R_quant) |>
+  rename_with(
+    \(x) str_remove(paste0("R_pred_", x), "%"),
+    .cols = matches("%")
+  ) |> 
+  ggplot(
+    aes(
+      x = S, 
+      y = R_pred_50,
+      colour = enhanced,
+      fill = enhanced
+    )
+  ) +
+  facet_grid(
+    Rmeas ~ cu, 
+    scales = "free",
+    switch = "y",
+    labeller = labeller(
+      Rmeas = c(
+        "BYB" = "Smolt biomass (g)",
+        "BYO" = "Smolt abundance"
+      )
+    )
+  ) +
+  geom_line() +
+  geom_ribbon(
+    aes(
+      ymin = R_pred_2.5,
+      ymax = R_pred_97.5
+    ),
+    colour = NA,
+    alpha = 0.25
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = R_pred_10,
+      ymax = R_pred_90
+    ),
+    fill = NA,
+    lty = 2
+  ) +
+  geom_point(
+    data = hucuktlis_sr |> 
+      filter(parameter %in% unique(posterior_df$Rmeas)) |> 
+      rename("Rmeas" = parameter),
+    aes(x = adult_S, y = R_50)
+  ) +
+  scale_colour_manual(
+    values = c("red", "blue"),
+    aesthetics = c("colour", "fill")
+  ) +
+  scale_x_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05)),
+    labels = scales::label_number()
+  ) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05)),
+    labels = scales::label_number()
+  ) +
+  theme(
+    strip.background = element_blank(),
+    axis.title.y = element_blank(),
+    strip.placement = "outside",
+    panel.spacing.y = unit(1, "lines"),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+
+# Time series of R/S residuals
+(Hucuktlis_R_resid_p <- posterior_df_huc |> 
+    filter(
+      parameter == "lnresid",
+      !is.na(value)
+    ) |> 
+    summarize(
+      .by = c(cu, Rmeas, year, enhanced),
+      resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+    ) |> 
+    unnest_wider(resid) |> 
+    filter(year > min(year), year != 2007) |> # 2007 makes the lines/ribbons continuous from 2004...
+    ggplot(aes(x = year, y = `50%`, colour = enhanced, fill = enhanced)) +
+    facet_grid(
+      Rmeas ~ cu, 
+      scales = "free",
+      switch = "y",
+      labeller = labeller(
+        Rmeas = c(
+          "BYB" = "Smolt biomass per spawner residuals",
+          "BYO" = "Smolt abundance per spawner residuals"
+        )
+      )
+    ) +
+    geom_hline(
+      yintercept = 0, 
+      lty = 2, 
+      colour = "grey"
+    ) +
+    geom_ribbon(
+      aes(
+        ymin = `2.5%`,
+        ymax = `97.5%`
+      ),
+      alpha = 0.2
+    ) +
+    geom_ribbon(
+      aes(
+        ymin = `10%`,
+        ymax = `90%`
+      ),
+      alpha = 0.3
+    ) +
+    geom_line() +
+    scale_colour_manual(
+      values = c("red", "blue"),
+      aesthetics = c("colour", "fill")
+    ) +
+    theme(
+      strip.background = element_blank(),
+      axis.title.y = element_blank(),
+      strip.placement = "outside",
+      panel.spacing.y = unit(1, "lines"),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
+)
