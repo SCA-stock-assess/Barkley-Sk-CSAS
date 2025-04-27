@@ -16,8 +16,8 @@ parameters {
   real<lower=0> sigma_proc;   // Process error standard deviation
   real mu_S;                  // Mean of log(S_true)
   real mu_R;                  // Mean of log(R_true)
-  real<lower=0> sigma_S;       // Latent state variation (spawners)
-  real<lower=0> sigma_R;       // Latent state variation (recruits)
+  real<lower=0> sigma_S;      // Latent state variation (spawners)
+  real<lower=0> sigma_R;      // Latent state variation (recruits)
   vector[Y] S_raw;            // Standard normal latent variable for spawners
   vector[Y] R_raw;            // Standard normal latent variable for recruits
 }
@@ -25,10 +25,18 @@ parameters {
 transformed parameters {
   vector[Y] S_true;  // Latent true spawner values
   vector[Y] R_true;  // Latent true recruit values
+  vector[Y] lnresid; // Log-scale recruitment residuals
 
   // Non-centered parameterization for latent states
   S_true = exp(mu_S + sigma_S * S_raw);
   R_true = exp(mu_R + sigma_R * R_raw);
+  
+  
+  // Calculate log residuals
+  for (t in 1:Y) {
+    real expected_R_t = (alpha * S_true[t]) / (1 + (alpha / beta) * S_true[t]);
+    lnresid[t] = log(R_true[t]) - log(expected_R_t);
+  }
 }
 
 model {
