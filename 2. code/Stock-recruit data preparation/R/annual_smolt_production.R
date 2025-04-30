@@ -194,7 +194,7 @@ smolt_comps <- c("GCL", "SPR", "HEN") |>
   ) |> 
   map(janitor::clean_names) |>
   list_rbind(names_to = "lake") |> 
-  select(lake, oey, n, matches("age\\d_(fork|pct|std_wt)$")) |> 
+  select(lake, oey, matches("age\\d_(fork|pct|std_wt)$")) |> 
   rename("smolt_year" = oey)
 
 
@@ -253,7 +253,7 @@ smolt_ages <- c("GCL", "SPR", "HEN") |>
       labels = cu_names
     )
   ) |> 
-  count(cu, sample_date, method_name, fnlage) |> 
+  count(cu, sample_date, fnlage) |> 
   filter(fnlage %in% c(1, 2)) |> 
   pivot_wider(
     names_from = fnlage,
@@ -263,17 +263,9 @@ smolt_ages <- c("GCL", "SPR", "HEN") |>
   ) |> 
   mutate(
     ttl = age1 + age2,
-    across(c(age1, age2), \(x) x/ttl, .names = "prop_{.col}"),
-    # Align gear names with the sample metadata
-    gear = case_when(
-      str_detect(method_name, "fyke") ~ "fyke",
-      str_detect(method_name, "trap") ~ "trap",
-      str_detect(method_name, "rotary") ~ "rst",
-      str_detect(method_name, "trap") ~ "trap",
-      .default = method_name
-    )
+    across(c(age1, age2), \(x) x/ttl, .names = "prop_{.col}")
   )
-
+  
 
 
 # Investigate brood year adult vs smolt production ----------------------
@@ -555,6 +547,8 @@ gam_frame <- ats_est |>
   nest(.by = lake, .key = "obs") |> 
   rowwise() |> 
   mutate(
+    # Drop empty factor levels in observed data 
+    obs = list(droplevels(obs)),
     # Fit model based on Patrick Thompson's code from:
     # https://github.com/SiRE-P/OSO_ATS_analysis/blob/main/code/fry_smolt_GAM.R
     model = list(
@@ -584,20 +578,37 @@ gam_frame <- ats_est |>
         mutate(
           lci = fit - se.fit*1.96,
           uci = fit + se.fit*1.96,
-          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
+          # Back-transform and shrink unit to millions
+          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x)/1e6)
         )
     ),
+    # Convert pre-smolt numbers to millions in observed data
+    obs = list(mutate(obs, across(contains("presmolt_"), \(x) x/1e6))),
     # Make plot of predicted versus observed
     pred_plot = list(
       ggplot(
         data = obs,
         aes(day_smolt_yr, presmolt_est)
       ) +
-        facet_wrap(~smolt_year_f, scales = "free_y") +
+        facet_wrap(
+          ~smolt_year_f, 
+          scales = "free_y",
+          ncol = 5
+        ) +
         geom_vline(
           xintercept = 365-20, # March 1st (day 365 = 20 March)
           lty = 2
         ) + 
+        geom_text(
+          aes(label = smolt_year_f),
+          x = Inf,
+          y = Inf,
+          hjust = 1.5,
+          vjust = 1.5,
+          check_overlap = T,
+          colour = "grey50",
+          size = 4
+        ) +
         geom_pointrange(
           aes(
             ymin = presmolt_lwr,
@@ -618,7 +629,27 @@ gam_frame <- ats_est |>
           data = pred,
           aes(y = fit)
         ) +
-        labs(title = lake)
+        scale_y_continuous(
+          limits = c(0, NA),
+          expand = expansion(mult = c(0, 0.05)),
+          labels = scales::label_number(accuracy = 1),
+          breaks = scales::pretty_breaks(n = 3)
+        ) +
+        scale_x_continuous(
+          expand = c(0, 0),
+          labels = scales::label_number(accuracy = 1),
+          breaks = scales::pretty_breaks(n = 3)
+        ) +
+        labs(
+          title = paste(lake, "GAM predictions and ATS estimates by date"),
+          x = "Days since 20 March",
+          y = "Sockeye fry abundance (millions)"
+        ) +
+        theme(
+          strip.text = element_blank(),
+          strip.background = element_blank(),
+          panel.grid.minor = element_blank()
+        )
     )
   ) |> 
   ungroup()
@@ -626,7 +657,26 @@ gam_frame <- ats_est |>
 
 # View predictions
 gam_frame |> 
-  pull(pred_plot)
+  pull(pred_plot, name = lake)
+
+
+# Save the plots
+gam_frame |> 
+  pull(pred_plot, name = lake) |> 
+  iwalk(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        paste0("GAM_fry-abun_pred_plot_", idx, ".png")
+      ),
+      width = 7,
+      height = 8,
+      units = "in",
+      dpi = "print"
+    )
+  )
 
 
 # Annual predictions per lake and stock on 1 March
