@@ -62,7 +62,7 @@ spwn <- here(
       fertilized == 1 ~ 1,
       hatchery_fry_release > 0 ~ 1,
       .default = 0
-    ) |> factor(),
+    ),
     # Assume 100% adults for Hucuktlis in years with missing age data
     adult_S = if_else(is.na(adult_S) & cu == "HUC", S, adult_S),
     # Use long names for CUs
@@ -71,6 +71,15 @@ spwn <- here(
       cu == "SPR" ~ "Sproat",
       cu == "HUC" ~ "Hucuktlis"
     )
+  ) |> 
+  # Ensure enhancement variable is correctly aligned to the brood year it affects
+  mutate(
+    .by = cu,
+    enhanced = if_else(
+      cu == "Great Central",
+      1,
+      lead(enhanced, 1L, default = 0)
+    ) |> factor()
   ) |> 
   select(brood_year, cu, S, adult_S, S_cv, R, enhanced, hatchery_fry_release)
 
@@ -102,7 +111,9 @@ spwn_fry <- left_join(
       .default = x
       )
     )
-  )
+  ) |> 
+  arrange(cu, parameter, year)
+  
 
 
 
@@ -273,7 +284,7 @@ sr_plot_data |>
           labels = scales::label_number(),
           expand = expansion(mult = c(0, 0.05))
         ) +
-        scale_fill_manual(values = c("red", "blue")) +
+        scale_fill_manual(values = c("blue", "red")) +
         theme(
           axis.title = element_blank(),
           axis.text.x = element_text(angle = 45, hjust = 1),
@@ -807,8 +818,8 @@ fit_stan_somass <- function(stan_data, cu) {
 
 # Fit the models for both CUs
 if(
-  #FALSE
-  TRUE
+  FALSE
+  #TRUE
 ) {
   somass_stan_fits <- somass_stan_data |> 
     imap(fit_stan_somass)
@@ -1052,158 +1063,117 @@ stopifnot(
   )
 
 
-# Generate predictions for each spawner value
-(somass_bevholt_fits <- somass_pred_frame |> 
-  mutate(R_pred = (alpha * S) / (1 + (alpha/beta)*S)) |> 
-  summarize(
-    .by = c(cu, Rmeas, S),
-    R_quant = list(quantile(R_pred, c(0.025, 0.10, 0.50, 0.90, 0.975)))
-  ) |> 
-  unnest_wider(R_quant) |>
-  rename_with(
-    \(x) str_remove(paste0("R_pred_", x), "%"),
-    .cols = matches("%")
-  ) |> 
-  ggplot(aes(x = S, y = R_pred_50)) +
-  facet_grid(
-    Rmeas ~ cu, 
-    scales = "free",
-    switch = "y",
-    labeller = labeller(
-      Rmeas = c(
-        "BYB" = "Smolt biomass (g)",
-        "BYO" = "Smolt abundance"
-      )
-    )
-  ) +
-  geom_line() +
-  geom_ribbon(
-    aes(
-      ymin = R_pred_2.5,
-      ymax = R_pred_97.5
-    ),
-    alpha = 0.25
-  ) +
-  geom_ribbon(
-    aes(
-      ymin = R_pred_10,
-      ymax = R_pred_90
-    ),
-    fill = NA,
-    colour = "black",
-    lty = 2
-  ) +
-  geom_point(
-    data = somass_sr |> 
-      filter(parameter %in% unique(posterior_df$Rmeas)) |> 
-      rename("Rmeas" = parameter),
-    aes(x = adult_S, y = R_50)
-  ) +
-  scale_x_continuous(
-    limits = c(0, NA),
-    expand = expansion(mult = c(0, 0.05)),
-    labels = scales::label_number()
-  ) +
-  scale_y_continuous(
-    limits = c(0, NA),
-    expand = expansion(mult = c(0, 0.05)),
-    labels = scales::label_number()
-  ) +
-  theme(
-    strip.background.y = element_blank(),
-    axis.title.y = element_blank(),
-    strip.placement = "outside",
-    panel.spacing.y = unit(1, "lines"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  )
-)
-
-
-# Save the fitted Beverton-holt curves
-ggsave(
-  somass_bevholt_fits,
-  filename = here(
-    "3. outputs",
-    "Plots",
-    "Smolt_production_Beverton-Holt_Somass.png"
-  ),
-  width = 6.5, 
-  height = 5.5,
-  units = "in",
-  dpi = "print"
-)
-
-
-# Time series of R/S residuals
-(somass_R_resid_p <- posterior_df |> 
+# Latent states of spawners and recruits
+latent_sr <- posterior_df |> 
   filter(
-    parameter == "lnresid",
+    parameter %in% c("S_true", "R_true"),
     !is.na(value)
   ) |> 
+  mutate(value = value / 1000) |> 
   summarize(
-    .by = c(cu, Rmeas, year),
-    resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+    .by = c(cu, Rmeas, year, parameter),
+    value = list(quantile(value, c(0.10, 0.50, 0.90)))
   ) |> 
-  unnest_wider(resid) |> 
-  filter(year > min(year)) |> 
-  ggplot(aes(x = year, y = `50%`)) +
-  facet_grid(
-    Rmeas ~ cu, 
-    scales = "free",
-    switch = "y",
-    labeller = labeller(
-      Rmeas = c(
-        "BYB" = "Smolt biomass per spawner residuals",
-        "BYO" = "Smolt abundance per spawner residuals"
-      )
-    )
-  ) +
-  geom_hline(
-    yintercept = 0, 
-    lty = 2, 
-    colour = "grey"
-  ) +
-  geom_ribbon(
-    aes(
-      ymin = `2.5%`,
-      ymax = `97.5%`
-    ),
-    alpha = 0.2
-  ) +
-  geom_ribbon(
-    aes(
-      ymin = `10%`,
-      ymax = `90%`
-    ),
-    alpha = 0.3
-  ) +
-  geom_line() +
-  theme(
-    strip.background = element_blank(),
-    axis.title.y = element_blank(),
-    strip.placement = "outside",
-    panel.spacing.y = unit(1, "lines"),
-    panel.grid.minor = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1)
+  unnest_wider(value) |> 
+  pivot_wider(
+    names_from = parameter,
+    values_from = matches("%"),
+    names_glue = "{parameter}_{str_remove(.value, '%')}"
+  ) |> 
+  left_join(
+    somass_sr |> 
+      filter(parameter != "N1") |> 
+      distinct(cu, year, enhanced)
   )
+
+
+# Generate predictions for each spawner value
+(somass_bevholt_fits <- somass_pred_frame |> 
+    mutate(
+      R_pred = ((alpha * S) / (1 + (alpha/beta)*S))/1000,
+      S = S/1000
+    ) |> 
+    summarize(
+      .by = c(cu, Rmeas, S),
+      R_quant = list(quantile(R_pred, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+    ) |> 
+    unnest_wider(R_quant) |>
+    rename_with(
+      \(x) str_remove(paste0("R_pred_", x), "%"),
+      .cols = matches("%")
+    ) |> 
+    ggplot(aes(x = S, y = R_pred_50)) +
+    facet_grid(
+      Rmeas ~ cu, 
+      scales = "free",
+      switch = "y",
+      labeller = labeller(
+        Rmeas = c(
+          "BYB" = "Smolt biomass (kg)",
+          "BYO" = "Smolt abundance (1000s)"
+        )
+      )
+    ) +
+    geom_line() +
+    geom_ribbon(
+      aes(
+        ymin = R_pred_2.5,
+        ymax = R_pred_97.5
+      ),
+      alpha = 0.25
+    ) +
+    geom_ribbon(
+      aes(
+        ymin = R_pred_10,
+        ymax = R_pred_90
+      ),
+      fill = NA,
+      colour = "black",
+      lty = 2
+    ) +
+    geom_linerange(
+      data = latent_sr,
+      aes(
+        y = R_true_50,
+        ymin = R_true_10,
+        ymax = R_true_90,
+        x = S_true_50
+      ),
+      colour = "grey50"
+    ) +
+    geom_pointrange(
+      data = latent_sr,
+      aes(
+        y = R_true_50,
+        x = S_true_50,
+        xmin = S_true_10,
+        xmax = S_true_90,
+        fill = enhanced
+      ),
+      shape = 21,
+      colour = "grey50"
+    ) +
+    scale_x_continuous(
+      name = "Adult spawners (1000s)",
+      limits = c(0, NA),
+      expand = expansion(mult = c(0, 0.05)),
+      labels = scales::label_number()
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      expand = expansion(mult = c(0, 0.05)),
+      labels = scales::label_number()
+    ) +
+    scale_fill_manual(values = c("blue", "red")) +
+    theme(
+      strip.background = element_blank(),
+      axis.title.y = element_blank(),
+      strip.placement = "outside",
+      panel.spacing.y = unit(1, "lines"),
+      panel.grid = element_blank(),
+      axis.text.x = element_text(angle = 45, hjust = 1)
+    )
 )
-# Have to think about whether including last year makes sense??
-
-
-# Save the plot
-ggsave(
-  somass_R_resid_p,
-  filename = here(
-    "3. outputs",
-    "Plots",
-    "Smolt-per-spawner_residuals_timeseries_Somass.png"
-  ),
-  width = 6.5, 
-  height = 5.5,
-  units = "in",
-  dpi = "print"
-)
-
 
 
 
@@ -1562,19 +1532,44 @@ hucuktlis_pred_frame <- hucuktlis_a_b_draws |>
 stopifnot(
   all.equal(
     nrow(hucuktlis_pred_frame), 
-    nrow(S_pred)/length(unique(S_pred$cu))*nrow(hucuktlis_a_b_draws)
+    nrow(S_pred_huc)/length(unique(S_pred_huc$cu))*nrow(hucuktlis_a_b_draws)
   )
 )
 
 
+# Latent states of spawners and recruits
+latent_sr_huc <- posterior_df_huc |> 
+  filter(
+    parameter %in% c("S_true", "R_true"),
+    !is.na(value)
+  ) |> 
+  mutate(value = value / 1000) |> 
+  summarize(
+    .by = c(cu, Rmeas, year, parameter),
+    value = list(quantile(value, c(0.10, 0.50, 0.90)))
+  ) |> 
+  unnest_wider(value) |> 
+  pivot_wider(
+    names_from = parameter,
+    values_from = matches("%"),
+    names_glue = "{parameter}_{str_remove(.value, '%')}"
+  ) |> 
+  left_join(
+    hucuktlis_sr |> 
+      filter(parameter != "N1") |> 
+      distinct(cu, year, enhanced)
+  )
+
+
 # Generate predictions for each spawner value
-hucuktlis_pred_frame |> 
+(hucuktlis_bevholt_fits <- hucuktlis_pred_frame |> 
   mutate(
     R_pred = if_else(
       enhanced == 1,
-      (alpha_enh * S) / (1 + (alpha_enh/beta_enh)*S),
-      (alpha_noenh * S) / (1 + (alpha_noenh/beta_noenh)*S)
-    )
+      ((alpha_enh * S) / (1 + (alpha_enh/beta_enh)*S))/1000,
+      ((alpha_noenh * S) / (1 + (alpha_noenh/beta_noenh)*S))/1000
+    ),
+    S = S/1000
   ) |> 
   summarize(
     .by = c(cu, Rmeas, S, enhanced),
@@ -1599,8 +1594,8 @@ hucuktlis_pred_frame |>
     switch = "y",
     labeller = labeller(
       Rmeas = c(
-        "BYB" = "Smolt biomass (g)",
-        "BYO" = "Smolt abundance"
+        "BYB" = "Smolt biomass (kg)",
+        "BYO" = "Smolt abundance (1000s)"
       )
     )
   ) +
@@ -1621,17 +1616,35 @@ hucuktlis_pred_frame |>
     fill = NA,
     lty = 2
   ) +
-  geom_point(
-    data = hucuktlis_sr |> 
-      filter(parameter %in% unique(posterior_df$Rmeas)) |> 
-      rename("Rmeas" = parameter),
-    aes(x = adult_S, y = R_50)
+  geom_linerange(
+    data = latent_sr_huc,
+    aes(
+      y = R_true_50,
+      ymin = R_true_10,
+      ymax = R_true_90,
+      x = S_true_50
+    ),
+    colour = "grey50"
   ) +
+  geom_pointrange(
+    data = latent_sr_huc,
+    aes(
+      y = R_true_50,
+      x = S_true_50,
+      xmin = S_true_10,
+      xmax = S_true_90,
+      fill = enhanced
+    ),
+    shape = 21,
+    colour = "grey50"
+  ) +  
   scale_colour_manual(
-    values = c("red", "blue"),
+    name = "Enhancement\nstate",
+    values = c("blue", "red"),
     aesthetics = c("colour", "fill")
   ) +
   scale_x_continuous(
+    name = "Adult spawners (1000s)",
     limits = c(0, NA),
     expand = expansion(mult = c(0, 0.05)),
     labels = scales::label_number()
@@ -1642,68 +1655,151 @@ hucuktlis_pred_frame |>
     labels = scales::label_number()
   ) +
   theme(
+    panel.grid = element_blank(),
     strip.background = element_blank(),
     axis.title.y = element_blank(),
     strip.placement = "outside",
     panel.spacing.y = unit(1, "lines"),
     axis.text.x = element_text(angle = 45, hjust = 1)
   )
+)
+  
+
+# Make combined plots of B-H fits and recruitment residuals ---------------
 
 
-# Time series of R/S residuals
-(Hucuktlis_R_resid_p <- posterior_df_huc |> 
-    filter(
-      parameter == "lnresid",
-      !is.na(value)
+
+# Start with recruitment residuals (easier)
+(R_resid_p <- posterior_df |> 
+  left_join(
+    somass_sr |> 
+      filter(parameter != "N1") |> 
+      distinct(cu, year, enhanced)
+  ) |> 
+  bind_rows(posterior_df_huc) |> 
+  filter(
+    .by = cu,
+    parameter == "lnresid",
+    !is.na(value),
+     year > min(year, na.rm = TRUE)
+  ) |> 
+  summarize(
+    .by = c(cu, Rmeas, year, enhanced),
+    resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+  ) |> 
+  unnest_wider(resid) |> 
+  filter(year > min(year)) |> 
+  mutate(
+    .by = Rmeas,
+    line_y = max(`97.5%`) * 1.05,
+    cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis"))
     ) |> 
-    summarize(
-      .by = c(cu, Rmeas, year, enhanced),
-      resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
-    ) |> 
-    unnest_wider(resid) |> 
-    filter(year > min(year), year != 2007) |> # 2007 makes the lines/ribbons continuous from 2004...
-    ggplot(aes(x = year, y = `50%`, colour = enhanced, fill = enhanced)) +
-    facet_grid(
-      Rmeas ~ cu, 
-      scales = "free",
-      switch = "y",
-      labeller = labeller(
-        Rmeas = c(
-          "BYB" = "Smolt biomass per spawner residuals",
-          "BYO" = "Smolt abundance per spawner residuals"
-        )
+  ggplot(aes(x = year, y = `50%`)) +
+  facet_grid(
+    Rmeas ~ cu, 
+    scales = "free",
+    switch = "y",
+    labeller = labeller(
+      Rmeas = c(
+        "BYB" = "Smolt biomass per spawner residuals",
+        "BYO" = "Smolt abundance per spawner residuals"
       )
-    ) +
-    geom_hline(
-      yintercept = 0, 
-      lty = 2, 
-      colour = "grey"
-    ) +
-    geom_ribbon(
-      aes(
-        ymin = `2.5%`,
-        ymax = `97.5%`
-      ),
-      alpha = 0.2
-    ) +
-    geom_ribbon(
-      aes(
-        ymin = `10%`,
-        ymax = `90%`
-      ),
-      alpha = 0.3
-    ) +
-    geom_line() +
-    scale_colour_manual(
-      values = c("red", "blue"),
-      aesthetics = c("colour", "fill")
-    ) +
-    theme(
-      strip.background = element_blank(),
-      axis.title.y = element_blank(),
-      strip.placement = "outside",
-      panel.spacing.y = unit(1, "lines"),
-      panel.grid.minor = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
     )
+  ) +
+  geom_hline(
+    yintercept = 0, 
+    lty = 2, 
+    colour = "grey50"
+  ) +
+  geom_point(
+    aes(
+      y = line_y,
+      colour = enhanced
+    ),
+    shape = "_",
+    size = 2.5
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = `2.5%`,
+      ymax = `97.5%`
+    ),
+    alpha = 0.2
+  ) +
+  geom_ribbon(
+    aes(
+      ymin = `10%`,
+      ymax = `90%`
+    ),
+    alpha = 0.3
+  ) +
+  geom_line() +
+  scale_y_continuous(breaks = scales::pretty_breaks(n = 3)) +
+  scale_colour_manual(values = c("blue", "red")) +
+  guides(
+    colour = guide_legend(
+      title = "Enhancement state",
+      theme = theme(
+        legend.direction = "horizontal",
+        legend.title.position = "top"
+      )
+    )
+  ) +
+  theme(
+    strip.background = element_blank(),
+    axis.title.y = element_blank(),
+    strip.placement = "outside",
+    panel.spacing.y = unit(1, "lines"),
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "inside",
+    legend.position.inside = c(0.03, 0.53),
+    legend.justification.inside = c(0, 0),
+    legend.background = element_rect(colour = "black", fill = alpha("white", 0.75))
+  )
+)
+# Does it make sense to include the last year in the time series?
+
+
+# Save the plot
+ggsave(
+  R_resid_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt-per-spawner_residuals_timeseries_all-CUs.png"
+  ),
+  width = 6.5, 
+  height = 5.5,
+  units = "in",
+  dpi = "print"
+)
+
+
+# Bring B-H curve fits together in a grid plot
+all_bevholt_fits <- plot_grid(
+  somass_bevholt_fits +
+    guides(fill = "none") +
+    theme(axis.title.x = element_text(hjust = 1)),
+  hucuktlis_bevholt_fits +
+    theme(
+      strip.text.y = element_blank(),
+      axis.title.x = element_text(colour = alpha("white", 0))
+      ),
+  rel_widths = c(1.4, 1)
+)
+
+
+# Save the fitted Beverton-holt curves
+ggsave(
+  all_bevholt_fits,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt_production_Beverton-Holt_all-CUs.png"
+  ),
+  width = 11, 
+  height = 7,
+  units = "in",
+  dpi = "print"
 )
