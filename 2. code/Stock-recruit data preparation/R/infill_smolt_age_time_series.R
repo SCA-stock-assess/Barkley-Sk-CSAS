@@ -764,11 +764,31 @@ post_by_ttls <- post_annual |>
   select(lake, year, draw, parameter, value)
 
 
+# Calculate smolt year total outmigrants and biomass from individual draws
+post_sy_ttls <- post_annual |> 
+  filter(str_detect(parameter, "(B|)O\\d")) |> 
+  pivot_wider(
+    names_from = parameter,
+    values_from = value
+  ) |> 
+  mutate(
+    SYO = O1 + O2,
+    SYB = BO1 + BO2
+  ) |> 
+  pivot_longer(
+    cols = c(SYO, SYB),
+    names_to = "parameter",
+    values_to = "value"
+  ) |> 
+  select(lake, year, draw, parameter, value)
+
+
 # Bring both posterior dataframes together
 posterior_df <- bind_rows(
   post_annual, 
   post_interannual,
-  post_by_ttls
+  post_by_ttls,
+  post_sy_ttls
 ) |> 
   # Make parameter names more informative
   mutate(
@@ -788,6 +808,8 @@ posterior_df <- bind_rows(
       parameter == "M" ~ "age1 to age2 mortality",
       parameter == "BYB" ~ "brood year smolt biomass production",
       parameter == "BYO" ~ "brood year smolt production",
+      parameter == "SYO" ~ "smolt year total outmigrant abundance",
+      parameter == "SYB" ~ "smolt year total outmigrant biomass",
       .default = "NO_ENTRY"
     )
   )
@@ -884,6 +906,8 @@ obs_params <- lakes_data |>
     BO2 = O2*WO2_mean,
     BYB = BO1 + lead(BO2),
     BYO = O1 + lead(O2),
+    SYB = BO1+BO2,
+    SYO = ats_est
   ) |> 
   select(lake, year, any_of(annual_params)) |> 
   pivot_longer(
@@ -1009,7 +1033,7 @@ annual_estimates <- posterior_df |>
   ) |> 
   mutate(
     family = case_when(
-      str_detect(parameter, "N|O|BO|BY") ~ "lognormal",
+      str_detect(parameter, "N|O|BO|BY|SY") ~ "lognormal",
       parameter %in% c("theta", "M", "p1", "p2") ~ "logitnormal",
       parameter %in% c("w1", "w2") ~ "normal",
       .default = NA
@@ -1056,6 +1080,8 @@ metadata <- tibble(
       parameter == "BO2" ~ "Posterior estimates for age2 smolt biomass (g)",
       parameter == "BYO" ~ "Brood year sum of posterior estimates for O1 & O2 (see above)",
       parameter == "BYB" ~ "Brood year sum of posterior estimates for BO1 & BO2 (see above)",
+      parameter == "SYO" ~ "Smolt year sum of posterior estimates for O1 & O2 (see above)",
+      parameter == "SYB" ~ "Smolt year sum of posterior estimates for BO1 & BO2 (see above)",
       parameter == "N1" ~ "Posterior estimates for age1 fry abundance in the lake on 1 March",
       parameter == "N2" ~ "Posterior estimates for age2 fry abundance in the lake on 1 March",
       parameter == "N_lake" ~ "Posterior estimates for total fry abundance in the lake on 1 March",
