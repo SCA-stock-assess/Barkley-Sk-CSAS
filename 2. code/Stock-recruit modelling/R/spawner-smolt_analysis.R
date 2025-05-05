@@ -704,7 +704,82 @@ model_plots |>
     )
 )
 
-  
+
+# Simplify the recruits/spawner plots
+log_rs_fits <- model_fits |> 
+  filter(
+    predictor == "adult_spawners",
+    response != "fry_a",
+    fltr == 0
+  ) |> 
+  (function(nested_data) {
+    sub_set =  list(
+      obs = unnest(nested_data, data),
+      pred = unnest(nested_data, pred) |> 
+        mutate(enhanced = if_else(cu != "Hucuktlis", NA, enhanced))
+    )
+    
+    plot <- ggplot(
+      data = sub_set$obs,
+      aes(
+        x = S, 
+        y = log(y/S),
+        colour = enhanced
+      )
+    ) +
+      facet_grid(
+        response_long ~ cu,
+        scales = "free",
+        switch = "y",
+        labeller = labeller(response_long = ~paste0("log(", .x, "/spawner)"))
+      ) +
+      geom_point(alpha = 0.25) +
+      geom_line(
+        data = sub_set$pred,
+        aes(
+          y = log(fit/S),
+          lty = type
+        )
+      ) +
+      scale_x_continuous(
+        limits = c(0, NA),
+        labels = scales::label_number(),
+        expand = expansion(mult = c(0, 0.05))
+      ) +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+      scale_colour_manual(values = c("blue", "red")) +
+      labs(
+        y = NULL,
+        x = "Adult spawners",
+        lty = "S-R fit",
+        colour = "Enhancement\nstate"
+      ) +
+      theme(
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        axis.text.x = element_text(angle = 35, hjust = 1),
+        panel.spacing.x = unit(0.75, "lines"),
+        panel.grid.minor = element_blank()
+      )
+    
+    return(plot)
+  }
+)()
+
+
+# Save the plot for presentation in Appendix A
+ggsave(
+  plot = log_rs_fits,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "log_smolts-per-spanwer_exploratory_plots.png"
+  ),
+  width = 6.5, 
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
 
 # Fit Bayesian Beverton-Holt models to Somass data using Stan ------------------
 
@@ -1803,3 +1878,26 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+
+# Summarize estimated alpha and beta from each model ----------------------
+
+
+bind_rows(
+  posterior_df,
+  posterior_df_huc
+) |> 
+  filter(str_detect(parameter, "alpha|beta")) |> 
+  mutate(
+    value = case_when(
+      str_detect(parameter, "beta") & Rmeas == "BYO" ~ value/1e6,
+      Rmeas == "BYB" ~ value/1e3,
+      .default = value
+    )
+  ) |> 
+  summarize(
+    .by = c(cu, Rmeas, enhanced, parameter),
+    median = median(value),
+    lci = quantile(value, 0.1),
+    uci = quantile(value, 0.9)
+  )
