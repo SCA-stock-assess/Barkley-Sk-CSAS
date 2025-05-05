@@ -53,13 +53,13 @@ ref_pts <- here(
   ) |> 
   mutate(
     fert = case_when(
-      stock == "Great Central" ~ "fertilized",
-      stock == "Sproat" ~ "not fertilized",
-      fert == 1 ~ "fertilized",
-      fert == 0 ~ "not fertilized",
-      stock == "Hucuktlis" & is.na(fert) ~ "mixed"
+      stock == "Great Central" ~ "enhanced",
+      stock == "Sproat" ~ "not enhanced",
+      enh == 1 ~ "enhanced",
+      enh == 0 ~ "not enhanced",
+      stock == "Hucuktlis" & is.na(enh) ~ "mixed"
     ) |> 
-      factor(levels = c("not fertilized", "mixed", "fertilized")),
+      factor(levels = c("not enhanced", "mixed", "enhanced")),
     long_name = factor(
       long_name,
       levels = c(
@@ -67,25 +67,42 @@ ref_pts <- here(
         "Sproat Lake",
         "Hucuktlis Lake (all data)",
         "Hucuktlis Lake (excl. 1993)",
-        "Hucuktlis Lake (w/fertilization)",
-        "Hucuktlis Lake (w/fertilization; excl. 1993)"
+        "Hucuktlis Lake (w/enhancement)",
+        "Hucuktlis Lake (w/enhancement; excl. 1993)"
       )
     )
   )
 
 
+# Add reference points manually from ResDoc table
+ref_pts_alt <- tribble(
+  ~method, ~stock, ~Umsy_q50, ~Umsy_q10, ~Umsy_q90, ~Smsy_q50, ~Smsy_q10, ~Smsy_q90,
+  "S-R", "Great Central", 0.51, 0.35, 0.64, 141969, 103114, 226490,
+  "S-R", "Sproat", 0.61, 0.45, 0.73, 102591, 79568, 155510,
+  "S-R", "Hucuktlis", 0.28, 0.07, 0.57, 9630, 2453, 47816,
+  "SEG", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
+) |> 
+  mutate(stock = factor(stock, levels = c("Great Central", "Sproat", "Hucuktlis")))
+
+
 # Join the Ref Pts to the abundance time series
 kobe_data <- sr_data |> 
   left_join(
-    ref_pts, 
+    ref_pts_alt, 
     by = "stock",
     relationship = "many-to-many"
   ) |> 
   mutate(
     x = S/Smsy_q50,
-    y = ER/Umsy_q50
+    y = ER/Umsy_q50,
+    stock = factor(stock, levels = c("Great Central", "Sproat", "Hucuktlis"))
   ) |> 
-  select(stock, long_name, year, fert, x, y)
+  # Constrain x-axis range for Hucuktlis
+  mutate(
+    label = if_else(x > 5, round(x, 1), NA),
+    x = if_else(x > 5, 5, x),
+  ) |> 
+  select(stock, year, x, y, method, label)
 
 
 
@@ -95,7 +112,7 @@ kobe_data <- sr_data |>
 # dataframe with first and last years in the time series
 end_yrs <- kobe_data |> 
   filter(
-    .by = c(long_name, fert),
+    .by = c(stock, method),
     year== min(year) | year== max(year)
   )
 
@@ -108,15 +125,15 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
     aes(x = x, y = y)
     ) +
     facet_wrap(
-      ~long_name + fert,
+      ~stock+method,
       scales = "free",
-      nrow = facet_rows,
+      ncol = 2,
       labeller = labeller(.multi_line = FALSE)
     ) +
     geom_labelhline(
       data = reflines_data,
       aes(
-        label = paste0("U[MSY]==", 100*round(Umsy_q50, 2), "*\'%\'"),
+        label = paste0("`S-R`~~U[MSY]==", 100*round(Umsy_q50, 2), "*\'%\'"),
         yintercept = 1
       ),
       hjust = 0.95,
@@ -130,7 +147,7 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
     geom_labelvline(
       data = reflines_data,
       aes(
-        label = paste0("S[MSY]==", round(Smsy_q50, 0)),
+        label = paste0("`", method, "`~~S[MSY]==", round(Smsy_q50, 0)),
         xintercept = 1
       ),
       hjust = 0.95,
@@ -161,6 +178,13 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
       label.padding = unit(rep(0.01, 4), "lines"),
       fill = alpha("white", 0.75)
     ) +
+    # Add text labels for x points > 5
+    geom_text(
+      aes(label = label),
+      hjust = 1.15, 
+      vjust = 1.25,
+      size = 3
+    ) +
     #add "crosshairs"
     scale_colour_viridis_c() +
     scale_y_continuous(
@@ -170,8 +194,9 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
     ) +
     scale_x_continuous(
       limits = c(1e-6, NA),
-      expand = expansion(mult = c(0, 0.05)),
-      breaks = scales::pretty_breaks()
+      expand = expansion(mult = c(0, 0.01)),
+      breaks = scales::pretty_breaks(),
+      labels = scales::label_number(accuracy = 1)
     ) +
     # Fancy mathy axis labels
     labs(
@@ -192,7 +217,7 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
 # Make separate kobe plots for Hucuktlis and Somass CUs
 kobe_plots <- list(
   xy_data = kobe_data,
-  reflines_data = ref_pts,
+  reflines_data = ref_pts_alt,
   endyrs_data = end_yrs
 ) |> 
   map(\(x) mutate(x, group = if_else(stock == "Hucuktlis", "Hucuktlis", "Somass"))) |> 
@@ -214,7 +239,7 @@ pull(kobe_plots, kobe_p, name = group)
 
 # Save the Kobe plots
 kobe_plots |> 
-  mutate(height = if_else(group == "Hucuktlis", 10, 5)) |> 
+  mutate(height = if_else(group == "Hucuktlis", 5, 5)) |> 
   select(kobe_p, group, height) |> 
   pwalk(
     function(kobe_p, group, height) ggsave(
@@ -231,3 +256,21 @@ kobe_plots |>
     )
   )
 
+
+# Alternatively, plot all panels together
+kobe_alt <- make_kobe_p(kobe_data, ref_pts_alt, end_yrs)
+
+
+# Save the alternative version
+kobe_alt |> 
+  ggsave(
+    filename = here(
+      "3. outputs",
+      "Plots",
+      "Kobe_plots_all-CUs.png"
+    ),
+    width = 7,
+    height = 8,
+    units = "in",
+    dpi = "print"
+  )
