@@ -696,8 +696,8 @@ ann_gam_pred <- gam_frame |>
           fit_response = exp(fit),
           se = fit_response * se.fit, # SE calculated via delta method
           cv = se/fit_response,
-          lci = fit - se.fit*1.96,
-          uci = fit + se.fit*1.96,
+          lci = fit - se.fit*1.28,
+          uci = fit + se.fit*1.28,
           across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
         )
     )
@@ -766,14 +766,13 @@ ann_gam_pred |>
       option = "mako"
     ) +
     scale_shape_manual(values = c(4, 19)) +
+    scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
     guides(shape = "none") +
     labs(
       x = "Smolt outmigration year",
       y = "Estimated Sockeye pre-smolt abundance (millions)",
-      colour = "Days since\n20 March",
-      title = "Annual Sockeye pre-smolt abundance estimates in Barkley nursery lakes",
-      subtitle = "circles are raw ATS estimates and crosses are GAM estimates for 1 March"
+      colour = "Days since\n20 March"
     ) +
     theme(strip.background = element_rect(fill = "white"))
 )
@@ -788,6 +787,7 @@ ggsave(
     "Pre-smolt_estimates_GAM_vs_ATS.png"
   ),
   width = 8,
+  height = 5,
   units = "in",
   dpi = "print"
 )
@@ -988,3 +988,102 @@ by_prod2 |>
     expand = c(0, 0.05),
     labels = scales::percent
   )
+
+
+# Plot Bayesian model outputs alongside GAM and raw estimates -------------
+
+
+# Full smolt production results from the model
+bayes_smolts <- here(
+  "3. outputs",
+  "Stock-recruit data",
+  "Bayesian_state-space_smolt-production_estimated_time_series.xlsx"
+) |> 
+  read_xlsx(sheet = "model_estimates") |> 
+  filter(parameter == "SYO") |> 
+  mutate(
+    across(matches("%"), \(x) x/1e6),
+    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis"))
+  )
+
+
+# Add Bayesian model estimates to GAM comparison plot
+(gam_bayes_comp_p <- gam_comp_p +
+  geom_pointrange(
+    data = bayes_smolts,
+    aes(
+      x = year,
+      y = `50%`,
+      ymin = `10%`,
+      ymax = `90%`,
+      colour = 345
+    ),
+    size = 0.15, 
+    linewidth = 0.2, 
+    shape = 17
+  )
+)
+
+
+# Explort plot
+ggsave(
+  gam_bayes_comp_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt_abundance_estimates_comparison.png"
+  ),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
+
+
+# Plot the Bayesian estimates on their own for chapter 4
+(bayes_ts_p <- bayes_smolts |> 
+    ggplot(aes(x = year, y = `50%`)) +
+    facet_wrap(
+      ~lake, 
+      ncol = 1,
+      strip.position = "right",
+      scales = "free_y"
+    ) +
+    geom_pointrange(
+      data = bayes_smolts,
+      aes(
+        ymin = `10%`,
+        ymax = `90%`,
+      )
+    ) + 
+    scale_y_continuous(
+      limits = c(0, NA),
+      labels = scales::label_number(accuracy = 1)
+    ) +
+    labs(
+      x = "Smolt outmigration year",
+      y = "Estimated Sockeye smolt abundance (millions)",
+    ) +
+    theme(
+      panel.grid.minor = element_blank(),
+      strip.background = element_rect(fill = "white")
+    )
+)
+
+
+# Save the plot
+ggsave(
+  bayes_ts_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt_abundance_Bayesian_estimates.png"
+  ),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
+
+  
+  
