@@ -69,7 +69,11 @@ som_esc <- read_xlsx(
       c(adj_adults, adj_jacks),
       \(x) if_else(x < 0, 0, x)
     ),
-    method = if_else(year < 2000, "resistivity counter", "video counter"),
+    method = case_when(
+      year < 2009 & system == "GCL" ~ "resistivity counter", 
+      year < 2013 & system == "SPR" ~ "resistivity counter",
+      .default = "video counter"
+    ),
   ) |> 
   select(d_m, system, year, method, contains("adj_")) |> 
   rowwise() |> 
