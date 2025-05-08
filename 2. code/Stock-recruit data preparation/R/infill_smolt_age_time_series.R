@@ -1108,5 +1108,369 @@ list(
       "Bayesian_state-space_smolt-production_estimated_time_series.xlsx"
     )
   )
-  
-  
+
+
+# Calculate annual marine survival estimates ------------------------------
+
+
+# Load latent states of recruitment by brood year from S-R models
+r_ts <- readRDS(
+  here(
+    "3. outputs",
+    "Stock-recruit modelling",
+    "State-space_spawner_recruit_latent_states_ts.RDS"
+  )
+) |> 
+  pivot_wider(names_from = parameter) |> 
+  mutate(
+    lake = factor(
+      stock,
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
+    ),
+    year = brood_year,
+    .keep = "unused"
+  ) |> 
+  # Take a random sample to match number of draws in the smolt production model
+  slice_sample(
+    by = c(lake, year),
+    n = 8000,
+    replace = TRUE
+  ) |> 
+  select(year, lake, R) |> 
+  nest(.by = c(lake, year), .key = "R")
+
+
+# Join recruit estimates with brood year smolt data and calculate survival
+sas <- posterior_df |> 
+  filter(parameter == "BYO") |> 
+  select(year, lake, smolts = value) |> 
+  nest(.by = c(lake, year), .key = "smolts") |> 
+  left_join(r_ts) |> 
+  unnest(smolts, R) |> 
+  mutate(
+    survival = if_else(R/smolts > 0.999, 0.999, R/smolts), # Hacky solution
+    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis"))
+  ) 
+
+
+# Annual survival rate summary data
+sas_summary <- sas |> 
+  filter(!is.na(survival)) |> 
+  summarize(
+    .by = c(lake, year),
+    surv = list(quantile(survival, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
+  ) |> 
+  unnest_wider(surv) |> 
+  mutate(date = as.Date(paste0(year, "-04-15")))
+
+
+# Bring in ocean indicators data
+oni <- read.csv(
+  here(
+    "1. data",
+    "ENSO (ONI) 250505(ONI).csv"
+  )
+) |> 
+  mutate(
+    date = as.Date(DateTime.UTC),
+    start_date = date,
+    end_date = lead(start_date, 1) - 1,
+    oni = ONI.degrees.C
+  ) |> 
+  filter(
+    start_date >= min(sas_summary$date)-120,
+    end_date <= max(sas_summary$date)+120
+  )
+
+
+# Time series plot
+(sas_ts <- sas_summary |> 
+    ggplot(aes(x = date, y = `50%`)) +
+    facet_wrap(
+      ~lake,
+      ncol = 1,
+      strip.position = "right"
+    ) +
+    geom_rect(
+      data = oni,
+      aes(
+        x = start_date,
+        xmin = start_date -1,
+        xmax = end_date +1,
+        y = 0.5,
+        ymin = -Inf,
+        ymax = Inf,
+        fill = oni
+      )
+    ) +
+    geom_linerange(
+      aes(
+        ymin = `2.5%`,
+        ymax = `97.5%`
+      ),
+      linewidth = 0.25,
+      colour = "grey"
+    ) +
+    geom_pointrange(
+      aes(
+        ymin = `10%`,
+        ymax = `90%`
+      ),
+      size = 0.25
+    ) +
+    scale_fill_distiller(palette = "RdYlGn") +
+    scale_y_continuous(
+      limits = c(0, 0.5),
+      expand = c(0, 0),
+      labels = scales::percent,
+      oob = scales::oob_keep
+    ) +
+    scale_x_date(expand = c(0, 0)) +
+    labs(
+      x = "Brood year",
+      y = "Smolt-to-adult survival",
+      fill = "Ocean Ni\u00f1o\nIndex (\u00b0C)"
+    ) +
+    theme(
+      strip.background = element_rect(fill = "white"),
+      panel.grid.minor = element_blank(),
+      panel.spacing.y = unit(1, "lines")
+    )
+)
+
+
+# Save the plot
+ggsave(
+  sas_ts,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt-to-adult_survival_with-ONI.png"
+  ),
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
+
+
+# Interannual summaries
+sas_summary |> 
+  summarize(
+    .by = lake,
+    median = median(`50%`),
+    min = min(`50%`),
+    max = max(`50%`)
+  )
+
+
+# Posterior summaries for ResDoc tables and writing -----------------------
+
+
+# Median fry and smolt abundances
+post_annual |> 
+  filter(parameter %in% c("O1", "O2", "N1", "N2")) |> 
+  pivot_wider(names_from = parameter) |> 
+  mutate(
+    SYN = N1 + N2,
+    SYO = O1 + O2,
+    .keep = "unused"
+  ) |> 
+  pivot_longer(c(SYN, SYO)) |> 
+  mutate(value = value/1e6) |> 
+  summarize(
+    .by = c(lake, name),
+    median = median(value, na.rm = TRUE),
+    q25 = quantile(value, 0.25, na.rm = TRUE),
+    q75 = quantile(value, 0.75, na.rm = TRUE)
+  )
+
+
+# Plot annual estimates of fry and smolt abundances
+(ann_O_N_p <- post_annual |> 
+  filter(parameter %in% c("O1", "O2", "N1", "N2")) |> 
+  pivot_wider(names_from = parameter) |> 
+  mutate(
+    SYN = N1 + N2,
+    SYO = O1 + O2,
+    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis")),
+    .keep = "unused"
+  ) |> 
+  pivot_longer(c(SYN, SYO)) |> 
+  mutate(value = value/1e6) |> 
+  summarize(
+    .by = c(lake, name, year),
+    median = median(value, na.rm = TRUE),
+    q10 = quantile(value, 0.10, na.rm = TRUE),
+    q90 = quantile(value, 0.90, na.rm = TRUE)
+  ) |> 
+  mutate(name = if_else(name == "SYO", "Smolts", "Fry")) |> 
+  ggplot(aes(x = year, y = median)) +
+  facet_wrap(
+    ~ lake,
+    ncol = 1,
+    strip.position = "right",
+    scales = "free_y"
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = q10,
+      ymax = q90,
+      colour = name
+    ),
+    position = position_dodge(width = 0.5)
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
+  scale_y_continuous(
+    limits = c(0,NA),
+    labels = scales::label_number(accuracy = 1),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_colour_manual(values = c("black", "grey")) +
+  labs(
+    y = "Abundance (millions)",
+    x = "Outmigration year",
+    colour = "Life\nstage"
+  ) +
+  theme(
+    strip.background = element_rect(fill = "white"),
+    panel.grid.minor = element_blank()
+  )
+)
+
+
+ggsave(
+  ann_O_N_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Fry_smolt_abundance_Bayesian_estimates.png"
+  ),
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
+
+
+# Median age compositions of fry from the three lakes
+post_annual |> 
+  filter(parameter %in% c("N1", "N2")) |> 
+  pivot_wider(names_from = parameter) |> 
+  mutate(
+    pN1 = N1/(N1 + N2),
+    pN2 = 1 - pN1,
+    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis")),
+    .keep = "unused"
+  ) |> 
+  pivot_longer(c(pN1, pN2)) |> 
+  summarize(
+    .by = c(lake, name),
+    median = median(value, na.rm = TRUE),
+    q10 = quantile(value, 0.25, na.rm = TRUE),
+    q90 = quantile(value, 0.75, na.rm = TRUE)
+  )
+
+
+# Lookup for enhanced years
+enh_lu <- here(
+  "3. outputs",
+  "Stock-recruit data",
+  "Barkley_Sockeye_stock-recruit_infilled.xlsx"
+) |> 
+  read_xlsx(sheet = "S-R data") |> 
+  mutate(
+    hatchery_fry_release = if_else(is.na(hatchery_fry_release), 0, hatchery_fry_release),
+    enhanced = if_else(fertilized == 1 | hatchery_fry_release > 0, 1, 0),
+    lake = factor(
+      stock,
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
+    )
+  ) |> 
+  select(year, lake, enhanced)
+
+
+# Smolt weight versus abundance relationships
+(w_abun_p <- posterior_df |> 
+    filter(parameter %in% c("SYO", "SYB")) |> 
+    pivot_wider(
+      id_cols = c(lake, draw, year),
+      names_from = parameter,
+      values_from = value
+    ) |> 
+    mutate(
+      w = SYB/SYO,
+      lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis")),
+      SYO = SYO/1e6
+    ) |> 
+    summarize(
+      .by = c(lake, year),
+      across(
+        c(SYO, w),
+        .fns = list(
+          median = ~median(.x, na.rm = TRUE),
+          l_80 = ~quantile(.x, 0.1, na.rm = TRUE),
+          u_80 = ~quantile(.x, 0.9, na.rm = TRUE)
+        ),
+        .names = "{.fn}_{.col}"
+      ) 
+    ) |> 
+    left_join(enh_lu) |> 
+    ggplot(aes(x = median_SYO, y = median_w)) +
+    facet_wrap(~lake, scales = "free_x") +
+    geom_linerange(
+      aes(
+        xmin = l_80_SYO,
+        xmax = u_80_SYO
+      ),
+      colour = "grey50",
+      alpha = 0.5
+    ) +
+    geom_pointrange(
+      aes(
+        ymin = l_80_w,
+        ymax = u_80_w,
+        fill = factor(enhanced),
+      ),
+      alpha = 0.5,
+      colour = "grey50",
+      shape = 21
+    ) +
+    scale_fill_manual(values = c("red", "blue")) +
+    scale_x_continuous(
+      limits = c(0, NA),
+      labels = scales::label_number(accuracy = 1),
+      expand = expansion(mult = c(0, 0.05))
+    ) +
+    scale_y_continuous(
+      limits = c(0, NA),
+      labels = scales::label_number(),
+      expand = expansion(mult = c(0, 0.05))
+    ) +
+    labs(
+      y = "Average smolt weight (g)",
+      x = "Smolt abundance (millions)",
+      fill = "Enhancement\nstate"
+    ) +
+    theme(
+      strip.background = element_blank(),
+      panel.grid.minor = element_blank()
+    )
+)
+
+
+# Save 
+ggsave(
+  w_abun_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt_weight_versus_abundance.png"
+  ),
+  width = 8,
+  height = 3,
+  units = "in",
+  dpi = "print"
+)
