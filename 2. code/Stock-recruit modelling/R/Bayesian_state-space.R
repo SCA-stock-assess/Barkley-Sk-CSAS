@@ -1244,3 +1244,35 @@ ggsave(
   dpi = "print"
 )
 
+
+
+# Export posterior states of spawners and recruits ------------------------
+
+
+# Posterior draws
+sr_ts <- c("HUC" = HUC_mods$HUC_full_enh, Somass_mods) |> 
+  map(\(x) rstan::extract(x, c("S", "R"))) |> 
+  map(\(x) map(x, \(y) as_tibble(y, rownames = "draw", .name_repair = NULL))) |> 
+  map(\(x) map(x, \(y) pivot_longer(y, !draw, names_to = "yr"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "model") |> 
+  mutate(
+    .by = c(model, parameter),
+    yr = as.integer(str_extract(yr, "\\d+")),
+    max_yr = max(yr),
+    max_sr_yr = max(sr$year),
+    brood_year = max_sr_yr - max_yr + yr,
+    stock = str_extract(model, "GCL|SPR|HUC")
+  ) |> 
+  select(stock, brood_year, value, parameter, draw)
+
+
+# Save the result
+saveRDS(
+  sr_ts,
+  file = here(
+    "3. outputs",
+    "Stock-recruit modelling",
+    "State-space_spawner_recruit_latent_states_ts.RDS"
+  )
+)
