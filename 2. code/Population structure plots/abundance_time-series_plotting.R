@@ -671,3 +671,23 @@ all_ts_plot |>
     units = "in",
     dpi = "print"
   )
+
+
+# Make a grey-scale version with the CU-specific panels only
+cu_greyscale_p <- all_ts_plot %+% 
+  filter(all_panels_data,!CU == "Barkley Aggregate")
+  
+
+ggsave(
+  plot = cu_greyscale_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Barkley-Sk_cu_abundance_time-series_greyscale.png"
+  ),
+  width = 7.5,
+  height = 6,
+  units = "in",
+  dpi = "print"
+)
+
