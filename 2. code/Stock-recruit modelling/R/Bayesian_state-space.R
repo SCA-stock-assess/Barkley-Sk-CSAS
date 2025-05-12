@@ -59,7 +59,8 @@ sr_age_infill <- sr |>
   mutate(
     .by = stock,
     max.age.samples = max(age.samples),
-    # Assign effective sample size (ESS) values for age data by stock and year, 
+    # Decision tree to assign effective sample size (ESS) values 
+    # for age data by stock and year, 
     # ESS = 100 implies high confidence
     age.ess = case_when(
       stock %in% c("GCL", "SPL") & year > 2009 ~ 100,
