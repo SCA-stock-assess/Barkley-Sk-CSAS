@@ -278,3 +278,62 @@ four_panel_plots |>
       dpi = "print"
     )
   )
+
+
+# Simple table summaries of the plot data ---------------------------------
+
+
+# Starting point data frame with refpoints joined in
+full_frame <- fourpp_data |> 
+  left_join(
+    ref_pts,
+    by = join_by(
+      stock,
+      long_name == panel
+    )
+  ) |> 
+  select(-matches("q(10|90)")) |> 
+  mutate(
+    .by = stock,
+    nyrs = length(unique(year))
+  )
+
+
+# Numbers and percentages of years above/below benchmarks
+above_below_ts <- full_frame |> 
+  mutate(
+    across(
+      matches("(S|U)(gen|msy)"),
+      \(x) if_else(value > x, 1, 0),
+      .names = "{.col}_pass"
+    )
+  ) |> 
+  filter(!if_all(contains("pass"), is.na)) |> 
+  select(stock, year, nyrs, contains("pass")) |> 
+  rename_with(\(x) str_replace_all(x, c("q50" = "SR", "_pass" = ""))) |> 
+  pivot_longer(
+    matches("(S|U)(gen|msy)"),
+    names_sep = "_",
+    names_to = c("method", "refpt"),
+    values_to = "n_above"
+  ) |> 
+  filter(!is.na(n_above)) |> 
+  pivot_wider(
+    names_from = c(method, refpt),
+    names_sep = "_",
+    values_from = n_above
+  )
+  
+
+above_below_ts |> 
+  summarize(
+    .by = c(stock, nyrs),
+    across(matches("(S|U)(gen|msy)"), \(x) sum(x, na.rm = TRUE))
+  ) |> 
+  pivot_longer(
+    cols = !c(stock, nyrs),
+    names_to = "refpt",
+    values_to = "n_above"
+  ) |> 
+  filter(!n_above == 0) |> # These are technically NAs
+  mutate(pct_above = n_above/nyrs)
