@@ -1,12 +1,3 @@
-# Script notes ------------------------------------------------------------
-
-
-# The purpose of this script is to investigate previous estimates of annual
-# smolt production made by Hyatt and try to reproduce those methods for 
-# subsequent years (2008-present). There are inconsistencies in the historic
-# data post-2007 that suggest an unstated change in methodology or rigour.
-
-
 # Packages ----------------------------------------------------------------
 
 
@@ -771,7 +762,7 @@ ann_gam_pred |>
     guides(shape = "none") +
     labs(
       x = "Smolt outmigration year",
-      y = "Estimated Sockeye pre-smolt abundance (millions)",
+      y = "Estimated Sockeye fry abundance (millions)",
       colour = "Days since\n20 March"
     ) +
     theme(strip.background = element_rect(fill = "white"))
@@ -1000,7 +991,7 @@ bayes_smolts <- here(
   "Bayesian_state-space_smolt-production_estimated_time_series.xlsx"
 ) |> 
   read_xlsx(sheet = "model_estimates") |> 
-  filter(parameter == "SYO") |> 
+  filter(parameter == "N_lake") |> 
   mutate(
     across(matches("%"), \(x) x/1e6),
     lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis"))
@@ -1031,7 +1022,7 @@ ggsave(
   filename = here(
     "3. outputs",
     "Plots",
-    "Smolt_abundance_estimates_comparison.png"
+    "Fry_abundance_estimates_comparison.png"
   ),
   width = 8,
   height = 5,
@@ -1062,7 +1053,7 @@ ggsave(
     ) +
     labs(
       x = "Smolt outmigration year",
-      y = "Estimated Sockeye smolt abundance (millions)",
+      y = "Estimated Sockeye fry abundance (millions)",
     ) +
     theme(
       panel.grid.minor = element_blank(),
