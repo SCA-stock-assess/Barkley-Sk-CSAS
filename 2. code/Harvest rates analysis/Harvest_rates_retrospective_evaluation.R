@@ -121,7 +121,10 @@ sec_axis_txt <- hr_data_trim |>
     xlim = c(min(hr_data_trim$year), max(hr_data_trim$year)),
     clip = "off"
   ) +
-  labs(y = "Run size (1000s)") +
+  labs(
+    y = "Run size (1000s)",
+    x = "Return year"
+  ) +
   theme(
     panel.spacing.y = unit(1, "lines"),
     panel.grid.minor = element_blank(),
@@ -148,6 +151,7 @@ ggsave(
     "Hucuktlis_vs_Somass_HR_w-abundance.png"
   ),
   width = 6.5,
+  height = 5,
   units = "in",
   dpi = "print"
 )
