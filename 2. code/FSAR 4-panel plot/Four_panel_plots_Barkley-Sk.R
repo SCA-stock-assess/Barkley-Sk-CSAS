@@ -337,3 +337,10 @@ above_below_ts |>
   ) |> 
   filter(!n_above == 0) |> # These are technically NAs
   mutate(pct_above = n_above/nyrs)
+
+
+# Total annual harvest on Barkley Sockeye
+annual_catches <- full_frame |> 
+  filter(name == "H") |> 
+  summarize(.by = year, value = sum(value)*1000) |> 
+  mutate(median = median(value))
