@@ -80,7 +80,7 @@ ref_pts_alt <- tribble(
   "S-R", "Great Central", 0.51, 0.35, 0.64, 141969, 103114, 226490,
   "S-R", "Sproat", 0.61, 0.45, 0.73, 102591, 79568, 155510,
   "S-R", "Hucuktlis", 0.28, 0.07, 0.57, 9630, 2453, 47816,
-  "SEG", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
+  "percentile", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
 ) |> 
   mutate(stock = factor(stock, levels = c("Great Central", "Sproat", "Hucuktlis")))
 
@@ -200,6 +200,7 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
     ) +
     # Fancy mathy axis labels
     labs(
+      colour = "Return year",
       y = expression(frac(Exploitation~rate, U[MSY])), 
       x = expression(frac(Spawner~abundance,S[MSY])),
       parse = TRUE
