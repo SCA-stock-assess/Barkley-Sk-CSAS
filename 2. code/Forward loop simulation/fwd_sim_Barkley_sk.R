@@ -202,14 +202,14 @@ SPR_AR1_sub <- AR1_mods[["SPR_AR1"]] |>
 AR1_subset <- list(
   "SPR" = SPR_AR1_sub,
   "GCL" = rstan::extract(AR1_mods[["GCL_AR1"]]),
-  "HUC" = rstan::extract(AR1_mods[["HUC_full_fert_AR1"]])
+  "HUC" = rstan::extract(AR1_mods[["HUC_full_enh_AR1"]])
 )
 
 
 # Select which lnalpha and beta values to use for Hucuktlis
 names(AR1_subset[["HUC"]]) <- AR1_subset[["HUC"]] |> 
   names() |> 
-  str_remove_all("_unfert") # erase the "_unfert" suffix
+  str_remove_all("_unenh") # erase the "_unfert" suffix
 # Renaming lnalpha_unfert and beta_unfert identifies these as the values
 # of choice for this model, since all code indexes into "lnalpha" and "beta"
 
@@ -531,9 +531,9 @@ simulate_forward <- function(
     #if (is.na(somass_N)) { somass_N <- 0 }
     somass_fcst <- somass_N + somass_N * rnorm(1, fcst_err_boot$mean, fcst_err_boot$sd) # Add forecast error
     # Note, it is ok if somass_fcst occasionally dips below 0, the HCR_fn will set HR = 0 for negative inputs
-    HR <- HCR_fn(somass_fcst) # Includes implementation error
-    HR[t, 1:2] <- HR$Somass
-    HR[t, 3] <- HR$Hucuktlis
+    HR_t <- HCR_fn(somass_fcst) # Includes implementation error
+    HR[t, 1:2] <- HR_t$Somass
+    HR[t, 3] <- HR_t$Hucuktlis
     if (HR[t, 3] < 0) { HR[t, 3] <- 0 } # Ensure Hucuktlis HR doesn't drop below 0
     
     ## III. Spawners and Catch
@@ -597,7 +597,15 @@ sim_result |>
 
 sims <- c(1:1e3) |> 
   set_names() |> 
-  map(\(x) simulate_forward(model_samps_list, phi = 0.75, cov_matrix = epi)) |> 
+  map(
+    \(x) 
+    simulate_forward(
+      model_samps_list, 
+      phi = 0.75, 
+      cov_matrix = epi,
+      HCR_fn = status_quo_HCR
+    )
+  ) |> 
   list_rbind(names_to = "sim")
 
 
