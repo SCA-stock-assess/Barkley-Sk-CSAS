@@ -1,10 +1,11 @@
 # Packages ----------------------------------------------------------------
 
-pkgs <- c("here", "tidyverse", "readxl", "rstan", "bayesplot")
+pkgs <- c("here", "tidyverse", "readxl", "rstan", "bayesplot", "geomtextpath")
 #install.packages(pkgs)
 
 library(here)
 library(tidyverse); theme_set(theme_bw())
+library(geomtextpath)
 library(rstan)
 library(readxl)
 library(bayesplot)
@@ -1246,6 +1247,104 @@ ggsave(
 )
 
 
+
+# Prior vs posterior density plots ----------------------------------------
+
+
+# Make dataframe of prior densities for Smax
+Smax_priors <- stocks_stan_data |> 
+  map(
+    function(x) {
+      Smax_p_sig_corr <- sqrt(log(1+(x[["Smax_p_sig"]]^2)/(x[["Smax_p"]]^2)))
+      Smax_p_corr <- log(x[["Smax_p"]])-0.5*(Smax_p_sig_corr)^2 # Inlcudes bias correction
+      
+      dist <- rlnorm(
+        n = 1e5,
+        meanlog = Smax_p_corr,
+        sdlog = Smax_p_sig_corr
+      ) |> 
+        as_tibble_col()
+    }
+  ) |> 
+  list_rbind(names_to = "stock") |> 
+  mutate(
+    stock = factor(
+      stock, 
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
+    )
+  )
+
+
+Smax_posterior <- ab_posterior |> 
+  filter(
+    case_when(
+      model %in% c("GCL", "SPR") ~ TRUE,
+      model == "HUC_full_enh" & enh == 0 ~ TRUE,
+      .default = FALSE
+    )
+  ) |> 
+  unnest(ab_draws) |> 
+  mutate(
+    stock = factor(
+      stock, 
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
+    )
+  )
+
+
+(prior_v_posterior_p <- Smax_priors |> 
+  ggplot() +
+  facet_wrap(
+    ~stock, 
+    ncol = 1,
+    strip.position = "right",
+    scales = "free_y"
+  ) +
+  geom_textdensity(
+    aes(x = value),
+    colour = "red",
+    label = "prior",
+    hjust = 0.1
+  ) +
+  geom_textdensity(
+    data = Smax_posterior,
+    aes(x = 1/beta),
+    label = "posterior",
+    hjust = 0.35
+  ) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    expand = expansion(mult = c(0, 0.05))
+  ) +
+  scale_x_continuous(
+    name = expression(S[max]),
+    limits = c(0, 6e5),
+    labels = scales::label_number(),
+    expand = expansion(mult = c(0, 0.05)),
+    oob = scales::oob_keep
+  ) +
+  theme(
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank()
+  )
+)
+
+
+# Save plot
+ggsave(
+  plot = prior_v_posterior_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "State-space_prior_vs_posterior_Smax.png"
+  ),
+  width = 7,
+  height = 5,
+  units = "in",
+  dpi = "print"
+)
 
 # Export posterior states of spawners and recruits ------------------------
 
