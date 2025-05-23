@@ -436,6 +436,15 @@ rlnorm(n = 1000, meanlog = log(500000), sdlog = 0.5) |>
   labs(x = "Forecast Somass run", y = "Harvest rate", colour = "Stock")
 
 
+no_fishing <- function(fcst_run) {
+  
+  list(
+    Somass = 0,
+    Hucuktlis = 0
+  )
+  
+}
+
 # Simulation function -----------------------------------------------------
 
 
@@ -451,6 +460,9 @@ simulate_forward <- function(
   ns <- length(model_samps_list)      # Number of CUs
   A <- 4                              # Age classes (3-6)
   total_years <- A + n_years          # Buffer for age lag
+  
+  # Define CU-specific R caps
+  max_R <- c(1500000, 1500000, 400000)
   
   # Prep storage
   R <- matrix(0, total_years, ns)
@@ -473,7 +485,7 @@ simulate_forward <- function(
   ps <- lapply(init_vals, function(x) x$ps)
   
   for (i in 1:ns) {
-    R[1:3, i] <- init_vals[[i]]$R
+    R[1:3, i] <- pmin(init_vals[[i]]$R, max_R[i])  # Cap early R values
     S[4:7, i] <- init_vals[[i]]$S
     v[4, i] <- last_resid[i]
   }
@@ -486,6 +498,7 @@ simulate_forward <- function(
     mu <- log(alpha[i]) + log(S[4, i]) - beta[i] * S[4, i]
     predR[4, i] <- exp(mu)
     R[4, i] <- predR[4, i] * exp(phi * v[4, i] + epi[4, i])
+    R[4, i] <- min(R[4, i], max_R[i])
     v[4, i] <- log(R[4, i]) - log(predR[4, i])
   }
   
@@ -494,6 +507,7 @@ simulate_forward <- function(
       mu <- log(alpha[i]) + log(S[t, i]) - beta[i] * S[t, i]
       predR[t, i] <- exp(mu)
       R[t, i] <- predR[t, i] * exp(phi * v[t - 1, i] + epi[t, i])
+      R[t, i] <- min(R[t, i], max_R[i])
       v[t, i] <- log(R[t, i]) - log(predR[t, i])
     }
   }
@@ -505,6 +519,7 @@ simulate_forward <- function(
         brood_year <- t - true_age
         if (brood_year > 0) {
           N[t, a, i] <- R[brood_year, i] * ps[[i]][a]
+          if (is.na(N[t, a, i]) || N[t, a, i] < 0) N[t, a, i] <- 0
         }
       }
     }
@@ -526,15 +541,15 @@ simulate_forward <- function(
       }
     }
     
+    # Defensive step: fix N values that are NA or < 0
+    N[t, , ][is.na(N[t, , ]) | N[t, , ] < 0] <- 0
+    
     ## II. Harvest Rule
     somass_N <- sum(N[t, , 1:2])
-    #if (is.na(somass_N)) { somass_N <- 0 }
-    somass_fcst <- somass_N + somass_N * rnorm(1, fcst_err_boot$mean, fcst_err_boot$sd) # Add forecast error
-    # Note, it is ok if somass_fcst occasionally dips below 0, the HCR_fn will set HR = 0 for negative inputs
-    HR_t <- HCR_fn(somass_fcst) # Includes implementation error
+    somass_fcst <- somass_N + somass_N * rnorm(1, fcst_err_boot$mean, fcst_err_boot$sd)
+    HR_t <- HCR_fn(somass_fcst)
     HR[t, 1:2] <- HR_t$Somass
-    HR[t, 3] <- HR_t$Hucuktlis
-    if (HR[t, 3] < 0) { HR[t, 3] <- 0 } # Ensure Hucuktlis HR doesn't drop below 0
+    HR[t, 3] <- max(0, HR_t$Hucuktlis)
     
     ## III. Spawners and Catch
     for (i in 1:ns) {
@@ -542,11 +557,15 @@ simulate_forward <- function(
       C[t, i] <- sum(N[t, , i] * HR[t, i])
     }
     
+    # Defensive step: ensure S is valid
+    S[t, ][is.na(S[t, ]) | S[t, ] < 0] <- 0
+    
     ## IV. Recruitment
     for (i in 1:ns) {
       mu <- log(alpha[i]) + log(S[t, i]) - beta[i] * S[t, i]
       predR[t, i] <- exp(mu)
-      R[t, i] <- predR[t, i] * exp(phi * v[t - 1, i] + epi[t, i])
+      R_temp <- predR[t, i] * exp(phi * v[t - 1, i] + epi[t, i])
+      R[t, i] <- min(R_temp, max_R[i])  # Apply cap
       v[t, i] <- log(R[t, i]) - log(predR[t, i])
     }
   }
@@ -556,16 +575,17 @@ simulate_forward <- function(
   for (i in 1:ns) {
     df_cu <- data.frame(
       year = 1:total_years,
-      CU = paste0("CU", i),
-      S = S[, i],
-      R = R[, i],
-      C = C[, i],
+      CU = names(model_samps_list)[i],
+      Spawners = S[, i],
+      Recruits = R[, i],
+      Catch = C[, i],
       HR = HR[, i],
       N_age3 = N[, 1, i],
       N_age4 = N[, 2, i],
       N_age5 = N[, 3, i],
       N_age6 = N[, 4, i]
     )
+    df_cu$Run <- rowSums(df_cu[, c("N_age3", "N_age4", "N_age5", "N_age6")])
     output <- rbind(output, df_cu)
   }
   
@@ -586,8 +606,7 @@ sim_result <- simulate_forward(
 # Plot the resulting time series
 sim_result |> 
   rowwise() |> 
-  mutate(N = sum(c_across(contains("N_age")))) |> 
-  pivot_longer(cols = c(S, C, R, HR, N)) |> 
+  pivot_longer(cols = c(Spawners, Catch, Recruits, HR, Run)) |> 
   ggplot(aes(x = year, y = value)) +
   facet_grid(name ~ CU, scales = "free_y") +
   geom_line()
@@ -595,25 +614,79 @@ sim_result |>
 
 # Run the simulation 1000 times -------------------------------------------
 
-sims <- c(1:1e3) |> 
-  set_names() |> 
-  map(
-    \(x) 
-    simulate_forward(
-      model_samps_list, 
-      phi = 0.75, 
-      cov_matrix = epi,
-      HCR_fn = status_quo_HCR
+
+# Simulation under status quo management
+sims <- list("status_quo" = status_quo_HCR, "no_fishing" = no_fishing) |> 
+  enframe(name = "scenario", value = "fn") |> 
+  expand_grid(iter = seq.int(1:1e3)) |> 
+  rowwise() |> 
+  mutate(
+    sim = list(
+      simulate_forward(
+        model_samps_list, 
+        phi = 0.75, 
+        cov_matrix = epi,
+        HCR_fn = fn
+      )
     )
   ) |> 
-  list_rbind(names_to = "sim")
+  unnest(sim) |> 
+  select(-fn) |> 
+  mutate(
+    CU = factor(
+      CU,
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
+    )
+  ) |> 
+  pivot_longer(cols = c(Spawners, Catch, Recruits, HR, Run))
 
 
 # Plot the resulting time series
-sims |> 
-  rowwise() |> 
-  mutate(N = sum(c_across(contains("N_age")))) |> 
-  pivot_longer(cols = c(S, C, R, HR, N)) |> 
-  ggplot(aes(x = year, y = value)) +
-  facet_grid(name ~ CU, scales = "free_y") +
-  geom_line(aes(group = sim), linewidth = 0.2, alpha = 0.2)
+(sim_plots <- sims %>%
+  split(.$CU) |> 
+  imap(
+    \(x, idx) x |> 
+      ggplot(aes(x = year, y = value)) +
+      facet_grid(
+        name~scenario, 
+        scales = "free_y",
+        switch = "y"
+      ) +
+      geom_line(
+        aes(group = iter), 
+        linewidth = 0.2, 
+        colour = "grey",
+        alpha = 0.2
+      ) +
+      geom_smooth(se = FALSE) +
+      scale_y_continuous(
+        limits = c(0, NA),
+        expand = expansion(mult = c(0, 0.05))
+      ) +
+      ggtitle(paste(idx, "outcomes of 1000 forward simulations")) +
+      theme(
+        strip.placement = "outside",
+        axis.title.y = element_blank(),
+        strip.background = element_blank()
+      )
+  )
+)
+
+
+# Save the plots
+sim_plots |> 
+  imap(
+    \(x, idx) ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        paste0("Fwd-sim_scenarios_", idx, ".png")
+      ),
+      width = 6.5,
+      height = 7,
+      units = "in",
+      dpi = "print"
+    )
+  )
