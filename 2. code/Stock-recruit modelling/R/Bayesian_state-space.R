@@ -402,9 +402,9 @@ Dir_pars_p |>
   )
   
 
-# how do correlations in leading parameters look?
+# how do correlations in Ricker parameters look?
 (corr_p <- Somass_mods |> 
-  map(\(x) pairs(x, pars = c("beta", "lnalpha", "phi")))
+  map(\(x) pairs(x, pars = c("beta", "lnalpha")))
 )
 
 
@@ -725,6 +725,7 @@ HUC_mods <- c(HUC_round1_mods, HUC_round2_mods)
 
 # run diagnostic plots?
 if(FALSE) {
+  
 # Run the diagnostic plots on all 4 Hucuktlis models
 # n_eff versus Rhat
 HUC_mods |> 
@@ -857,7 +858,7 @@ Dir_pars_HUC_p |>
       function(x) {
         corr_pars <- str_subset(
           names(x),
-          "lnalpha|beta|phi"
+          "lnalpha|beta"
         )
         
         pairs(
@@ -1345,6 +1346,26 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+# Correlation plots of lnalpha versus beta --------------------------------
+
+
+ab_posterior |> 
+  filter(stock == "HUC") |> 
+  unnest(ab_draws) |> 
+  mutate(
+    enh = case_when(
+      enh == 0 & str_detect(model, "noenh") ~ "", 
+      enh == 0 ~ "unehn", 
+      .default = "enh"
+    ),
+    name = paste(data_scope, enh)
+  ) |> 
+  ggplot(aes(beta, lnalpha)) +
+  facet_wrap(~name, ncol = 1, strip.position = "right") +
+  stat_density_2d(geom = "polygon", alpha = 0.7) +
+  geom_point(alpha = 0.05, size = 0.1, colour = "lightblue4")
+
 
 # Export posterior states of spawners and recruits ------------------------
 
