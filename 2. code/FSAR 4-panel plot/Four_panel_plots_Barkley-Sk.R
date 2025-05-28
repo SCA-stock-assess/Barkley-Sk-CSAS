@@ -1,6 +1,6 @@
 # Packages ----------------------------------------------------------------
 
-pkgs <- c("here", "tidyverse", "readxl", "geomtextpath", "ggpubr")
+pkgs <- c("here", "tidyverse", "readxl", "geomtextpath", "ggpubr", "zoo")
 #install.packages(pkgs)
 
 
@@ -9,6 +9,7 @@ library(tidyverse); theme_set(theme_bw())
 library(readxl)
 library(geomtextpath)
 library(ggpubr)
+library(zoo)
 
 
 # Load time series data for each CU ---------------------------------------
@@ -34,16 +35,16 @@ sr_data <- here(
 
 # Reference points (from Working Paper)
 ref_pts <- tribble(
-  ~stock, ~refpt, ~q10, ~q50, ~q90, ~SEG,
-  "Great Central", "Smsy", 103114, 141969, 226490, NA,
-  "Great Central", "Umsy", 0.35, 0.51, 0.64, NA,
-  "Great Central", "Sgen", 28735, 50729, 98582, NA,
-  "Sproat", "Smsy", 79568, 102591, 155510, NA,
-  "Sproat", "Umsy", 0.45, 0.61, 0.73, NA,
-  "Sproat", "Sgen", 13041, 26103, 56265, NA,
-  "Hucuktlis", "Smsy", 2453, 9630, 47816, 13948,
-  "Hucuktlis", "Umsy", 0.07, 0.28, 0.57, NA,
-  "Hucuktlis", "Sgen", 1492, 5328, 26274, 9576,
+  ~stock, ~refpt, ~q10, ~q50, ~q90,
+  "Great Central", "Smsy", 103114, 141969, 226490,
+  "Great Central", "Umsy", 0.35, 0.51, 0.64,
+  "Great Central", "Sgen", 28735, 50729, 98582,
+  "Sproat", "Smsy", 79568, 102591, 155510,
+  "Sproat", "Umsy", 0.45, 0.61, 0.73,
+  "Sproat", "Sgen", 13041, 26103, 56265,
+  "Hucuktlis", "Smsy", NA, 13948, NA,
+  "Hucuktlis", "Umsy", 0.07, 0.28, 0.57,
+  "Hucuktlis", "Sgen", NA, 9576, NA,
 ) |> 
   mutate(
     panel = if_else(
@@ -52,7 +53,7 @@ ref_pts <- tribble(
       "Escapement (1000s)"
     ),
     across(
-      c(q10, q50, q90, SEG),
+      c(q10, q50, q90),
       \(x) if_else(
         refpt == "Umsy",
         x,
@@ -63,7 +64,7 @@ ref_pts <- tribble(
   ) |> 
   pivot_wider(
     names_from = refpt,
-    values_from = c(q10, q50, q90, SEG)
+    values_from = c(q10, q50, q90)
   )
 
 
@@ -77,6 +78,24 @@ fourpp_data <- sr_data |>
       name == "H" ~ "Harvest (1000s)",
       name == "S" ~ "Escapement (1000s)",
       name == "R" ~ "Recruitment (1000s)"
+    ) |> 
+      factor(
+        levels = c(
+        "Harvest (1000s)",
+        "Escapement (1000s)",
+        "Exploitation rate",
+        "Recruitment (1000s)"
+        )
+      )
+  ) |> 
+  arrange(stock, long_name, year) |> 
+  mutate(
+    .by = c(stock, long_name),
+    # Calculate rolling geometric average of escapement
+    gen_ma = if_else(
+      name == "S", 
+      exp(rollmean(x = log(value), k = 4, fill = NA, align = "right")),
+      NA
     )
   )
   
@@ -85,6 +104,7 @@ fourpp_data <- sr_data |>
 # Make the plots ----------------------------------------------------------
 
 
+# Lengthy code with necessary panel-specific customizations to build the plots
 plots <- fourpp_data |> 
   nest(.by = c(stock, long_name), .key = "line_data") |> 
   left_join(
@@ -104,7 +124,19 @@ plots <- fourpp_data |>
           y = value
         )
       ) +
-        geom_line(linewidth = 0.5) +
+        # Base time series lines
+        geom_line(
+          aes(colour = "Annual data"),
+          linewidth = 0.5
+        ) +
+        # Add additional line for rolling 4-year geometric mean escapement
+        geom_line(
+          aes(
+            y = gen_ma,
+            colour = "Generational\nmoving average"
+          ),
+          linewidth = 0.5
+        ) +
         # Add labelled horizontal reference line for Umsy
         geom_labelhline(
           yintercept = q50_Umsy,
@@ -122,7 +154,11 @@ plots <- fourpp_data |>
         # Add labelled horizontal reference line for Smsy
         geom_labelhline(
           yintercept = q50_Smsy,
-          label = "*S*<sub>MSY</sub>",
+          label = if(stock != "Hucuktlis") {
+            "*S*<sub>MSY</sub>"
+          } else {
+            "50<sup>th</sup> percentile"
+          },
           hjust = 0.1,
           rich = TRUE,
           lty = 2,
@@ -136,8 +172,12 @@ plots <- fourpp_data |>
         #Add labelled horizontal reference line for Sgen
         geom_labelhline(
           yintercept = q50_Sgen,
-          label = "*S*<sub>gen</sub>",
-          hjust = 0.25,
+          label = if(stock != "Hucuktlis") {
+            "*S*<sub>gen</sub>"
+            } else {
+              "25<sup>th</sup> percentile"
+            },
+          hjust = 0.4,
           rich = TRUE,
           lty = 2,
           linewidth = 0.4,
@@ -146,31 +186,6 @@ plots <- fourpp_data |>
           boxcolour = NA,
           label.padding = unit(0.05, "lines"),
           size = 2.5
-        ) +
-        # Add SEGs
-        geom_labelhline(
-          yintercept = SEG_Smsy,
-          lty = 3,
-          linewidth = 0.4,
-          size = 2.5,
-          hjust = 0.5,
-          fill = "white",
-          alpha = 0.8,
-          boxcolour = NA,
-          label.padding = unit(0.05, "lines"),
-          label = "50% SEG"
-        ) +
-        geom_labelhline(
-          yintercept = SEG_Sgen,
-          lty = 3,
-          linewidth = 0.4,
-          size = 2.5,
-          hjust = 0.75,
-          fill = "white",
-          alpha = 0.8,
-          boxcolour = NA,
-          label.padding = unit(0.05, "lines"),
-          label = "25% SEG"
         ) +
         # Add inter-quartile confidence band around Umsy 
         annotate(
@@ -202,6 +217,7 @@ plots <- fourpp_data |>
           fill = "black",
           alpha = 0.10
         ) +
+        # Make panel-specific adjustments to y-axis formatting
         scale_y_continuous(
           limits = if(long_name == "Exploitation rate") {
             c(0, 1)
@@ -210,6 +226,9 @@ plots <- fourpp_data |>
           },
           expand = if(long_name == "Exploitation rate") {
             c(0, 0)
+          } else if(long_name == "Escapement (1000s)") {
+            # Add more white space in escapement panel to make room for legend
+            expansion(mult = (c(0, 0.15))) 
           } else {
             expansion(mult = (c(0, 0.07)))
           },
@@ -219,14 +238,29 @@ plots <- fourpp_data |>
             scales::label_number()
           }
         ) +
+        # Add colour values to escapement time series lines
+        scale_colour_manual(values = c("black", "grey50")) +
         labs(
           x = NULL,
           y = long_name
         ) +
-        guides(colour = "none") +
+        # Disable legends in all panels except escapement (panel b)
+        guides(
+          colour = if(long_name != "Escapement (1000s)") {
+            "none"
+          } else {
+            guide_legend()
+          }
+        ) +
+        # Customize the theme, including removing x-axis labels on top panels
         theme(
           axis.title = element_text(size = 9),
           panel.grid = element_blank(),
+          legend.title = element_blank(),
+          legend.background = element_rect(colour = "black", fill = alpha("white", 0.8)),
+          legend.position = "inside",
+          legend.position.inside = c(0.02, 0.98),
+          legend.justification.inside = c(0, 1),
           axis.text.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
             element_blank()
           },
@@ -261,7 +295,7 @@ plots <- fourpp_data |>
 )
 
   
-# Save the 4-panel grid plot
+# Save the compiled 4-panel grid plots (one per CU/stock)
 four_panel_plots |> 
   iwalk(
     \(x, idx) 
