@@ -155,3 +155,31 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+
+# Report on annual exceedances for Hucuktlis ------------------------------
+
+
+# Produce a simple table summary
+hr_data |> 
+  ungroup() |> 
+  mutate(error = hr - target_hr) |> 
+  filter(
+    # Include only years when current MGT plans were in effect
+    case_when(
+      group == "Somass" & year > 1993 ~ TRUE,
+      group == "Hucuktlis" & year > 2011 ~ TRUE,
+      .default = FALSE
+    )
+  ) |>
+  add_count(group, name = "ttl_years") |> 
+  filter(error > 0) |> # Focus only on exceeded years 
+  summarize(
+    .by = c(group, ttl_years),
+    av_err = mean(error, na.rm = TRUE),
+    median_err = median(error, na.rm = TRUE),
+    years_exceeded = n()
+  ) |> 
+  mutate(pct_exceeded = years_exceeded/ttl_years)
+
+
