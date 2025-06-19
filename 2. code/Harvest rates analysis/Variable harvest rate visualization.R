@@ -1,0 +1,142 @@
+# Packages ----------------------------------------------------------------
+
+
+pkgs <- c("tidyverse", "here", "readxl", "geomtextpath", "ggrepel")
+#install.packages(pkgs)
+
+
+library(here)
+library(tidyverse); theme_set(theme_bw())
+library(geomtextpath)
+library(ggrepel)
+library(readxl)
+
+# Load common functions
+source(here("2. code", "0. functions", "common_functions.R"))
+
+
+
+# Create plot data --------------------------------------------------------
+
+
+# Harvest rules are stored in common functions, which can be applied
+# to a standard dataframe of run sizes
+plot_data <- list(
+  "Somass" = seq(0, 2e6, by = 5e4),
+  "Hucuktlis" = seq(0, 1e5, by = 1000)
+) |> 
+  map(\(x) as_tibble_col(x, column_name = "run_size")) |> 
+  list_rbind(names_to = "mgt_unit") |> 
+  rowwise() |> 
+  mutate(
+    er = if_else(
+      mgt_unit == "Somass",
+      somass_mgt_rule(run_size),
+      hucuktlis_mgt_rule(run_size)
+    )
+  ) |> 
+  ungroup()
+
+
+# Fishery reference points (for labeled reference lines)
+frp <- tribble(
+  ~mgt_unit, ~label, ~run_size,
+  "Somass", "FRP-L", 2e5,
+  "Somass", "FRP-U", 3.5e5,
+  "Somass", "TRP", 7e5,
+  "Hucuktlis", "FRP", 1.5e4,
+  "Hucuktlis", "TRP", 2.5e4
+)
+
+
+# Plot annotations
+annotations <- tribble(
+  ~mgt_unit, ~label, ~run_size,
+  "Somass", "FRP-L intended to achieve rebuilding to FRP-U or higher in one generation", 2e5,
+  "Somass", "Steep increase in ER to get all fisheries in the water and allow in-season process to take over", 3e5,
+  "Somass", "Slope is reduced between 400-500k to allow higher escapements once all fisheries are operating", 4e5,
+  "Somass", "ER gradually increases toward maximum of 70% at very high run sizes", 8e5
+) |> 
+  rowwise() |> 
+  mutate(
+    er = if_else(
+      mgt_unit == "Somass",
+      somass_mgt_rule(run_size),
+      hucuktlis_mgt_rule(run_size)
+    )
+  ) |> 
+  ungroup()
+
+
+# Build the plot ----------------------------------------------------------
+
+
+variable_hr_plot <- plot_data |> 
+  ggplot(aes(x = run_size, y = er)) +
+  facet_wrap(
+    ~mgt_unit,
+    ncol = 1,
+    scales = "free_x",
+    strip.position = "right"
+  ) +
+  geom_step(linewidth = 1) +
+  geom_labelvline(
+    data = frp,
+    aes(
+      xintercept = run_size,
+      label = label
+    ),
+    lty = 2,
+    colour = "grey",
+    hjust = 0.8,
+    boxcolour = NA
+  ) +
+  geom_label_repel(
+    data = annotations,
+    aes(label = label),
+    hjust = "left",
+    nudge_x = 2e5,
+    direction = "y",
+    min.segment.length = 0,
+    point.padding = 1.5,
+    box.padding = unit(0.1, "lines"),
+    label.size = NA,
+    segment.size = 0.25,
+    segment.colour = "grey30",
+    arrow = arrow(length = unit(0.015, "npc")),
+    size = 2.5
+  ) +
+  scale_x_continuous(
+    labels = scales::label_number(),
+    limits = c(0, NA),
+    expand = c(0, 0)
+  ) +
+  scale_y_continuous(
+    labels = scales::percent,
+    limits = c(0, 1),
+    expand = c(0, 0)
+  ) +
+  labs(
+    y = "Target exploitation rate",
+    x = "Run size"
+  ) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.x = element_blank(),
+    strip.background = element_rect(fill = "white")
+  )
+
+
+# Save the plot
+ggsave(
+  plot = variable_hr_plot,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Variable_harvest_strategy.png"
+  ),
+  height = 6,
+  width = 7,
+  units = "in",
+  dpi = "print"
+)
