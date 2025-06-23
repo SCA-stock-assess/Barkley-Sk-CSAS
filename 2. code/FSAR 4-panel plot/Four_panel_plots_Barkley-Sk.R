@@ -100,12 +100,31 @@ fourpp_data <- sr_data |>
   )
   
 
+# Aggregate dataset for the entire SMU
+bs_agg <- fourpp_data |> 
+  filter(year >= 1977) |> #Start the time series at the earliest year with all 3 CUs
+  summarize(
+    .by = c(year, long_name),
+    value = sum(value, na.rm = TRUE)
+  ) |> 
+  pivot_wider(names_from = long_name) |> 
+  mutate(
+    `Exploitation rate` = `Harvest (1000s)` / (`Harvest (1000s)` + `Escapement (1000s)`),
+    `Recruitment (1000s)` = if_else(year > max(year) - 6, NA, `Recruitment (1000s)`)
+  ) |> 
+  pivot_longer(
+    !year,
+    names_to = "long_name"
+  ) |> 
+  mutate(stock = "Barkley Aggregate")
+
 
 # Make the plots ----------------------------------------------------------
 
 
-# Lengthy code with necessary panel-specific customizations to build the plots
+# Lengthy code with necessary panel-specific customization to build the plots
 plots <- fourpp_data |> 
+  bind_rows(bs_agg) |> 
   nest(.by = c(stock, long_name), .key = "line_data") |> 
   left_join(
     ref_pts,
@@ -144,11 +163,11 @@ plots <- fourpp_data |>
           hjust = 0.1,
           rich = TRUE,
           lty = 2,
-          linewidth = 0.4,
+          linewidth = 0.2,
           fill = "white",
           alpha = 0.8,
           boxcolour = NA,
-          label.padding = unit(0.05, "lines"),
+          label.padding = unit(0.01, "lines"),
           size = 2.5
         ) +
         # Add labelled horizontal reference line for Smsy
@@ -162,11 +181,11 @@ plots <- fourpp_data |>
           hjust = 0.1,
           rich = TRUE,
           lty = 2,
-          linewidth = 0.4,
+          linewidth = 0.2,
           fill = "white",
           alpha = 0.8,
           boxcolour = NA,
-          label.padding = unit(0.05, "lines"),
+          label.padding = unit(0.01, "lines"),
           size = 2.5
         ) +
         #Add labelled horizontal reference line for Sgen
@@ -177,14 +196,14 @@ plots <- fourpp_data |>
             } else {
               "25<sup>th</sup> percentile"
             },
-          hjust = 0.4,
+          hjust = 0.45,
           rich = TRUE,
           lty = 2,
-          linewidth = 0.4,
+          linewidth = 0.2,
           fill = "white",
           alpha = 0.8,
           boxcolour = NA,
-          label.padding = unit(0.05, "lines"),
+          label.padding = unit(0.01, "lines"),
           size = 2.5
         ) +
         # Add inter-quartile confidence band around Umsy 
@@ -239,32 +258,45 @@ plots <- fourpp_data |>
           }
         ) +
         # Add colour values to escapement time series lines
-        scale_colour_manual(values = c("black", "grey50")) +
+        scale_colour_manual(values = c("black", "grey65")) +
         labs(
-          x = NULL,
+          x = "Adult return year",
           y = long_name
         ) +
         # Disable legends in all panels except escapement (panel b)
         guides(
-          colour = if(long_name != "Escapement (1000s)") {
+          colour = if(long_name != "Escapement (1000s)" | str_detect(stock, "Barkley")) {
             "none"
           } else {
             guide_legend()
           }
         ) +
-        # Customize the theme, including removing x-axis labels on top panels
+        # Customize the theme, including removing x-axis text on top panels
         theme(
-          axis.title = element_text(size = 9),
-          panel.grid = element_blank(),
-          legend.title = element_blank(),
-          legend.background = element_rect(colour = "black", fill = alpha("white", 0.8)),
-          legend.position = "inside",
-          legend.position.inside = c(0.02, 0.98),
-          legend.justification.inside = c(0, 1),
-          axis.text.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
+          axis.title = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
             element_blank()
+          } else {
+            element_text(size = 9)
           },
-          axis.ticks.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
+          panel.grid = element_blank(),
+          panel.border = element_rect(
+            fill = NA, 
+            linewidth = unit(0.3, "lines"),
+            colour = "black"
+          ),
+          legend.title = element_blank(),
+          legend.background = element_rect(
+            colour = "black", 
+            fill = alpha("white", 0.8),
+            linewidth = unit(0.1, "lines")
+          ),
+          legend.position = "inside",
+          legend.position.inside = c(0.001, 0.999),
+          legend.justification.inside = c(0, 1),
+          # axis.ticks.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
+          #   element_blank()
+          # },
+          axis.text.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
             element_blank()
           }
         ) 
@@ -278,7 +310,8 @@ plots <- fourpp_data |>
 (four_panel_plots <- list(
   GCL = keep_at(plots, \(x) str_detect(x, "Great Central")),
   SPR = keep_at(plots, \(x) str_detect(x, "Sproat")),
-  HUC = keep_at(plots, \(x) str_detect(x, "Hucuktlis"))
+  HUC = keep_at(plots, \(x) str_detect(x, "Hucuktlis")),
+  BS = keep_at(plots, \(x) str_detect(x, "Barkley"))
 ) |> 
     map(
       \(x)
@@ -306,7 +339,7 @@ four_panel_plots |>
         "Plots",
         paste0("FSAR_4-panel_plot_", idx, ".png")
       ),
-      height = 5,
+      height = 4.5,
       width = 7,
       units = "in",
       dpi = "print"
