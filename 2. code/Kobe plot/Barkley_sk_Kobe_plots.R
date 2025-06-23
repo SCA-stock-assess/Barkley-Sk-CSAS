@@ -77,10 +77,10 @@ ref_pts <- here(
 # Add reference points manually from ResDoc table
 ref_pts_alt <- tribble(
   ~method, ~stock, ~Umsy_q50, ~Umsy_q10, ~Umsy_q90, ~Smsy_q50, ~Smsy_q10, ~Smsy_q90,
-  "S-R", "Great Central", 0.51, 0.35, 0.64, 141969, 103114, 226490,
-  "S-R", "Sproat", 0.61, 0.45, 0.73, 102591, 79568, 155510,
-  "S-R", "Hucuktlis", 0.28, 0.07, 0.57, 9630, 2453, 47816,
-  "percentile", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
+  "S[MSY]", "Great Central", 0.51, 0.35, 0.64, 141969, 103114, 226490,
+  "S[MSY]", "Sproat", 0.61, 0.45, 0.73, 102591, 79568, 155510,
+  #"S-R", "Hucuktlis", 0.28, 0.07, 0.57, 9630, 2453, 47816,
+  "50^th~percentile", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
 ) |> 
   mutate(stock = factor(stock, levels = c("Great Central", "Sproat", "Hucuktlis")))
 
@@ -125,38 +125,9 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
     aes(x = x, y = y)
     ) +
     facet_wrap(
-      ~stock+method,
+      ~stock,
       scales = "free",
-      ncol = 2,
-      labeller = labeller(.multi_line = FALSE)
-    ) +
-    geom_labelhline(
-      data = reflines_data,
-      aes(
-        label = paste0("`S-R`~~U[MSY]==", 100*round(Umsy_q50, 2), "*\'%\'"),
-        yintercept = 1
-      ),
-      hjust = 0.95,
-      colour = "grey50",
-      boxcolour = NA,
-      #fill = alpha("white", 0.75),
-      size = 3,
-      lty = 2,
-      parse = TRUE
-    ) +
-    geom_labelvline(
-      data = reflines_data,
-      aes(
-        label = paste0("`", method, "`~~S[MSY]==", round(Smsy_q50, 0)),
-        xintercept = 1
-      ),
-      hjust = 0.95,
-      colour = "grey50",
-      boxcolour = NA,
-      #fill = alpha("white", 0.75),
-      size = 3,
-      lty = 2,
-      parse = TRUE
+      nrow = facet_rows
     ) +
     geom_point(aes(colour = year), size = 1) +
     # Add red circles around first and last year data points
@@ -167,16 +138,43 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
       size = 1,
       stroke = 1.25
     ) +
+    geom_labelhline(
+      data = reflines_data,
+      aes(
+        label = paste0("U[MSY]==", 100*round(Umsy_q50, 2), "*\'%\'"),
+        yintercept = 1
+      ),
+      hjust = 0.95,
+      colour = "grey50",
+      boxcolour = NA,
+      fill = "white",
+      alpha = 0.5,
+      label.padding = unit(0.01, "lines"),
+      size = 3,
+      lty = 2,
+      parse = TRUE
+    ) +
+    geom_labelvline(
+      data = reflines_data,
+      aes(
+        label = paste0(method, "==", round(Smsy_q50, 0)),
+        xintercept = 1
+      ),
+      hjust = 0.95,
+      colour = "grey50",
+      boxcolour = NA,
+      fill = "white",
+      alpha = 0.5,
+      label.padding = unit(0.01, "lines"),
+      size = 3,
+      lty = 2,
+      parse = TRUE
+    ) +
     # Add text labels at first and last year points
-    geom_richtext(
+    geom_text_repel(
       data = endyrs_data,
       aes(label = paste0("'", str_sub(year, 3L, 4L))),
-      hjust = 0.25, 
-      vjust = -0.5,
-      size = 3,
-      label.colour = NA,
-      label.padding = unit(rep(0.01, 4), "lines"),
-      fill = alpha("white", 0.75)
+      size = 3
     ) +
     # Add text labels for x points > 5
     geom_text(
@@ -189,7 +187,7 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
     scale_colour_viridis_c() +
     scale_y_continuous(
       limits = c(1e-6, NA),
-      expand = expansion(mult = c(0, 0.05)),
+      expand = expansion(mult = c(0, 0.06)),
       breaks = scales::pretty_breaks()
     ) +
     scale_x_continuous(
@@ -210,7 +208,7 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
       legend.position = "top",
       panel.spacing.x = unit(0.5, "lines"), # Move panels further apart
       panel.grid = element_blank(),
-      legend.key.width = unit(dev.size()[1]/10, "in")
+      legend.key.width = unit(dev.size()[1]/15, "in")
     )
 }
 
@@ -259,7 +257,7 @@ kobe_plots |>
 
 
 # Alternatively, plot all panels together
-kobe_alt <- make_kobe_p(kobe_data, ref_pts_alt, end_yrs)
+kobe_alt <- make_kobe_p(kobe_data, ref_pts_alt, end_yrs, facet_rows = 1)
 
 
 # Save the alternative version
@@ -270,8 +268,8 @@ kobe_alt |>
       "Plots",
       "Kobe_plots_all-CUs.png"
     ),
-    width = 7,
-    height = 8,
+    width = 8,
+    height = 3.75,
     units = "in",
     dpi = "print"
   )
