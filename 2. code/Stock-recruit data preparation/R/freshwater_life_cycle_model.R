@@ -233,7 +233,7 @@ smolt_data |>
   theme(panel.spacing.y = unit(1, "lines"))
 
 
-# Load smolt size data
+# Load smolt size data (aggregated across ages for each lake and year)
 smolt_size <- here(
   "1. data",
   "smolt size data.xlsx"
@@ -308,7 +308,7 @@ smolt_size |>
 # No strong patterns evident here. Both the dependent and 
 # independent variable are subject to considerable uncertainty, but 
 # if there was a strong link between growth and smolting rate, a 
-# clearer pattern would likely be discernable.
+# clearer pattern would likely be discernible.
 # Possible conclusion: environmental conditions in the lakes do not
 # have a strong influence on smolting rate?
 
