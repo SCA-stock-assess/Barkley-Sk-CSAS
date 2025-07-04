@@ -210,7 +210,11 @@ smolt_catch <- here(
     gear = tolower(gear_type),
     julian = as.integer(format(sample_date, "%j")),
     d_m = format(sample_date, "%d-%b"),
-    count = if_else(is.na(total_catch), total_retained, total_catch)
+    count = if_else(
+      is.na(total_catch) | (total_catch < total_retained),
+      total_retained, 
+      total_catch
+    )
   ) |> 
   add_count(stock, year) |> 
   mutate(
@@ -219,7 +223,7 @@ smolt_catch <- here(
   )
 
 
-# Smolt compositions by date
+# Smolt compositions by date and gear
 smolt_ages <- c("GCL", "SPR", "HEN") |> 
   purrr::set_names() |> 
   map(
@@ -244,7 +248,7 @@ smolt_ages <- c("GCL", "SPR", "HEN") |>
       labels = cu_names
     )
   ) |> 
-  count(cu, sample_date, fnlage) |> 
+  count(cu, sample_date, fnlage, gear) |> 
   filter(fnlage %in% c(1, 2)) |> 
   pivot_wider(
     names_from = fnlage,
@@ -497,7 +501,7 @@ ann <- here(
       linewidth = 0.3
     ) +
     scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-    scale_colour_manual(values = c("black", "grey65")) +
+    scale_colour_manual(values = c("black", "red")) +
     labs(
       x = "ATS date",
       y = "Estimated pelagic fish abundance (millions)"
@@ -787,6 +791,14 @@ ggsave(
 # Use smolt rates of capture to estimate annual production --------------
 
 
+# Load smolt age data received during summer 2025
+new_smolt_ages <- here(
+  "1. data",
+  "smolt size data.xlsx"
+) |> 
+  read_xlsx(sheet = "post-2016_rates_of_capture") |> 
+  mutate(sample_date = as.Date(sample_date))
+
 # Calculate smolt rate of capture by age, year, and lake
 rates_of_capture <- smolt_ages |> 
   select(stock = cu, sample_date, n_age = ttl, gear, contains("prop")) |> 
@@ -801,12 +813,12 @@ rates_of_capture <- smolt_ages |>
   ) |> 
   select(stock, sample_date, year, matches("age\\d"), contains("n_")) |>
   # Ensure all sample dates are aggregated into a single row per lake
+  # (i.e. combine data across gear types)
   summarize(
     .by = c(year, sample_date, stock),
     across(c(catch_age1, catch_age2, n_age, n_catch), \(x) sum(x, na.rm = TRUE))
   ) |> 
-  #filter(n_catch >= 20) |> # Remove years with too few observations
-  # more appropriate to do this at a later stage
+  bind_rows(new_smolt_ages) |> 
   summarize(
     .by = c(year, stock),
     across(c(catch_age1, catch_age2, n_age, n_catch), \(x) sum(x, na.rm = TRUE)),
