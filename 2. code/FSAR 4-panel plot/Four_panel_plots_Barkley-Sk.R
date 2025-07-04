@@ -273,11 +273,6 @@ plots <- fourpp_data |>
         ) +
         # Customize the theme, including removing x-axis text on top panels
         theme(
-          axis.title = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
-            element_blank()
-          } else {
-            element_text(size = 9)
-          },
           panel.grid = element_blank(),
           panel.border = element_rect(
             fill = NA, 
@@ -296,8 +291,10 @@ plots <- fourpp_data |>
           # axis.ticks.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
           #   element_blank()
           # },
-          axis.text.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
+          axis.title.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
             element_blank()
+          } else {
+            element_text(size = 9)
           }
         ) 
     ),
@@ -322,7 +319,8 @@ plots <- fourpp_data |>
         align = "v", 
         labels = "auto",
         label.x = 0.87,
-        label.y = 0.97
+        label.y = 0.97,
+        heights = c(0.9, 1)
       )
     )
 )
@@ -339,7 +337,7 @@ four_panel_plots |>
         "Plots",
         paste0("FSAR_4-panel_plot_", idx, ".png")
       ),
-      height = 4.5,
+      height = 4,
       width = 7,
       units = "in",
       dpi = "print"
