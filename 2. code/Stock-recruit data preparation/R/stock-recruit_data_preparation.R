@@ -631,7 +631,7 @@ HUC_rr_data <- Huc_run_ts_infill |>
   select(
     return_year, escapement, catch, fertilized, hatchery_fry_release,
     matches("(catch|escapement|age|stockid)(|_data)_source"), stock,
-    fw_age, ttl_age, age_sample_size
+    fw_age, ttl_age, age_sample_size, run
   )
 
 
@@ -639,7 +639,8 @@ HUC_rr_data <- Huc_run_ts_infill |>
 Som_Huc_rr_data <- Som_run_ts |>
   rename("hatchery_release" = hatchery_eggs_release) |> 
   filter(!is.na(ttl_age)) |> 
-  bind_rows(rename(HUC_rr_data, "hatchery_release" = hatchery_fry_release))
+  bind_rows(rename(HUC_rr_data, "hatchery_release" = hatchery_fry_release)) |> 
+  select(-run, -esc_cat, -age_sample_size)
 
 
 # Export 
