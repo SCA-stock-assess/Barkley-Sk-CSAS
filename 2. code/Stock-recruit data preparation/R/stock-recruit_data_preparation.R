@@ -598,6 +598,61 @@ list(
 
 
 
+
+# Make a continuous time series of reconstructed returns ------------------
+
+
+# Need Hucuktlis run by Gilbert-Rich age
+HUC_rr_data <- Huc_run_ts_infill |> 
+  filter(return_year >= 1972) |> 
+  # Infill age compositions using historic averages
+  mutate(
+    across(
+      matches("age_\\d{2}"),
+      \(x) if_else(
+        is.na(x),
+        mean(x, na.rm = TRUE),
+        x
+      )
+    )
+  ) |> 
+  pivot_longer(
+    cols = matches("age_\\d{2}"),
+    names_to = "age",
+    values_to = "age_prop",
+    names_prefix = "age_"
+  ) |> 
+  mutate(
+    across(c(escapement, catch), \(x) x * age_prop),
+    fw_age = as.numeric(str_sub(age, 2L, 2L)),
+    ttl_age = as.numeric(str_sub(age, 1L, 1L)),
+    brood_year = return_year - ttl_age
+  ) |> 
+  select(
+    return_year, escapement, catch, fertilized, hatchery_fry_release,
+    matches("(catch|escapement|age|stockid)(|_data)_source"), stock,
+    fw_age, ttl_age, age_sample_size
+  )
+
+
+# Collate Hucuktlis and Somass time series
+Som_Huc_rr_data <- Som_run_ts |>
+  rename("hatchery_release" = hatchery_eggs_release) |> 
+  filter(!is.na(ttl_age)) |> 
+  bind_rows(rename(HUC_rr_data, "hatchery_release" = hatchery_fry_release))
+
+
+# Export 
+write.csv(
+  Som_Huc_rr_data,
+  file = here(
+    "3. outputs",
+    "Stock-recruit data",
+    "Barkley_Sockeye_returns_by_GR_age.csv"
+  ),
+  row.names = FALSE
+)
+
 # Aggregate and save the Barkley Sockeye total returns by year data -------
 
 
