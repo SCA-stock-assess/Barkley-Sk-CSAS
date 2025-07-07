@@ -575,374 +575,374 @@
 "SPR",2024,5,2,14471.9758136203,15769.5191279532,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "SPR",2024,5,3,1090.51551157582,3124.68545851101,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "SPR",2024,6,3,400.297633930374,55.3166391308953,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
-"HUC",1972,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1972,4,2,3185,825.37,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1972,5,2,175,45.35,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1972,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1972,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1972,5,3,70,18.14,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1972,6,3,70,18.14,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,4,2,26400,12206.7,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,5,2,12400,5733.45,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,5,3,1200,554.85,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1973,6,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,4,2,3420,1673.52,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,5,2,2580,1262.48,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,5,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1974,6,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,4,2,5742.57425742574,4384.45544554455,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,5,2,4059.40594059406,3099.35643564356,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,5,3,99.009900990099,75.5940594059406,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1975,6,3,99.009900990099,75.5940594059406,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,4,2,2561.85567010309,3897.68041237113,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,5,2,938.144329896907,1427.31958762887,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,5,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1976,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,4,2,3456,18763.2,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,5,2,1296,7036.2,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,5,3,48,260.6,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1977,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,4,2,1386.13861386139,758.811881188119,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,5,2,5475.24752475248,2997.30693069307,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,5,3,138.613861386139,75.8811881188119,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1978,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,4,2,17000,104964.8,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,5,2,1600,9879.04,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,5,3,1400,8644.16,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1979,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",NA
-"HUC",1980,3,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1980,4,2,11165,25431.0294117647,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1980,5,2,9135,20807.2058823529,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1980,6,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1980,4,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1980,5,3,406,924.764705882353,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1980,6,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,3,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,4,2,28121.2121212121,57094.7878787879,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,5,2,29878.7878787879,60663.2121212121,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,6,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,4,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,5,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1981,6,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,4,2,9175,2740.5,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,5,2,27525,8221.5,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1982,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,3,2,313.131313131313,42.6969696969697,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,4,2,10020.202020202,1366.30303030303,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,5,2,20666.6666666667,2818,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1983,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",NA
-"HUC",1984,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1984,4,2,24466.6666666667,2044,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1984,5,2,40036.3636363636,3344.72727272727,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1984,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1984,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1984,5,3,741.414141414141,61.9393939393939,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1984,6,3,8155.55555555555,681.333333333333,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,4,2,2405,58.37,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,5,2,16095,390.63,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1985,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,4,2,351,2.7,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,5,2,3315,25.5,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,5,3,117,0.9,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1986,6,3,117,0.9,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,4,2,24024,6924.06,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,5,2,5852,1686.63,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,5,3,616,177.54,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1987,6,3,308,88.77,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,4,2,12090,538.2,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,5,2,27807,1237.86,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,6,2,403,17.94,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1988,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,4,2,23954,33.04,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,5,2,15834,21.84,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,5,3,406,0.56,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1989,6,3,406,0.56,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,4,2,6343.43434343434,161.818181818182,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,5,2,25056.5656565657,639.181818181818,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1990,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,4,2,27051,7948.45,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,5,2,11049,3246.55,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1991,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,3,2,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,4,2,12742,4173.12,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,5,2,14958,4898.88,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,6,2,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,4,3,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,5,3,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1992,6,3,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,3,2,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,4,2,28880,5878.24,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,5,2,151620,30860.76,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,6,2,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,4,3,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,5,3,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1993,6,3,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,3,2,1566,3167.82,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,4,2,11832,23934.64,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,5,2,3480,7039.6,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,6,2,522,1055.94,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,4,3,0,0,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,5,3,0,0,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1994,6,3,0,0,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,3,2,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,4,2,704,14.24,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,5,2,3608,72.98,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,6,2,88,1.78,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,4,3,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,5,3,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1995,6,3,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,3,2,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,4,2,52707.2648221344,1681.52893280632,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,5,2,7192.73517786561,229.471067193676,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,6,2,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,4,3,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,5,3,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1996,6,3,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",NA
-"HUC",1997,3,2,0,0,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1997,4,2,5133.33333333333,1490.33333333333,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1997,5,2,37800,10974.2727272727,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1997,6,2,933.333333333333,270.969696969697,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1997,4,3,0,0,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1997,5,3,2333.33333333333,677.424242424242,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1997,6,3,0,0,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,3,2,280.854395604396,82.9481043956044,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,4,2,8118.63186813187,2397.77313186813,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,5,2,81087.9212454212,23948.6704212454,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,6,2,0,0,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,4,3,0,0,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,5,3,280.854395604396,82.9481043956044,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1998,6,3,2331.7380952381,688.660238095238,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,3,2,0,0,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,4,2,2653.46534653465,259.207920792079,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,5,2,8756.43564356436,855.386138613861,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,6,2,1194.05940594059,116.643564356436,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,4,3,0,0,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,5,3,796.039603960396,77.7623762376238,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",1999,6,3,0,0,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,3,2,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,4,2,23092,233.68,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,5,2,2008,20.32,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,6,2,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,4,3,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,5,3,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2000,6,3,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,3,2,0,0,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,4,2,5655.26646577701,579.735858803272,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,5,2,13355.8725785622,1369.14472664658,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,6,2,115.64786913474,11.8553594489884,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,4,3,0,0,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,5,3,164.391304347826,16.8521739130435,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2001,6,3,608.821782178218,62.4118811881188,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,3,2,0,0,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,4,2,5356.57894653,1183.8947366568,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,5,2,10713.15789483,2367.7894737048,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,6,2,0,0,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,4,3,0,0,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,5,3,116.44736898,25.7368422288,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2002,6,3,1513.81578966,334.5789474096,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2003,3,2,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2003,4,2,1392.666,100.01874,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2003,5,2,908.259,65.22951,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2003,6,2,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2003,4,3,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2003,5,3,999.075,71.75175,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2003,6,3,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,3,2,12.6490824843375,0.0486503172474517,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,4,2,1183.29124814796,4.55112018518446,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,5,2,1309.26483431255,5.03563397812519,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,6,2,16.6337177381013,0.0639758374542357,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,4,3,0,0,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,5,3,53.0168628578773,0.203911010991836,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2004,6,3,25.1442544591749,0.0967086709968265,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,3,2,6.32454124216873,1.4643745491483,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,4,2,591.64562407398,136.988717574052,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,5,2,654.632417156274,151.572582741568,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,6,2,8.31685886905064,1.92567270737249,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,4,3,0,0,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,5,3,26.5084314289387,6.13772143085426,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2005,6,3,12.5721272295874,2.91093099700448,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,3,2,17.5141142090826,1.44491442224932,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,4,2,1638.40326666641,135.168269499979,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,5,2,1812.82823212507,149.558329150318,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,6,2,23.0313014835249,1.9000823723908,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,4,3,0,0,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,5,3,73.4079639570609,6.05615702645753,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2006,6,3,34.8151215588575,2.87224752860575,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",NA
-"HUC",2007,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2007,4,2,527.728038761323,11.8633263113545,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2007,5,2,11141.4182641668,250.459082578471,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2007,6,2,139.561828523278,3.13734990520329,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2007,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2007,5,3,691.291868548557,15.5402412049716,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2007,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",NA
-"HUC",2008,3,2,786,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2008,4,2,8646,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2008,5,2,3668,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2008,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2008,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2008,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2008,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",NA
-"HUC",2009,3,2,637.623762376238,150.68108051493,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2009,4,2,15952.4752475248,3769.83473487043,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2009,5,2,13201.9801980198,3119.84709252497,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2009,6,2,91.0891089108911,21.5258686449901,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2009,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2009,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2009,6,3,116.831683168317,27.6092663055307,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,3,2,303.030303030303,292.033739631793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,4,2,26666.6666666667,25698.9690875978,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,5,2,3030.30303030303,2920.33739631793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2010,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",NA
-"HUC",2011,3,2,365.637580645161,124.695967741935,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2011,4,2,2585.81532258065,881.858870967742,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2011,5,2,17471.5470967742,5958.44516129032,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2011,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2011,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2011,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2011,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,4,2,10622.46,3684.04,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,5,2,5825.22,2020.28,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,5,3,685.32,237.68,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2012,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,3,2,375,33.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,4,2,8375,753.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,5,2,1375,123.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,5,3,1000,90,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2013,6,3,1375,123.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,4,2,2910.38165137615,5324.59449541284,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,5,2,8818.02201834862,16132.7266055046,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,5,3,108.596330275229,198.678899082569,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2014,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,4,2,6400,5192,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,5,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2015,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,4,2,745.323238206174,1609.82853814793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,5,2,9849.62642482736,21274.272551793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,5,3,105.05033696647,226.898910059073,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2016,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,4,2,14492.72,2053.51833333333,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,5,2,7517.54666666667,1065.18444444444,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,6,2,693.733333333333,98.2972222222222,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2017,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,4,2,2816.69245901639,144.493114754098,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,5,2,9386.30754098361,481.506885245902,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2018,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,4,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,5,2,13549,154,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2019,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,4,2,3212.3,310.1,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,5,2,917.8,88.6,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,6,2,458.9,44.3,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2020,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,4,2,12189.6296296296,3659.40740740741,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,5,2,2061.48148148148,618.87037037037,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,5,3,89.6296296296296,26.9074074074074,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2021,6,3,179.259259259259,53.8148148148148,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,4,2,6594.31707317073,2734.13414634146,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,5,2,11824.2926829268,4902.58536585366,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2022,6,3,227.390243902439,94.280487804878,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,4,2,2572.80379746835,1608.07594936709,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,5,2,10291.2151898734,6432.30379746835,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,5,3,82.9936708860759,51.873417721519,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2023,6,3,165.987341772152,103.746835443038,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,3,2,2.98085721165423,4.01914278834577,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,4,2,1164.23765952324,1569.76234047676,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,5,2,1900.08355405731,2561.91644594269,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,5,3,469.697929207802,633.302070792198,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
-"HUC",2024,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",NA
+"HUC",1972,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1972,4,2,3185,825.37,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
+"HUC",1972,5,2,175,45.35,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1967
+"HUC",1972,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1966
+"HUC",1972,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
+"HUC",1972,5,3,70,18.14,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1967
+"HUC",1972,6,3,70,18.14,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1966
+"HUC",1973,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1973,4,2,26400,12206.7,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1973,5,2,12400,5733.45,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
+"HUC",1973,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1967
+"HUC",1973,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1973,5,3,1200,554.85,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
+"HUC",1973,6,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1967
+"HUC",1974,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1974,4,2,3420,1673.52,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1974,5,2,2580,1262.48,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1974,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
+"HUC",1974,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1974,5,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1974,6,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
+"HUC",1975,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1975,4,2,5742.57425742574,4384.45544554455,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1975,5,2,4059.40594059406,3099.35643564356,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1975,6,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1975,4,3,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1975,5,3,99.009900990099,75.5940594059406,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1975,6,3,99.009900990099,75.5940594059406,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
+"HUC",1976,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1976,4,2,2561.85567010309,3897.68041237113,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1976,5,2,938.144329896907,1427.31958762887,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1976,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1976,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1976,5,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1976,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1970
+"HUC",1977,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1974
+"HUC",1977,4,2,3456,18763.2,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1977,5,2,1296,7036.2,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1977,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1977,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1977,5,3,48,260.6,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1977,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1971
+"HUC",1978,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1975
+"HUC",1978,4,2,1386.13861386139,758.811881188119,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1974
+"HUC",1978,5,2,5475.24752475248,2997.30693069307,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1978,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1978,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1974
+"HUC",1978,5,3,138.613861386139,75.8811881188119,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1978,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1972
+"HUC",1979,3,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1976
+"HUC",1979,4,2,17000,104964.8,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1975
+"HUC",1979,5,2,1600,9879.04,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1974
+"HUC",1979,6,2,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1979,4,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1975
+"HUC",1979,5,3,1400,8644.16,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1974
+"HUC",1979,6,3,0,0,1,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1973
+"HUC",1980,3,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1980,4,2,11165,25431.0294117647,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1976
+"HUC",1980,5,2,9135,20807.2058823529,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1975
+"HUC",1980,6,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1974
+"HUC",1980,4,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1976
+"HUC",1980,5,3,406,924.764705882353,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1975
+"HUC",1980,6,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1974
+"HUC",1981,3,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1978
+"HUC",1981,4,2,28121.2121212121,57094.7878787879,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1981,5,2,29878.7878787879,60663.2121212121,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1976
+"HUC",1981,6,2,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1975
+"HUC",1981,4,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1981,5,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1976
+"HUC",1981,6,3,0,0,1,0,"fishery officer","commercial + FN catch records","scale sampling","assumed run timing",1975
+"HUC",1982,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1979
+"HUC",1982,4,2,9175,2740.5,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1978
+"HUC",1982,5,2,27525,8221.5,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1982,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1976
+"HUC",1982,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1978
+"HUC",1982,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1982,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1976
+"HUC",1983,3,2,313.131313131313,42.6969696969697,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1980
+"HUC",1983,4,2,10020.202020202,1366.30303030303,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1979
+"HUC",1983,5,2,20666.6666666667,2818,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1978
+"HUC",1983,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1983,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1979
+"HUC",1983,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1978
+"HUC",1983,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records","scale sampling","assumed run timing",1977
+"HUC",1984,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1984,4,2,24466.6666666667,2044,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1980
+"HUC",1984,5,2,40036.3636363636,3344.72727272727,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1979
+"HUC",1984,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1978
+"HUC",1984,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1980
+"HUC",1984,5,3,741.414141414141,61.9393939393939,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1979
+"HUC",1984,6,3,8155.55555555555,681.333333333333,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1978
+"HUC",1985,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1985,4,2,2405,58.37,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1985,5,2,16095,390.63,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1980
+"HUC",1985,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1979
+"HUC",1985,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1985,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1980
+"HUC",1985,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1979
+"HUC",1986,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1986,4,2,351,2.7,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1986,5,2,3315,25.5,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1986,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1980
+"HUC",1986,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1986,5,3,117,0.9,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1986,6,3,117,0.9,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1980
+"HUC",1987,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1987,4,2,24024,6924.06,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1987,5,2,5852,1686.63,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1987,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1987,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1987,5,3,616,177.54,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1987,6,3,308,88.77,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1981
+"HUC",1988,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1988,4,2,12090,538.2,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1988,5,2,27807,1237.86,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1988,6,2,403,17.94,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1988,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1988,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1988,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1982
+"HUC",1989,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1989,4,2,23954,33.04,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1989,5,2,15834,21.84,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1989,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1989,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1989,5,3,406,0.56,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1989,6,3,406,0.56,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1983
+"HUC",1990,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1990,4,2,6343.43434343434,161.818181818182,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1990,5,2,25056.5656565657,639.181818181818,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1990,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1990,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1990,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1990,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1984
+"HUC",1991,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1991,4,2,27051,7948.45,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1991,5,2,11049,3246.55,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1991,6,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1991,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1991,5,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1991,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1985
+"HUC",1992,3,2,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1992,4,2,12742,4173.12,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1992,5,2,14958,4898.88,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1992,6,2,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1992,4,3,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1992,5,3,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1992,6,3,0,0,1,70000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1986
+"HUC",1993,3,2,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1993,4,2,28880,5878.24,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1993,5,2,151620,30860.76,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1993,6,2,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1993,4,3,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1993,5,3,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1993,6,3,0,0,1,659000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1987
+"HUC",1994,3,2,1566,3167.82,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1991
+"HUC",1994,4,2,11832,23934.64,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1994,5,2,3480,7039.6,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1994,6,2,522,1055.94,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1994,4,3,0,0,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1994,5,3,0,0,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1994,6,3,0,0,1,658000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1988
+"HUC",1995,3,2,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1992
+"HUC",1995,4,2,704,14.24,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1991
+"HUC",1995,5,2,3608,72.98,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1995,6,2,88,1.78,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1995,4,3,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1991
+"HUC",1995,5,3,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1995,6,3,0,0,1,206000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1989
+"HUC",1996,3,2,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1993
+"HUC",1996,4,2,52707.2648221344,1681.52893280632,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1992
+"HUC",1996,5,2,7192.73517786561,229.471067193676,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1991
+"HUC",1996,6,2,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1996,4,3,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1992
+"HUC",1996,5,3,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1991
+"HUC",1996,6,3,0,0,1,862000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","assumed run timing",1990
+"HUC",1997,3,2,0,0,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",1997,4,2,5133.33333333333,1490.33333333333,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1993
+"HUC",1997,5,2,37800,10974.2727272727,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1992
+"HUC",1997,6,2,933.333333333333,270.969696969697,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1991
+"HUC",1997,4,3,0,0,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1993
+"HUC",1997,5,3,2333.33333333333,677.424242424242,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1992
+"HUC",1997,6,3,0,0,1,1025000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1991
+"HUC",1998,3,2,280.854395604396,82.9481043956044,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",1998,4,2,8118.63186813187,2397.77313186813,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",1998,5,2,81087.9212454212,23948.6704212454,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1993
+"HUC",1998,6,2,0,0,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1992
+"HUC",1998,4,3,0,0,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",1998,5,3,280.854395604396,82.9481043956044,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1993
+"HUC",1998,6,3,2331.7380952381,688.660238095238,0,860000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1992
+"HUC",1999,3,2,0,0,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",1999,4,2,2653.46534653465,259.207920792079,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",1999,5,2,8756.43564356436,855.386138613861,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",1999,6,2,1194.05940594059,116.643564356436,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1993
+"HUC",1999,4,3,0,0,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",1999,5,3,796.039603960396,77.7623762376238,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",1999,6,3,0,0,1,1200000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1993
+"HUC",2000,3,2,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1997
+"HUC",2000,4,2,23092,233.68,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",2000,5,2,2008,20.32,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",2000,6,2,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",2000,4,3,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",2000,5,3,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",2000,6,3,0,0,0,1900000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1994
+"HUC",2001,3,2,0,0,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1998
+"HUC",2001,4,2,5655.26646577701,579.735858803272,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1997
+"HUC",2001,5,2,13355.8725785622,1369.14472664658,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",2001,6,2,115.64786913474,11.8553594489884,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",2001,4,3,0,0,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1997
+"HUC",2001,5,3,164.391304347826,16.8521739130435,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",2001,6,3,608.821782178218,62.4118811881188,0,2100000,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1995
+"HUC",2002,3,2,0,0,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1999
+"HUC",2002,4,2,5356.57894653,1183.8947366568,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1998
+"HUC",2002,5,2,10713.15789483,2367.7894737048,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1997
+"HUC",2002,6,2,0,0,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",2002,4,3,0,0,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1998
+"HUC",2002,5,3,116.44736898,25.7368422288,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1997
+"HUC",2002,6,3,1513.81578966,334.5789474096,0,2300000,"fence count","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",1996
+"HUC",2003,3,2,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2003,4,2,1392.666,100.01874,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1999
+"HUC",2003,5,2,908.259,65.22951,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1998
+"HUC",2003,6,2,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1997
+"HUC",2003,4,3,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1999
+"HUC",2003,5,3,999.075,71.75175,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1998
+"HUC",2003,6,3,0,0,0,783000,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1997
+"HUC",2004,3,2,12.6490824843375,0.0486503172474517,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2001
+"HUC",2004,4,2,1183.29124814796,4.55112018518446,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2004,5,2,1309.26483431255,5.03563397812519,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1999
+"HUC",2004,6,2,16.6337177381013,0.0639758374542357,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1998
+"HUC",2004,4,3,0,0,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2004,5,3,53.0168628578773,0.203911010991836,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1999
+"HUC",2004,6,3,25.1442544591749,0.0967086709968265,0,755300,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1998
+"HUC",2005,3,2,6.32454124216873,1.4643745491483,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2002
+"HUC",2005,4,2,591.64562407398,136.988717574052,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2001
+"HUC",2005,5,2,654.632417156274,151.572582741568,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2005,6,2,8.31685886905064,1.92567270737249,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1999
+"HUC",2005,4,3,0,0,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2001
+"HUC",2005,5,3,26.5084314289387,6.13772143085426,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2005,6,3,12.5721272295874,2.91093099700448,0,97750,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",1999
+"HUC",2006,3,2,17.5141142090826,1.44491442224932,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2003
+"HUC",2006,4,2,1638.40326666641,135.168269499979,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2002
+"HUC",2006,5,2,1812.82823212507,149.558329150318,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2001
+"HUC",2006,6,2,23.0313014835249,1.9000823723908,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2006,4,3,0,0,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2002
+"HUC",2006,5,3,73.4079639570609,6.05615702645753,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2001
+"HUC",2006,6,3,34.8151215588575,2.87224752860575,0,1558240,"fence count","commercial + FN catch records + creel survey",NA,"MLE run timing model",2000
+"HUC",2007,3,2,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2004
+"HUC",2007,4,2,527.728038761323,11.8633263113545,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2003
+"HUC",2007,5,2,11141.4182641668,250.459082578471,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2002
+"HUC",2007,6,2,139.561828523278,3.13734990520329,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2001
+"HUC",2007,4,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2003
+"HUC",2007,5,3,691.291868548557,15.5402412049716,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2002
+"HUC",2007,6,3,0,0,1,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","MLE run timing model",2001
+"HUC",2008,3,2,786,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2005
+"HUC",2008,4,2,8646,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2004
+"HUC",2008,5,2,3668,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2003
+"HUC",2008,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2002
+"HUC",2008,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2004
+"HUC",2008,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2003
+"HUC",2008,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2002
+"HUC",2009,3,2,637.623762376238,150.68108051493,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
+"HUC",2009,4,2,15952.4752475248,3769.83473487043,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
+"HUC",2009,5,2,13201.9801980198,3119.84709252497,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
+"HUC",2009,6,2,91.0891089108911,21.5258686449901,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2003
+"HUC",2009,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
+"HUC",2009,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
+"HUC",2009,6,3,116.831683168317,27.6092663055307,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2003
+"HUC",2010,3,2,303.030303030303,292.033739631793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2007
+"HUC",2010,4,2,26666.6666666667,25698.9690875978,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
+"HUC",2010,5,2,3030.30303030303,2920.33739631793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
+"HUC",2010,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
+"HUC",2010,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
+"HUC",2010,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
+"HUC",2010,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
+"HUC",2011,3,2,365.637580645161,124.695967741935,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2011,4,2,2585.81532258065,881.858870967742,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2007
+"HUC",2011,5,2,17471.5470967742,5958.44516129032,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2006
+"HUC",2011,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2005
+"HUC",2011,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2007
+"HUC",2011,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2006
+"HUC",2011,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2005
+"HUC",2012,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2012,4,2,10622.46,3684.04,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2012,5,2,5825.22,2020.28,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2007
+"HUC",2012,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2006
+"HUC",2012,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2012,5,3,685.32,237.68,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2007
+"HUC",2012,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2006
+"HUC",2013,3,2,375,33.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2013,4,2,8375,753.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2013,5,2,1375,123.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2013,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2007
+"HUC",2013,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2013,5,3,1000,90,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2013,6,3,1375,123.75,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2007
+"HUC",2014,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2014,4,2,2910.38165137615,5324.59449541284,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2014,5,2,8818.02201834862,16132.7266055046,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2014,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2014,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2014,5,3,108.596330275229,198.678899082569,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2014,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2008
+"HUC",2015,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2015,4,2,6400,5192,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2015,5,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2015,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2015,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2015,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2015,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2009
+"HUC",2016,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2016,4,2,745.323238206174,1609.82853814793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2016,5,2,9849.62642482736,21274.272551793,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2016,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2016,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2016,5,3,105.05033696647,226.898910059073,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2016,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2010
+"HUC",2017,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2017,4,2,14492.72,2053.51833333333,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2017,5,2,7517.54666666667,1065.18444444444,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2017,6,2,693.733333333333,98.2972222222222,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2017,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2017,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2017,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2011
+"HUC",2018,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2018,4,2,2816.69245901639,144.493114754098,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2018,5,2,9386.30754098361,481.506885245902,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2018,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2018,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2018,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2018,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2012
+"HUC",2019,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2019,4,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2019,5,2,13549,154,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2019,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2019,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2019,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2019,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2013
+"HUC",2020,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2020,4,2,3212.3,310.1,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2020,5,2,917.8,88.6,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2020,6,2,458.9,44.3,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2020,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2020,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2020,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2014
+"HUC",2021,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
+"HUC",2021,4,2,12189.6296296296,3659.40740740741,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2021,5,2,2061.48148148148,618.87037037037,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2021,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2021,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2021,5,3,89.6296296296296,26.9074074074074,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2021,6,3,179.259259259259,53.8148148148148,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2015
+"HUC",2022,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
+"HUC",2022,4,2,6594.31707317073,2734.13414634146,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
+"HUC",2022,5,2,11824.2926829268,4902.58536585366,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2022,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2022,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
+"HUC",2022,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2022,6,3,227.390243902439,94.280487804878,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2016
+"HUC",2023,3,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"HUC",2023,4,2,2572.80379746835,1608.07594936709,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
+"HUC",2023,5,2,10291.2151898734,6432.30379746835,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
+"HUC",2023,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2023,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
+"HUC",2023,5,3,82.9936708860759,51.873417721519,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
+"HUC",2023,6,3,165.987341772152,103.746835443038,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2017
+"HUC",2024,3,2,2.98085721165423,4.01914278834577,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
+"HUC",2024,4,2,1164.23765952324,1569.76234047676,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"HUC",2024,5,2,1900.08355405731,2561.91644594269,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
+"HUC",2024,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
+"HUC",2024,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"HUC",2024,5,3,469.697929207802,633.302070792198,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
+"HUC",2024,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018

@@ -631,7 +631,7 @@ HUC_rr_data <- Huc_run_ts_infill |>
   select(
     return_year, escapement, catch, fertilized, hatchery_fry_release,
     matches("(catch|escapement|age|stockid)(|_data)_source"), stock,
-    fw_age, ttl_age, age_sample_size, run
+    fw_age, ttl_age, age_sample_size, brood_year
   )
 
 
