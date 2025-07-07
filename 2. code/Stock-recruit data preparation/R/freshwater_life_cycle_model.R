@@ -161,7 +161,7 @@ smolt_wt <- smolt_sizes_infilled |>
   mutate(lake = factor(lake, labels = c("Great Central", "Hucuktlis", "Sproat")))
 
 
-# Load and prepare raw smolt abundance data  ----------------------------------
+# Load and prepare raw fry and smolt abundance data  ----------------
 
 
 # Load the smolt outmigration data
@@ -234,7 +234,7 @@ smolt_data |>
 
 
 # Load smolt size data (aggregated across ages for each lake and year)
-smolt_size <- here(
+smolt_size_aggregate <- here(
   "1. data",
   "smolt size data.xlsx"
 ) |> 
@@ -277,8 +277,27 @@ fry_size <- here(
   )
 
 
+# fry ages (from results received in 2025)
+fry_age <- here(
+  "1. data",
+  "smolt size data.xlsx"
+) |> 
+  read_xlsx(sheet = "fry_ages") |> 
+  mutate(
+    lake = case_when(
+      lake == "gcl" ~ "Great Central",
+      lake == "huc" ~ "Hucuktlis",
+      lake == "spr" ~ "Sproat"
+    )
+  ) |> 
+  summarize(
+    .by = c(smolt_year, lake),
+    across(matches("count_fry\\d"), sum)
+  )
+
+
 # Plot smolt size versus smolting rate
-smolt_size |> 
+smolt_size_aggregate |> 
   left_join(fry_size) |> 
   mutate(fw_growth_idx = len_mm - fry_len_mm) |> 
   left_join(
@@ -354,6 +373,11 @@ lakes_data <- ats_data |>
     smolt_wt,
     by = c("lake", "year" = "smolt_year")
   ) |> 
+  # Add fry ages
+  full_join(
+    fry_age,
+    by = c("lake", "year" = "smolt_year")
+  ) |> 
   mutate(
     is_observed_count = !if_any(matches("count"), is.na),
     is_observed_ats = !if_any(matches("ats"), is.na),
@@ -396,7 +420,8 @@ make_stan_data <- function(
   is_observed_count <- lake_data$is_observed_count
   is_observed_ats <- lake_data$is_observed_ats
   
-  # Vector of age1 counts
+  # Vector of age1 counts (note that these counts are EXPANDED to account for 
+  # total smolt captures on the days samples were taken)
   A1_obs <- lake_data$count_age1
   A_total <- lake_data$count_total
   
