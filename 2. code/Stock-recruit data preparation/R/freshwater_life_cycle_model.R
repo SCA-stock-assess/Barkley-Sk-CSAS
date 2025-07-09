@@ -1050,6 +1050,18 @@ out_plots |>
 # Export posterior values of interest (with imputed years) -------------------
 
 
+# Save full posterior_df as an RDS object
+saveRDS(
+  object = posterior_df,
+  file = here(
+    "3. outputs",
+    "Stock-recruit data",
+    "Freshwater_LifeCycle_model_full-posterior.RDS"
+  )
+)
+# Large file, circa 130MB
+
+
 # Summarize posterior for export
 annual_estimates <- posterior_df |> 
   filter(
@@ -1132,161 +1144,6 @@ list(
       "Stock-recruit data",
       "Bayesian_state-space_smolt-production_estimated_time_series.xlsx"
     )
-  )
-
-
-# Calculate annual marine survival estimates ------------------------------
-
-
-# Load latent states of recruitment by brood year from S-R models
-r_ts <- readRDS(
-  here(
-    "3. outputs",
-    "Stock-recruit modelling",
-    "State-space_spawner_recruit_latent_states_ts.RDS"
-  )
-) |> 
-  pivot_wider(names_from = parameter) |> 
-  mutate(
-    lake = factor(
-      stock,
-      levels = c("GCL", "SPR", "HUC"),
-      labels = c("Great Central", "Sproat", "Hucuktlis")
-    ),
-    year = brood_year,
-    .keep = "unused"
-  ) |> 
-  # Take a random sample to match number of draws in the smolt production model
-  slice_sample(
-    by = c(lake, year),
-    n = 8000,
-    replace = TRUE
-  ) |> 
-  select(year, lake, R) |> 
-  nest(.by = c(lake, year), .key = "R")
-
-
-# Join recruit estimates with brood year smolt data and calculate survival
-sas <- posterior_df |> 
-  filter(parameter == "BYO") |> 
-  select(year, lake, smolts = value) |> 
-  nest(.by = c(lake, year), .key = "smolts") |> 
-  left_join(r_ts) |> 
-  unnest(smolts, R) |> 
-  mutate(
-    survival = if_else(R/smolts > 0.999, 0.999, R/smolts), # Hacky solution
-    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis"))
-  ) 
-
-
-# Annual survival rate summary data
-sas_summary <- sas |> 
-  filter(!is.na(survival)) |> 
-  summarize(
-    .by = c(lake, year),
-    surv = list(quantile(survival, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
-  ) |> 
-  unnest_wider(surv) |> 
-  mutate(date = as.Date(paste0(year, "-04-15")))
-
-
-# Bring in ocean indicators data
-oni <- read.csv(
-  here(
-    "1. data",
-    "ENSO (ONI) 250505(ONI).csv"
-  )
-) |> 
-  mutate(
-    date = as.Date(DateTime.UTC),
-    start_date = date,
-    end_date = lead(start_date, 1) - 1,
-    oni = ONI.degrees.C
-  ) |> 
-  filter(
-    start_date >= min(sas_summary$date)-120,
-    end_date <= max(sas_summary$date)+120
-  )
-
-
-# Time series plot
-(sas_ts <- sas_summary |> 
-    ggplot(aes(x = date, y = `50%`)) +
-    facet_wrap(
-      ~lake,
-      ncol = 1,
-      strip.position = "right"
-    ) +
-    geom_rect(
-      data = oni,
-      aes(
-        x = start_date,
-        xmin = start_date -1,
-        xmax = end_date +1,
-        y = 0.5,
-        ymin = -Inf,
-        ymax = Inf,
-        fill = oni
-      )
-    ) +
-    geom_linerange(
-      aes(
-        ymin = `2.5%`,
-        ymax = `97.5%`
-      ),
-      linewidth = 0.25,
-      colour = "grey"
-    ) +
-    geom_pointrange(
-      aes(
-        ymin = `10%`,
-        ymax = `90%`
-      ),
-      size = 0.25
-    ) +
-    scale_fill_distiller(palette = "RdYlGn") +
-    scale_y_continuous(
-      limits = c(0, 0.5),
-      expand = c(0, 0),
-      labels = scales::percent,
-      oob = scales::oob_keep
-    ) +
-    scale_x_date(expand = c(0, 0)) +
-    labs(
-      x = "Brood year",
-      y = "Smolt-to-adult survival",
-      fill = "Ocean Ni\u00f1o\nIndex (\u00b0C)"
-    ) +
-    theme(
-      strip.background = element_rect(fill = "white"),
-      panel.grid.minor = element_blank(),
-      panel.spacing.y = unit(1, "lines")
-    )
-)
-
-
-# Save the plot
-ggsave(
-  sas_ts,
-  filename = here(
-    "3. outputs",
-    "Plots",
-    "Smolt-to-adult_survival_with-ONI.png"
-  ),
-  width = 7,
-  height = 5,
-  units = "in",
-  dpi = "print"
-)
-
-
-# Interannual summaries
-sas_summary |> 
-  summarize(
-    .by = lake,
-    median = median(`50%`),
-    min = min(`50%`),
-    max = max(`50%`)
   )
 
 
