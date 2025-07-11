@@ -548,13 +548,7 @@ oni_corr_p_data <- sas_oni_pred |>
           x_var = "Ocean Ni\u00f1o Index (\u00b0C)"
         ) |> 
         # Bump the y value down a little for GCL
-        mutate(
-          max_surv = if_else(
-            lake == "Great Central",
-            max_surv * 0.8,
-            max_surv
-          )
-        )
+        mutate(max_surv = max(max_surv)*0.8)
       
       return(
         list(
@@ -574,7 +568,7 @@ oni_corr_p_data <- sas_oni_pred |>
     facet_grid(
       lake ~ x_var,
       switch = "x",
-      scales = "free"
+      scales = "free_x"
     ) +
     geom_ribbon(
       data = oni_corr_p_data$lines,
@@ -616,7 +610,7 @@ oni_corr_p_data <- sas_oni_pred |>
           legend.direction = "horizontal",
           legend.title.position = "top",
           legend.text.position = "bottom",
-          legend.key.width = unit(dev.size()[1]/2, "inches")
+          legend.key.width = unit(dev.size()[1]/4, "inches")
         )
       )
     ) +
