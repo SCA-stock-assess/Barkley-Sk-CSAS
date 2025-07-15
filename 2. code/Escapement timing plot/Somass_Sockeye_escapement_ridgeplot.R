@@ -124,6 +124,18 @@ escday <- som_hist |>
   )
 
 
+# Save cleaned daily escapement data 
+write.csv(
+  escday, 
+  file = here(
+    "3. outputs",
+    "Collated daily escapement data",
+    "Barkley_Sockeye_daily_escapements_by_CU.csv"
+  ),
+  row.names = FALSE
+)
+
+
 # Ridgeline plots --------------------------------------------------------
 
 
