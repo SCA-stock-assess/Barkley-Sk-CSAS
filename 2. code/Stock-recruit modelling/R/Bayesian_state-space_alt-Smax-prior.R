@@ -178,7 +178,12 @@ make_stan_data <- function(stock_name) {
     "use" = use,
     "e" = e,
     "Smax_p" = presumed_Smax[[stock_name]], # use carrying-capacity estimates from L-IFMP
-    "Smax_p_sig" = presumed_Smax[[stock_name]] # use wide sigma (i.e. = mean)
+    # use wide sigma (i.e. = mean)
+    "Smax_p_sig" = if(stock_name == "HUC") {
+      presumed_Smax[[stock_name]]*2
+    } else {
+      presumed_Smax[[stock_name]]
+    }
   )
   
   return(stan.data)
@@ -1017,6 +1022,106 @@ ggsave(
   dpi = "print"
 )
 
+
+# Build dataset to look at correlations between the CUs
+resids_trim <- resids |> 
+  filter(
+    long_name %in% c(
+      "Great Central Lake", 
+      "Sproat Lake", 
+      "Hucuktlis Lake (w/enhancement term)"
+      )
+    ) |> 
+  select(-matches("mid.+")) |> 
+  mutate(long_name = str_remove(long_name, " Lake.*"))
+
+
+resids_corr <- tibble(
+  y_cu = c("Great Central", "Hucuktlis", "Hucuktlis"),
+  x_cu = c("Sproat", "Great Central", "Sproat")
+) |> 
+  left_join(
+    resids_trim,
+    by = c("y_cu" = "long_name"),
+    relationship = "many-to-many"
+  ) |> 
+  rename_with(\(x) paste0("y_", x), .cols = c(lwr, mid, upr)) |> 
+  left_join(
+    resids_trim,
+    by = c(
+      "x_cu" = "long_name",
+      "brood_year"
+    ),
+    relationship = "many-to-many"
+  ) |> 
+  rename_with(\(x) paste0("x_", x), .cols = c(lwr, mid, upr)) |> 
+  filter(!if_any(matches("lwr|mid|upr"), \(x) is.na(x) | x == 0)) |> 
+  mutate(
+    pair = paste0(y_cu, "-", x_cu),
+    across(c(x_cu, y_cu), \(x) paste(x, "recruits-per-spawner residuals"))
+  )
+
+
+# Plot the relationships between residuals for each CU pair
+resids_corr_ps <- split(resids_corr, resids_corr$pair) |> 
+  map(
+    \(x) ggplot(
+      data = x,
+      aes(x = x_mid, y = y_mid)
+    ) +
+      facet_grid(
+        x_cu ~ y_cu,
+        switch = "both"
+      ) +
+      geom_smooth(method = "lm") +
+      geom_linerange(
+        aes(
+          xmin = x_lwr,
+          xmax = x_upr
+        ),
+        colour = "grey"
+      ) +
+      geom_pointrange(
+        aes(
+          ymin = y_lwr,
+          ymax = y_upr,
+          fill = brood_year
+        ),
+        colour = "grey",
+        shape = 21,
+        stroke = NA
+      ) +
+      scale_fill_viridis_c(name = "Brood\nyear") +
+      #coord_equal() + # not producing expected behaviour
+      theme(
+        axis.title = element_blank(),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.text = element_text(size = 11)
+      )
+  )
+
+
+(resids_corr_p <- ggarrange(
+  plotlist = resids_corr_ps, 
+  nrow = 1, 
+  common.legend = TRUE
+)
+)
+
+
+ggsave(
+  plot = resids_corr_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "S-R_residuals_correlations_all-CUs.png"
+  ),
+  height = 5,
+  width = 14,
+  units = "in",
+  dpi = "print"
+)
 
 
 # Combined SR plots for all CUs -------------------------------------------
