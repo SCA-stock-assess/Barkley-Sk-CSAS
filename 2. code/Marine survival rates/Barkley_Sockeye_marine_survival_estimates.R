@@ -131,7 +131,11 @@ oni |>
   facet_wrap(~lake, nrow = 1) +
   geom_linerange(aes(ymin = `10%`, ymax = `90%`)) +
   geom_point() +
-  geom_smooth(method = "glm", method.args = list(family = "quasibinomial")) +
+  geom_smooth(
+    method = "glm", 
+    method.args = list(family = "quasibinomial"),
+    colour = "red"
+  ) +
   scale_colour_viridis_c(option = "mako") +
   scale_y_continuous(
     labels = scales::percent,
@@ -645,3 +649,19 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+
+# Show summaries of best models for each CU
+sas_oni_mods |> 
+  slice_max(
+    order_by = pseudo.r.squared,
+    by = lake
+  ) |> 
+  select(lake, model) |> 
+  deframe() |> 
+  map(function(x) 
+    list(
+      "summary" = broom::tidy(x, conf.int = TRUE),
+      "lrt" = car::Anova(x)
+    )
+  )
