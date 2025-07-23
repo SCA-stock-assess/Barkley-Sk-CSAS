@@ -258,9 +258,18 @@ smolt_ages <- c("GCL", "SPR", "HEN") |>
   ) |> 
   mutate(
     ttl = age1 + age2,
+    gear = tolower(gear),
     across(c(age1, age2), \(x) x/ttl, .names = "prop_{.col}")
   )
   
+
+# Load smolt age data received during summer 2025
+new_smolt_ages <- here(
+  "1. data",
+  "smolt size data.xlsx"
+) |> 
+  read_xlsx(sheet = "post-2016_rates_of_capture") |> 
+  mutate(sample_date = as.Date(sample_date))
 
 
 # Investigate brood year adult vs smolt production ----------------------
@@ -791,25 +800,17 @@ ggsave(
 # Use smolt rates of capture to estimate annual production --------------
 
 
-# Load smolt age data received during summer 2025
-new_smolt_ages <- here(
-  "1. data",
-  "smolt size data.xlsx"
-) |> 
-  read_xlsx(sheet = "post-2016_rates_of_capture") |> 
-  mutate(sample_date = as.Date(sample_date))
-
 # Calculate smolt rate of capture by age, year, and lake
 rates_of_capture <- smolt_ages |> 
   select(stock = cu, sample_date, n_age = ttl, gear, contains("prop")) |> 
-  right_join(smolt_catch) |> 
+  full_join(smolt_catch) |> 
   rename("n_catch" = count) |> 
   mutate(
     across(
       matches("prop_age\\d"), 
       \(x) x * n_catch, 
       .names = "catch_{str_remove(.col, 'prop_')}"
-      )
+    )
   ) |> 
   select(stock, sample_date, year, matches("age\\d"), contains("n_")) |>
   # Ensure all sample dates are aggregated into a single row per lake
@@ -834,7 +835,10 @@ rates_of_capture <- smolt_ages |>
   # Make missing values explicit
   right_join(expand_grid(stock = cu_names, year = seq.int(1977, 2023))) |> 
   arrange(stock, year) |> 
-  mutate(`rate_age1+` = lead(rate_age2)) |> 
+  mutate(
+    .by = stock,
+    `rate_age1+` = lead(rate_age2)
+  ) |> 
   rowwise() |> 
   mutate(
     rate_ttl = sum(c_across(contains("rate_"))),
