@@ -3,16 +3,18 @@ data {
   array[Y] int<lower=0> N_obs;    // Observed total lake abundance
   array[Y] int<lower=0> A1_obs;   // Observed age-1 migrants in samples
   array[Y] int<lower=0> A_total;  // Total aged fish in outmigration samples
+  array[Y] int<lower=0> a1_obs;   // Observed age-1 fry counts (subset of years)
+  array[Y] int<lower=0> a_total;  // Total fry aged (subset of years)
   
   // Weight data for outmigrants:
   // For age-1 outmigrants (O1)
   array[Y] real WO1_mean;   // Observed mean body weight for O1 fish in each year
   array[Y] real<lower=0> WO1_sd;   // Observed SD of body weight for O1 fish
-  array[Y] int<lower=1> WO1_n;      // Sample size for O1 weight data
+  array[Y] int<lower=0> WO1_n;      // Sample size for O1 weight data
   // For age-2 outmigrants (O2)
   array[Y] real WO2_mean;   // Observed mean body weight for O2 fish in each year
   array[Y] real<lower=0> WO2_sd;   // Observed SD of body weight for O2 fish
-  array[Y] int<lower=1> WO2_n;      // Sample size for O2 weight data
+  array[Y] int<lower=0> WO2_n;      // Sample size for O2 weight data
   
   real<lower=0> obs_error_prior; // obs error on total lake abundance (sigma)
   real mu_theta_prior;                    // Mean prior for smolting rate
@@ -25,9 +27,16 @@ data {
   real<lower=0> sigma_N2_init_prior;      // prior for sd of N2s in first year
   real<lower=0> mu_N1_prior;              // prior for mean of age1 fry abundance
   real<lower=0> sigma_N1_prior;           // prior for sd of age1 fry abundance
-  // Companion vector for count data: 
-  // = 1 if A_total and A1_obs are observed in that year, = 0 otherwise
-  array[Y] int is_observed_count;
+  
+  // Companion vectors for data presence/absence:
+  array[Y] int is_observed_ats;   // = 1 if N_obs data are observed in that year
+  array[Y] int is_observed_count; // = 1 if A_total and A1_obs are observed in that year
+  array[Y] int is_observed_fry;   // = 1 if fry age data is observed in that year
+  array[Y] int is_observed_WO1;   // = 1 if age1 smolt weight data are observed in that year
+  array[Y] int is_observed_WO2;   // = 1 if age2 smolt weight data are observed in that year
+                                  // Note: even if no age-2 smolts were observed, we still
+                                  // need estimated weights because the model will likely estimate
+                                  // that a small fraction of outmigrants were age-2s
 }
  
 parameters {
@@ -87,7 +96,9 @@ transformed parameters {
     // Biomass: multiply abundance by true weight
     BO1[y] = O1[y] * w1[y];
     BO2[y] = O2[y] * w2[y];
+  }
 }
+
  
 model {
   // Priors
@@ -111,7 +122,9 @@ model {
  
   // Observation model: Negative binomial for total lake abundance (ATS est)
   for (y in 1:Y) {
-    N_obs[y] ~ lognormal(log(N_lake[y]) - obs_error^2/2, obs_error);
+    if (is_observed_ats[y] == 1) {
+      N_obs[y] ~ lognormal(log(N_lake[y]) - obs_error^2/2, obs_error);
+    }
   }
   
   // Observation model: Binomial for age composition in outmigrants
@@ -122,11 +135,20 @@ model {
     }
   }
   
+  // Observation model: Fry age composition (in lake) where available
+  for (y in 1:Y) {
+    if (is_observed_fry[y] == 1) {
+    a1_obs[y] ~ binomial(a_total[y], N1[y] / N_lake[y]);
+    }
+  }
+  
   // Observation models for weight data for outmigrants
   for (y in 1:Y) {
-    // For age-1 fish weights:
+    if (is_observed_WO1[y] == 1) {
     WO1_mean[y] ~ normal(w1[y], WO1_sd[y] / sqrt(WO1_n[y]));
-    // For age-2 fish weights:
+    }
+    if (is_observed_WO2[y] == 1) {
     WO2_mean[y] ~ normal(w2[y], WO2_sd[y] / sqrt(WO2_n[y]));
+    }
   }
 }

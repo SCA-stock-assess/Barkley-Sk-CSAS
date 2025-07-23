@@ -172,7 +172,8 @@ smolt_data <- here(
 ) |> 
   read.csv() |> 
   rename_with(\(x) str_replace_all(x, "\\.", "x")) |> 
-  filter(year < 2017)  |> # post-2017 won't have data
+  # Trim time series to include only the studied years
+  filter(!(year > 2013 & if_all(contains("rate"), is.na)))  |> 
   # Convert annual rates to counts
   mutate(
     across(
@@ -328,8 +329,6 @@ smolt_size_aggregate |>
 # independent variable are subject to considerable uncertainty, but 
 # if there was a strong link between growth and smolting rate, a 
 # clearer pattern would likely be discernible.
-# Possible conclusion: environmental conditions in the lakes do not
-# have a strong influence on smolting rate?
 
 
 
@@ -360,7 +359,7 @@ ats_data |>
   geom_pointrange(aes(ymin = ats_lwr, ymax = ats_upr))
 
 
-# Join ATS and smolt data
+# Join ATS, smolt, and fry data
 lakes_data <- ats_data |> 
   left_join(
     select(
@@ -379,18 +378,14 @@ lakes_data <- ats_data |>
     by = c("lake", "year" = "smolt_year")
   ) |> 
   mutate(
-    is_observed_count = !if_any(matches("count"), is.na),
+    is_observed_count = !if_any(matches("count_age"), is.na),
+    is_observed_fry = !if_any(matches("count_fry"), is.na),
     is_observed_ats = !if_any(matches("ats"), is.na),
-    count_total = count_age1 + count_age2,
-    # Convert NAs to 0s
-    across(matches("ats|count"), \(x) if_else(is.na(x), 0, x))
+    is_observed_WO1 = !if_any(matches("WO1"), is.na),
+    is_observed_WO2 = !if_any(matches("WO2"), is.na),
+    count_total = count_age1 + count_age2
   ) |> 
-  arrange(year) |> 
-  # Post-2017 won't have data
-  filter(
-    year < 2017,
-    !(lake == "Hucuktlis" & year == 2016) # No weight data available for Hucuktlis in 2016
-  )
+  arrange(lake, year)
 
 
 
@@ -406,7 +401,7 @@ make_stan_data <- function(
     # (with sensible default values)
     mu_M_prior = logit(0.5),
     sigma_M_prior = 0.5,
-    mu_theta_prior = logit(0.8),
+    mu_theta_prior = logit(0.85),
     sigma_theta_prior = 1,
     sigma_theta_sd_prior = 1,
     sigma_M_sd_prior = 2
@@ -414,16 +409,25 @@ make_stan_data <- function(
   
   # Filter data for a single lake
   lake_data <- lakes_data %>%
-    filter(lake == lake_name)
+    filter(lake == lake_name) |> 
+    # Convert NAs to 0s
+    mutate(across(matches("ats|count|W"), \(x) if_else(is.na(x), 0, x)))
 
   # Identify missing rows in observations
   is_observed_count <- lake_data$is_observed_count
   is_observed_ats <- lake_data$is_observed_ats
+  is_observed_fry <- lake_data$is_observed_fry
+  is_observed_WO1 <- lake_data$is_observed_WO1
+  is_observed_WO2 <- lake_data$is_observed_WO2
   
   # Vector of age1 counts (note that these counts are EXPANDED to account for 
-  # total smolt captures on the days samples were taken)
+  # total smolt captures on the days samples were taken) and total counts
   A1_obs <- lake_data$count_age1
   A_total <- lake_data$count_total
+  
+  # Vector of observed fry ages from in-lake trawl samples
+  a1_obs <- lake_data$count_fry1
+  a_total <- lake_data$count_fry1 + lake_data$count_fry2
   
   # Vector of observed total lake abundance
   N_obs <- round(lake_data$ats_est, 0)
@@ -444,6 +448,15 @@ make_stan_data <- function(
       sigma_theta = sd(theta, na.rm = TRUE)
     )
   
+  # Alternative specification of smolting rate prior
+  # PT suggestion after reviewing the informative prior above and
+  # observing that it seems to draw the model away from what we assume
+  # is going on for GCL
+  theta_prior_alt <- data.frame(
+    mu_theta = mu_theta_prior,
+    sigma_theta = sigma_theta_prior
+  )
+  
   # Age-1 fry proportion prior
   pN1_prior <- lake_data |> 
     mutate(pN1 = logit(1-prop_age2)) |> 
@@ -451,15 +464,6 @@ make_stan_data <- function(
       mu_pN1 = mean(pN1, na.rm = TRUE),
       sigma_pN1 = sd(pN1, na.rm = TRUE)
     )
-  
-  # Alternative specification of smolting rate prior
-  # PT suggestion after reviewing the data-driven approach above and
-  # observing that it seems to draw the model away from what we assume
-  # is going on for GCL
-  theta_prior_alt <- data.frame(
-    mu_theta = mu_theta_prior,
-    sigma_theta = sigma_theta_prior
-  )
   
   # Initial age2 fry population prior
   N2_init_prior <- lake_data |> 
@@ -500,6 +504,8 @@ make_stan_data <- function(
     Y = nrow(lake_data),
     A1_obs = A1_obs,
     A_total = A_total,
+    a1_obs = a1_obs,
+    a_total = a_total,
     N_obs = N_obs,
     WO1_mean = lake_data$WO1_mean,
     WO1_sd = lake_data$WO1_sd,
@@ -509,6 +515,9 @@ make_stan_data <- function(
     WO2_n = lake_data$WO2_n,
     is_observed_count = as.integer(is_observed_count),
     is_observed_ats = as.integer(is_observed_ats),
+    is_observed_fry = as.integer(is_observed_fry),
+    is_observed_WO1 = as.integer(is_observed_WO1),
+    is_observed_WO2 = as.integer(is_observed_WO2),
     obs_error_prior = obs_error_prior,
     #mu_theta_prior = theta_prior$mu_theta,
     #sigma_theta_prior = theta_prior$sigma_theta,
