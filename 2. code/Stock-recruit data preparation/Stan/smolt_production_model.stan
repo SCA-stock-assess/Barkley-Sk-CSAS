@@ -8,15 +8,15 @@ data {
   
   // Weight data for outmigrants:
   // For age-1 outmigrants (O1)
-  array[Y] real WO1_mean;   // Observed mean body weight for O1 fish in each year
-  array[Y] real<lower=0> WO1_sd;   // Observed SD of body weight for O1 fish
+  array[Y] real WO1_ln_mean;   // Observed log mean body weight for O1 fish in each year
+  array[Y] real<lower=0> WO1_ln_sd;   // Observed log SD of body weight for O1 fish
   array[Y] int<lower=0> WO1_n;      // Sample size for O1 weight data
   // For age-2 outmigrants (O2)
-  array[Y] real WO2_mean;   // Observed mean body weight for O2 fish in each year
-  array[Y] real<lower=0> WO2_sd;   // Observed SD of body weight for O2 fish
+  array[Y] real WO2_ln_mean;   // Observed mean body weight for O2 fish in each year
+  array[Y] real<lower=0> WO2_ln_sd;   // Observed SD of body weight for O2 fish
   array[Y] int<lower=0> WO2_n;      // Sample size for O2 weight data
   
-  real<lower=0> obs_error_prior; // obs error on total lake abundance (sigma)
+  real<lower=0> obs_error_prior;          // obs error on total lake abundance
   real mu_theta_prior;                    // Mean prior for smolting rate
   real<lower=0> sigma_theta_prior;        // SD prior for smolting rate
   real mu_M_prior;                        // Mean prior for mortality of age 2s in year 2
@@ -27,6 +27,11 @@ data {
   real<lower=0> sigma_N2_init_prior;      // prior for sd of N2s in first year
   real<lower=0> mu_N1_prior;              // prior for mean of age1 fry abundance
   real<lower=0> sigma_N1_prior;           // prior for sd of age1 fry abundance
+  real<lower=0> w1_theta_prior;           // prior for (log) mean of age1 smolt weight
+  real<lower=0> w1_sigma_prior;           // prior for (log) sd of age1 smolt weight
+  real<lower=0> w2_theta_prior;           // prior for (log) mean of age2 smolt weight
+  real<lower=0> w2_sigma_prior;           // prior for (log) sd of age2 smolt weight
+
   
   // Companion vectors for data presence/absence:
   array[Y] int is_observed_ats;   // = 1 if N_obs data are observed in that year
@@ -53,8 +58,8 @@ parameters {
   real<lower=0> N2_init;             // initialization for age 2 fish in year 1
   array[Y] real<lower=0> N1;         // Yearly total age1 fry abundance
   
-  array[Y] real<lower=0> w1;         // True weight for O1 fish in each year
-  array[Y] real<lower=0> w2;         // True weight for O2 fish in each year
+  array[Y] real<lower=0> w1_ln;         // True (log) weight for O1 fish in each year
+  array[Y] real<lower=0> w2_ln;         // True (log) weight for O2 fish in each year
 }
  
 // deterministic statements
@@ -94,8 +99,8 @@ transformed parameters {
     p1[y] = O1[y] / N_lake[y];
     p2[y] = O2[y] / N_lake[y];
     // Biomass: multiply abundance by true weight
-    BO1[y] = O1[y] * w1[y];
-    BO2[y] = O2[y] * w2[y];
+    BO1[y] = O1[y] * exp(w1_ln[y]); // ensure these are inputted in log space
+    BO2[y] = O2[y] * exp(w2_ln[y]);
   }
 }
 
@@ -109,6 +114,9 @@ model {
   // Use half-normal distributions
   sigma_theta ~ normal(0, sigma_theta_sd_prior) T[0,];
   sigma_M ~ normal(0, sigma_M_sd_prior) T[0,];
+  // Priors on w1 and w2 (interannual mean and standard deviation)
+  w1_ln ~ normal(w1_theta_prior, w1_sigma_prior);
+  w2_ln ~ normal(w2_theta_prior, w2_sigma_prior);
  
   // initialization of age 2s
   // Priors must be transformed to log space in R first, as per:
@@ -143,12 +151,14 @@ model {
   }
   
   // Observation models for weight data for outmigrants
+  // Ignores missing observations and uninformative (rare) cases where
+  // sample size for weights is 1 and therefore SD = 0
   for (y in 1:Y) {
-    if (is_observed_WO1[y] == 1) {
-    WO1_mean[y] ~ normal(w1[y], WO1_sd[y] / sqrt(WO1_n[y]));
+    if (is_observed_WO1[y] == 1 && WO1_n[y] > 1 && WO1_ln_sd[y] > 0) {
+    WO1_ln_mean[y] ~ normal(w1_ln[y], WO1_ln_sd[y] / sqrt(WO1_n[y]));
     }
-    if (is_observed_WO2[y] == 1) {
-    WO2_mean[y] ~ normal(w2[y], WO2_sd[y] / sqrt(WO2_n[y]));
+    if (is_observed_WO2[y] == 1&& WO2_n[y] > 1 && WO2_ln_sd[y] > 0) {
+    WO2_ln_mean[y] ~ normal(w2_ln[y], WO2_ln_sd[y] / sqrt(WO2_n[y]));
     }
   }
 }
