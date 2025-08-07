@@ -1108,19 +1108,6 @@ somass_a_b_draws <- posterior_df |>
   pivot_wider(names_from = parameter)
 
 
-# Export posterior alpha and beta samples for Wendell Challenger
-write.csv(
-  x = somass_a_b_draws,
-  file = here(
-    "3. outputs",
-    "Stock-recruit modelling",
-    "Spawner-smolt posterior",
-    "Barkley_Sockeye_spawner-smolt_BevHolt-params_posterior.csv"
-  ),
-  row.names = FALSE
-)
-
-
 # Create CU-specific range of spawners to predict across
 S_pred <- somass_sr |> 
   summarize(
@@ -1593,6 +1580,20 @@ hucuktlis_a_b_draws <- posterior_df_huc |>
   filter(str_detect(parameter, "alpha|beta")) |> 
   pivot_wider(names_from = parameter) |> 
   select(-enhanced)
+
+
+# Export posterior alpha and beta samples for Wendell Challenger
+write.csv(
+  x = bind_rows(somass_a_b_draws, hucuktlis_a_b_draws),
+  file = here(
+    "3. outputs",
+    "Stock-recruit modelling",
+    "Spawner-smolt posterior",
+    "Barkley_Sockeye_spawner-smolt_BevHolt-params_posterior.csv"
+  ),
+  row.names = FALSE
+)
+
 
 
 # Create CU-specific range of spawners to predict across
