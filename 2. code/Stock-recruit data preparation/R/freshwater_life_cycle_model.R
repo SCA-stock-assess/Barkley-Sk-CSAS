@@ -1,4 +1,4 @@
-# Packages ----------------------------------------------------------------
+# Packages and setup --------------------------------------------------------
 
 
 pkgs <- c(
@@ -22,143 +22,120 @@ library(writexl)
 # Logit transformation
 logit <- function(p) {log(p/(1-p))}
 
+# Lake names 
+lake_names <- c("Great Central", "Sproat", "Hucuktlis")
 
 
-# Load and infill smolt size data -----------------------------------------
+# Use parallel processing when running Stan models
+options(mc.cores = parallel::detectCores())
 
 
-# Raw data, with annual mean lengths and weights infilled for missing years
-smolt_sizes <- here(
-  "1. data",
-  "smolt size data.xlsx"
-) |> 
-  read_xlsx(sheet = "smolt_morpho_age") |> 
-  filter(smolt_year >= 1977) |> 
-  pivot_longer(
-    matches("age\\d"),
-    names_pattern = "(age\\d)_(.*)",
-    names_to = c("age", "measure")
+# Load and summarize smolt size data -----------------------------------------
+
+
+# Raw data
+smolt_sizes <- c("GCL", "SPR", "HEN") |> 
+  purrr::set_names() |> 
+  map(
+    \(x) here(
+      "1. data",
+      "Hyatt, Stiff, Rankin smolt data",
+      paste0(x, "_Smolt_Export.xlsx")
+    )
   ) |> 
-  pivot_wider(
-    names_from = measure,
-    values_from = value
+  imap(
+    \(x, idx) read_xlsx(
+      path = x,
+      sheet = paste(idx, "Smolt Data (all)")
+    )
   ) |> 
-  pivot_longer(
-    matches("^(len|w)"),
-    names_sep = "_",
-    names_to = c("measure", "statistic")
-  ) |> 
-  pivot_wider(
-    names_from = statistic,
-    values_from = value
-  ) |> 
-  mutate(cv = sd/mean)
-
-
-# Does using average CV make sense for SD infilling?
-smolt_sizes |> 
-  ggplot(aes(x = smolt_year, y = cv)) +
-  facet_grid(measure ~ lake) +
-  geom_point(aes(colour = age)) +
-  scale_y_continuous(
-    labels = scales::percent,
-    limits = c(0, 1),
-    expand = c(0, 0)
+  list_rbind(names_to = "lake") |> 
+  janitor::clean_names() |> 
+  mutate(
+    lake = factor(
+      lake,
+      levels = c("GCL", "SPR", "HEN"),
+      labels = lake_names
+    ),
+    gear = tolower(gear),
+    ln_wt = log(fresh_std_weight)
   )
-# Data look a bit noisy for weights
 
 
-# Does CV scale with mean?
+# Does size-at-age change over dates? If so, need to correct for CSRs
 smolt_sizes |> 
-  ggplot(aes(x = mean, y = cv, colour = age)) +
-  facet_grid(lake ~ measure, scales = "free_x") +
-  geom_point() +
-  geom_smooth()
-# Not really
-
-# It looks like it's probably fine to use average CV to infill missing SD values
-
-
-# Missing age-2 Hucuktlis weights
-# see if there is any possibility to infill based on age1 weights or lagged
-# age1 weights
-smolt_sizes |> 
-  filter(lake == "huc") |> 
-  pivot_wider(
-    id_cols = c(lake, smolt_year, measure),
-    names_from = age,
-    values_from = mean
+  mutate(day = as.numeric(format(sample_date, "%j"))) |> 
+  summarize(
+    .by = c(year, day, lake, fnlage),
+    mean_wt = mean(fresh_std_weight),
+    n = n()
   ) |> 
-  arrange(lake, measure, smolt_year) |> 
-  mutate(
-    .by = c(lake, measure),
-    age1_lag = lag(age1, 1L)
-  ) |> 
-  pivot_longer(
-    matches("age1"),
-    names_to = "predictor",
-    values_to = "x"
-  ) |> 
-  ggplot(aes(x = log(x), y = log(age2))) +
-  facet_wrap(
-    predictor ~ measure, 
-    scales = "free",
-    labeller = labeller(.multi_line = FALSE)
+  filter(fnlage %in% c(1, 2)) |> 
+  ggplot(aes(x = day, y = mean_wt, colour = year)) +
+  facet_grid(
+    fnlage ~ lake,
+    scales = "free"
   ) +
-  geom_smooth(method = "lm") +
-  geom_point()
-# Age1 sizes seem reasonable as a predictor
+  geom_point(aes(size = n)) +
+  geom_line(aes(group = year)) +
+  geom_smooth(method = "lm", aes(weight = n)) +
+  scale_color_viridis_c()
+# Sizes probably decline slightly over time. Should correct for CSR. 
 
 
-# Use lm to predict age2 values for Hucuktlis
-huc_infill <- smolt_sizes |> 
-  filter(lake == "huc") |> 
+# Annual smolt survey sample sizes
+smolt_catch <- here(
+  "1. data",
+  "Hyatt, Stiff, Rankin smolt data",
+  "Smolt Sample Metadata 25.01.23.xls"
+) |> 
+  map2(
+    c("GCL", "SPR", "HEN"),
+    \(x, y) read_xls(x, sheet = y)
+  ) |> 
+  list_rbind() |> 
+  janitor::clean_names() |> 
+  mutate(
+    lake = factor(
+      lake,
+      levels = c("GCL", "SPR", "HEN"),
+      labels = lake_names
+    ),
+    gear = tolower(gear_type),
+    catch = if_else(
+      is.na(total_catch) | (total_catch < total_retained),
+      total_retained, 
+      total_catch
+    )
+  ) |> 
+  select(lake, sample_date, gear, catch)
+  
+
+# Join the catch data by date and calculate CSRs
+smolt_sizes_csr <- smolt_sizes |> 
+  add_count(sample_date, lake, gear, name = "samples") |> 
+  left_join(smolt_catch) |> 
+  mutate(csr = if_else(samples >= catch, 1, catch/samples))
+
+
+# Calculate annual weight summaries corrected for CSRs
+smolt_sizes_summary <- smolt_sizes_csr |> 
+  filter(
+    fnlage %in% c(1, 2),
+    !is.na(ln_wt)
+  ) |> 
+  summarize(
+    .by = c(lake, year, fnlage),
+    ln_mean = sum(csr * ln_wt) / sum(csr),
+    ln_sd = sqrt(sum(csr * (ln_wt - ln_mean)^2) / sum(csr)),
+    n = n()
+  ) |> 
+  complete(lake, year, fnlage) |> 
   pivot_wider(
-    id_cols = c(lake, smolt_year, measure),
-    names_from = age,
-    values_from = mean
-  ) |> 
-  nest(.by = measure) |> 
-  rowwise() |> 
-  mutate(
-    model = list(lm(age2 ~ age1, data = data)),
-    pred = list(predict(model, data))
-  ) |> 
-  unnest(cols = c(data, pred)) |> 
-  mutate(
-    infill = if_else(is.na(age2), pred, age2),
-    age = "age2"
-  ) |> 
-  select(measure, lake, smolt_year, age, infill)
-
-
-# Add infilled age2 values for Hucuktlis and infill SD and N
-smolt_sizes_infilled <- smolt_sizes |> 
-  left_join(huc_infill) |> 
-  mutate(mean = if_else(is.na(mean), infill, mean)) |> 
-  mutate(
-    .by = c(lake, measure, age),
-    mean_cv = mean(cv, na.rm = TRUE),
-    median_n = round(median(n, na.rm = TRUE), 0),
-    # Assume SD is similar to historic average CV
-    sd = if_else(is.na(sd), mean*mean_cv, sd),
-    # Assume N is equivalent to the historic median N
-    n = if_else(is.na(n), median_n, n)
-  ) |> 
-  select(-infill, -mean_cv, -median_n)
-
-
-# Dataframe with just summary statistics for weight
-smolt_wt <- smolt_sizes_infilled |> 
-  filter(measure == "w") |> 
-  pivot_wider(
-    id_cols = c(smolt_year, lake),
-    names_from = age,
-    values_from = c(mean, sd, n),
-    names_glue = "{age}_{.value}"
-  ) |> 
-  rename_with(\(x) str_replace(x, "age", "WO")) |> 
-  mutate(lake = factor(lake, labels = c("Great Central", "Hucuktlis", "Sproat")))
+    names_from = fnlage,
+    values_from = c(ln_mean, ln_sd, n),
+    names_glue = "WO{fnlage}_{.value}"
+  )
 
 
 # Load and prepare raw fry and smolt abundance data  ----------------
@@ -199,17 +176,6 @@ smolt_data <- here(
   )
 
 
-# Look at distribution of observed smolting rates
-smolt_data |> 
-  ggplot(aes(x = logit(smolting_rate))) +
-  facet_wrap(~lake) +
-  geom_density(
-    fill = "grey",
-    bw = 1
-  )
-# Median values best? Appears to be some bimodality
-
-
 # Plot calculated age proportions
 smolt_data |> 
   pivot_longer(
@@ -234,50 +200,6 @@ smolt_data |>
   theme(panel.spacing.y = unit(1, "lines"))
 
 
-# Load smolt size data (aggregated across ages for each lake and year)
-smolt_size_aggregate <- here(
-  "1. data",
-  "smolt size data.xlsx"
-) |> 
-  read_xlsx(sheet = "smolt_morphometrics") |> 
-  pivot_longer(
-    cols = !smolt_year,
-    names_pattern = "(.{3})_(.*)",
-    names_to = c("lake", "metric")
-  ) |> 
-  pivot_wider(names_from = metric) |> 
-  mutate(
-    lake = case_when(
-      lake == "gcl" ~ "Great Central",
-      lake == "huc" ~ "Hucuktlis",
-      lake == "spr" ~ "Sproat"
-    ),
-    K = 100*(w_g/len_mm^3)
-  )
-
-
-# fry size data
-fry_size <- here(
-  "1. data",
-  "smolt size data.xlsx"
-) |> 
-  read_xlsx(sheet = "fry_morphometrics") |> 
-  pivot_longer(
-    cols = !smolt_year,
-    names_pattern = "(.{3})_(.*)",
-    names_to = c("lake", "metric")
-  ) |> 
-  pivot_wider(names_from = metric) |> 
-  rename_with(\(x) paste0("fry_", x), .cols = !c(lake, smolt_year)) |> 
-  mutate(
-    lake = case_when(
-      lake == "gcl" ~ "Great Central",
-      lake == "huc" ~ "Hucuktlis",
-      lake == "spr" ~ "Sproat"
-    )
-  )
-
-
 # fry ages (from results received in 2025)
 fry_age <- here(
   "1. data",
@@ -297,42 +219,7 @@ fry_age <- here(
   )
 
 
-# Plot smolt size versus smolting rate
-smolt_size_aggregate |> 
-  left_join(fry_size) |> 
-  mutate(fw_growth_idx = len_mm - fry_len_mm) |> 
-  left_join(
-    smolt_data, 
-    by = c("smolt_year" = "year", "lake")
-  ) |>
-  pivot_longer(c(w_g, len_mm, K, fw_growth_idx)) |> 
-  ggplot(aes(x = value, y = smolting_rate)) +
-  facet_grid(
-    lake~name, 
-    scales = "free",
-    switch = "x"
-    ) +
-  geom_point() +
-  geom_smooth() +
-  scale_y_continuous(
-    labels = scales::percent,
-    limits = c(0, 1),
-    expand = c(0, 0),
-    oob = scales::oob_keep
-  ) +
-  theme(
-    strip.placement = "outside",
-    strip.background.x = element_blank(),
-    axis.title.x = element_blank()
-  )
-# No strong patterns evident here. Both the dependent and 
-# independent variable are subject to considerable uncertainty, but 
-# if there was a strong link between growth and smolting rate, a 
-# clearer pattern would likely be discernible.
-
-
-
-# Load the annual ATS estimates
+# Load the annual ATS estimates (corrected for variation in survey date)
 ats_data <- here(
   "3. outputs",
   "Stock-recruit data",
@@ -340,12 +227,13 @@ ats_data <- here(
 ) |> 
   read.csv() |> 
   rename("year" = smolt_year) |> 
-  rename_with(\(x) paste0("ats_", x), .cols = c(est, lwr, upr, se, cv)) |> 
+  rename_with(\(x) paste0("ats_", x), .cols = c(est, lwr_80, upr_80, cv)) |> 
   # Remove NAs at start and end of time series
   filter(!is.na(ats_est)) |> 
   group_by(lake) |> 
   complete(year = full_seq(min(year):max(year), 1)) |> 
-  ungroup()
+  ungroup() |> 
+  mutate(ats_se = ats_est*ats_cv)
 
 
 # Are there any years with missing estimates?
@@ -356,7 +244,8 @@ ats_data |>
     ncol = 1,
     scales = "free_y"
   ) +
-  geom_pointrange(aes(ymin = ats_lwr, ymax = ats_upr))
+  geom_pointrange(aes(ymin = ats_lwr_80, ymax = ats_upr_80))
+# No (but there should be for Hucuktlis? - 8 August 2025)
 
 
 # Join ATS, smolt, and fry data
@@ -368,10 +257,7 @@ lakes_data <- ats_data |>
     )
   ) |> 
   # Add infilled smolt weight data
-  left_join(
-    smolt_wt,
-    by = c("lake", "year" = "smolt_year")
-  ) |> 
+  left_join(smolt_sizes_summary) |> 
   # Add fry ages
   full_join(
     fry_age,
@@ -382,8 +268,9 @@ lakes_data <- ats_data |>
     is_observed_fry = !if_any(matches("count_fry"), is.na),
     is_observed_ats = !if_any(matches("ats"), is.na),
     is_observed_WO1 = !if_any(matches("WO1"), is.na),
-    is_observed_WO2 = !if_any(matches("WO2"), is.na),
-    count_total = count_age1 + count_age2
+    is_observed_WO2 = !if_any(matches("WO2"), is.na), 
+    count_total = count_age1 + count_age2,
+    lake = factor(lake, levels = lake_names)
   ) |> 
   arrange(lake, year)
 
@@ -400,7 +287,7 @@ make_stan_data <- function(
     # User-defined second year mortality and theta priors 
     # (with sensible default values)
     mu_M_prior = logit(0.5),
-    sigma_M_prior = 0.5,
+    sigma_M_prior = 0.7,
     mu_theta_prior = logit(0.85),
     sigma_theta_prior = 1,
     sigma_theta_sd_prior = 1,
@@ -430,7 +317,13 @@ make_stan_data <- function(
   a_total <- lake_data$count_fry1 + lake_data$count_fry2
   
   # Vector of observed total lake abundance
-  N_obs <- round(lake_data$ats_est, 0)
+  N_obs <- lake_data$ats_est
+  
+  # Age 1 and age 2 smolt weight priors
+  w1_theta_prior <- mean(lake_data$WO1_ln_mean, na.rm = TRUE)
+  w1_sigma_prior <- sd(lake_data$WO1_ln_mean, na.rm = TRUE)
+  w2_theta_prior <- mean(lake_data$WO2_ln_mean, na.rm = TRUE)
+  w2_sigma_prior <- sd(lake_data$WO2_ln_mean, na.rm = TRUE)
   
   # Smolting rate prior
   theta_prior <- lake_data |> 
@@ -467,7 +360,12 @@ make_stan_data <- function(
   
   # Initial age2 fry population prior
   N2_init_prior <- lake_data |> 
-    filter(year == min(year)) |> 
+    filter(year <= min(year) + 4) |>
+    # Use average proportion from earliest five years
+    summarize(
+      prop_age2 = median(prop_age2),
+      across(c(ats_est, ats_se), \(x) x[which.min(year)])
+    ) |> 
     mutate(
       N2_init = prop_age2 * ats_est,
       N2_init_sigma = prop_age2 * ats_se,
@@ -477,16 +375,12 @@ make_stan_data <- function(
       N2_init_log_sigma = sqrt(log(1 + (N2_init_sigma^2 / N2_init^2))),
     )
   
-  # Total lake fry abundance prior
+  # Age 1 fry abundance prior
   N1_prior <- lake_data |> 
     mutate(N1 = (1-prop_age2)*ats_est) |> 
     summarize(
-      mean_N1 = mean(N1, na.rm = TRUE),
-      sd_N1 = sd(N1, na.rm = TRUE)
-    ) |> 
-    mutate(
-      mu_N1 = log(mean_N1^2 / sqrt(sd_N1^2 + mean_N1^2)),
-      sigma_N1 = sqrt(log(1 + (sd_N1^2 / mean_N1^2)))
+      mu_N1_ln = mean(log(N1), na.rm = TRUE),
+      sigma_N1_ln = sd(log(N1), na.rm = TRUE)
     )
   
   # Observation error on lake ATS estimates
@@ -495,23 +389,26 @@ make_stan_data <- function(
       ats_se = mean(ats_se),
       ats_est = mean(ats_est)
     ) |> 
-    mutate(ats_se = ats_se/5) |> # Reduce the SE estimates
+    mutate(ats_se = ats_se) |>
     mutate(obs_error_prior = sqrt(log(1 + (ats_se^2 / ats_est^2)))) |> 
     pull(obs_error_prior)
   
   # Stan data list
   stan_data <- list(
     Y = nrow(lake_data),
+    year = lakes_data$year,
     A1_obs = A1_obs,
     A_total = A_total,
     a1_obs = a1_obs,
     a_total = a_total,
     N_obs = N_obs,
-    WO1_mean = lake_data$WO1_mean,
-    WO1_sd = lake_data$WO1_sd,
+    # Age-specific weight data are already log-transformed in the raw data
+    # (i.e. values are mean and sd of the log-transformed individual weights)
+    WO1_ln_mean = lake_data$WO1_ln_mean,
+    WO1_ln_sd = lake_data$WO1_ln_sd,
     WO1_n = lake_data$WO1_n,
-    WO2_mean = lake_data$WO2_mean,
-    WO2_sd = lake_data$WO2_sd,
+    WO2_ln_mean = lake_data$WO2_ln_mean,
+    WO2_ln_sd = lake_data$WO2_ln_sd,
     WO2_n = lake_data$WO2_n,
     is_observed_count = as.integer(is_observed_count),
     is_observed_ats = as.integer(is_observed_ats),
@@ -529,12 +426,16 @@ make_stan_data <- function(
     sigma_M_sd_prior = sigma_M_sd_prior,
     mu_N2_init_prior = N2_init_prior$N2_init_log_mean,
     sigma_N2_init_prior = N2_init_prior$N2_init_log_sigma,
+    #w1_theta_prior = w1_theta_prior,
+    #w1_sigma_prior = w1_sigma_prior,
+    #w2_theta_prior = w2_theta_prior,
+    #w2_sigma_prior = w2_sigma_prior,
     #mu_pN1_prior = pN1_prior$mu_pN1,
     #mu_pN1_prior = logit(0.8),
     #sigma_pN1_prior = 2,
     #sigma_pN1_prior = pN1_prior$sigma_pN1 # might try wider prior?
-    mu_N1_prior = N1_prior$mu_N1,
-    sigma_N1_prior = N1_prior$sigma_N1
+    mu_N1_prior = N1_prior$mu_N1_ln,
+    sigma_N1_prior = N1_prior$sigma_N1_ln
   )
   
   return(stan_data)
@@ -546,10 +447,10 @@ lakes_stan_data <- unique(lakes_data$lake) |>
   set_names() |> 
   map2(
     # Second winter mortality rate priors for GCL, HUC, SPR, respectively
-    .y = logit(c(0.25, 0.65, 0.5)),
+    .y = logit(c(0.3, 0.6, 0.6)),
     \(x, y) make_stan_data(
       lake_name = x, 
-      mu_M_prior = y # Try with all default values first
+      #mu_M_prior = y # Try with all default values first
     )
   )
 
@@ -627,7 +528,7 @@ some_priors |>
 
 
 # Compile and fit the Stan model
-fit_stan_model <- function(stan_data, index) {
+fit_stan_model <- function(stan_data, index, iter = 4000) {
   stan(
     file = here(
       "2. code",
@@ -637,7 +538,7 @@ fit_stan_model <- function(stan_data, index) {
     ),
     model_name = index,
     data = stan_data,
-    iter = 4000,
+    iter = iter,
     chains = 4,
     control = list(
       adapt_delta = 0.99
@@ -649,22 +550,22 @@ fit_stan_model <- function(stan_data, index) {
 
 # Try fitting the model with just one lake first
 # fit_stan_model(lakes_stan_data$`Great Central`, "Great Central")
-# working, as of 6 March
+
 
 # Fit models for each lake (toggle to TRUE to run)
 if(
-  FALSE
-  #TRUE
+  #FALSE
+  TRUE
 ) {
   lakes_stan_fits <- lakes_stan_data |> 
-    imap(fit_stan_model)
+    imap(fit_stan_model, 6000) # Adjust such that iter is lake-specific?
 }
 
 
 # Save fitted models as RDS objects (toggle to TRUE to run)
 if(
-  #TRUE
-  FALSE
+  TRUE
+  #FALSE
 ) {
   lakes_stan_fits |> 
     iwalk(
@@ -673,7 +574,7 @@ if(
           file = here(
             "3. outputs",
             "Stock-recruit data",
-            paste("Bayesian state-space", idx, "smolts.rds")
+            paste("Bayesian state-space", idx, "smolts_revised.rds")
           )
         )
     )
@@ -692,7 +593,7 @@ lakes_stan_fits <- if(exists("lakes_stan_fits")) {
           "3. outputs",
           "Stock-recruit data"
         ),
-        pattern = paste("Bayesian state-space", x, "smolts.rds"),
+        pattern = paste("Bayesian state-space", x, "smolts_revised.rds"),
         full.names = TRUE
       )
     ) |> 
@@ -733,7 +634,7 @@ lakes_stan_fits |>
 
 # Pair plots
 lakes_stan_fits |> 
-  map(\(x) pairs(x, pars = c("mu_theta", "mu_M")))
+  map(\(x) bayesplot::mcmc_pairs(x, pars = c("obs_error", "lp__")))
 
 
 # Plot predicted versus observed values -----------------------------------
@@ -768,7 +669,7 @@ post_annual <- lakes_stan_fits |>
   list_rbind(names_to = "lake") |> 
   pivot_longer(
     cols = !c(lake, parameter, draw),
-    names_to = "year",
+    names_to = "Y",
     values_to = "value",
     names_transform = \(x) str_extract(x, "\\d+")
   ) |> 
@@ -933,11 +834,11 @@ obs_params <- lakes_data |>
       lake == "Hucuktlis" ~ lakes_stan_data[["Hucuktlis"]]$mu_M_prior
     ) |> 
       binomial(link = "logit")$linkinv(),
-    w1 = WO1_mean,
-    w2 = WO2_mean,
+    w1_ln = WO1_ln_mean,
+    w2_ln = WO2_ln_mean,
     N_lake = ats_est,
-    BO1 = O1*WO1_mean,
-    BO2 = O2*WO2_mean,
+    BO1 = O1*exp(WO1_ln_mean),
+    BO2 = O2*exp(WO2_ln_mean),
     BYB = BO1 + lead(BO2),
     BYO = O1 + lead(O2),
     SYB = BO1+BO2,
@@ -1185,7 +1086,7 @@ post_annual |>
   mutate(
     SYN = N1 + N2,
     SYO = O1 + O2,
-    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis")),
+    lake = factor(lake, levels = lake_names),
     .keep = "unused"
   ) |> 
   pivot_longer(c(SYN, SYO)) |> 
@@ -1252,7 +1153,7 @@ post_annual |>
   mutate(
     pN1 = N1/(N1 + N2),
     pN2 = 1 - pN1,
-    lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis")),
+    lake = factor(lake, levels = lake_names),
     .keep = "unused"
   ) |> 
   pivot_longer(c(pN1, pN2)) |> 
@@ -1277,7 +1178,7 @@ enh_lu <- here(
     lake = factor(
       stock,
       levels = c("GCL", "SPR", "HUC"),
-      labels = c("Great Central", "Sproat", "Hucuktlis")
+      labels = lake_names
     )
   ) |> 
   select(year, lake, enhanced)
@@ -1293,7 +1194,7 @@ enh_lu <- here(
     ) |> 
     mutate(
       w = SYB/SYO,
-      lake = factor(lake, levels = c("Great Central", "Sproat", "Hucuktlis")),
+      lake = factor(lake, levels = lake_names),
       SYO = SYO/1e6
     ) |> 
     summarize(
@@ -1309,6 +1210,8 @@ enh_lu <- here(
       ) 
     ) |> 
     left_join(enh_lu) |> 
+    left_join(select(lakes_data, lake, year, is_observed_WO1)) |> 
+    filter(is_observed_WO1) |> 
     ggplot(aes(x = median_SYO, y = median_w)) +
     facet_wrap(~lake, scales = "free_x") +
     geom_linerange(
