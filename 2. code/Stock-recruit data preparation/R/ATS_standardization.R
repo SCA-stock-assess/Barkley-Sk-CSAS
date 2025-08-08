@@ -548,6 +548,8 @@ ggsave(
 
 # Fit one model per lake
 gam_frame <- ats_est |> 
+  # Convert pre-smolt numbers to millions in observed data
+  mutate(across(contains("presmolt_"), \(x) x/1e6)) |> 
   nest(.by = lake, .key = "obs") |> 
   rowwise() |> 
   mutate(
@@ -559,7 +561,8 @@ gam_frame <- ats_est |>
       gam(
         presmolt_est ~ 
           s(day_smolt_yr, k = 5) + 
-          s(day_smolt_yr, smolt_year_f, bs = "fs", k = 5), 
+          #s(day_smolt_yr, smolt_year_f, bs = "fs", k = 5), 
+          smolt_year_f, # Try without fitting annual splines
         family = nb(link="log"), 
         data = obs, 
         method = "REML"
@@ -571,7 +574,8 @@ gam_frame <- ats_est |>
         obs,
         expand.grid(
           smolt_year_f = levels(smolt_year_f),
-          day_smolt_yr = seq(min(day_smolt_yr), 365, length.out = 300)
+          day_smolt_yr = seq.int(1, 365)
+          #day_smolt_yr = seq(min(day_smolt_yr), 365, length.out = 300)
         )
       )
     ),
@@ -582,12 +586,10 @@ gam_frame <- ats_est |>
         mutate(
           lci = fit - se.fit*1.96,
           uci = fit + se.fit*1.96,
-          # Back-transform and shrink unit to millions
-          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x)/1e6)
+          # Back-transform
+          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
         )
     ),
-    # Convert pre-smolt numbers to millions in observed data
-    obs = list(mutate(obs, across(contains("presmolt_"), \(x) x/1e6))),
     # Make plot of predicted versus observed
     pred_plot = list(
       ggplot(
@@ -663,9 +665,184 @@ gam_frame <- ats_est |>
 gam_frame |> 
   pull(pred_plot, name = lake)
 
+# Plot predictions for all years in one panel
+gam_frame |> 
+  select(lake, obs, pred) |> 
+  pmap(
+    \(lake, obs, pred) ggplot(
+      data = obs,
+      aes(
+        day_smolt_yr, 
+        presmolt_est
+      )
+    ) +
+      geom_line(
+        data = pred,
+        aes(
+          y = fit,
+          group = as.numeric(as.character(smolt_year_f))
+        ),
+        colour = "grey80"
+      ) +
+      geom_point() +
+      ggtitle(lake)
+  )
+
+
+# What about modelling all 3 lakes together?
+gam_combined <- ats_est |> 
+  # Convert pre-smolt numbers to millions in observed data
+  mutate(across(contains("presmolt_"), \(x) x/1e6)) |> 
+  nest(.key = "obs") |> 
+  rowwise() |> 
+  mutate(
+    model = list(
+      gam(
+        presmolt_est ~ 
+          s(day_smolt_yr, lake, bs = "fs", k = 5) + 
+          lake:smolt_year_f, 
+        family = nb(link="log"), 
+        data = obs, 
+        method = "REML"
+      )
+    ),
+    # Save dataframe of values to predict over
+    newdata = list(
+      with(
+        obs,
+        expand.grid(
+          lake = levels(lake),
+          smolt_year_f = levels(smolt_year_f),
+          day_smolt_yr = seq.int(1, 365)
+        )
+      )
+    ),
+    # create dataframe of predictions
+    pred = list(
+      predict(model, newdata, type = "link", se.fit = TRUE) |> 
+        cbind(newdata) |> 
+        mutate(
+          lci = fit - se.fit*1.96,
+          uci = fit + se.fit*1.96,
+          # Back-transform
+          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
+        )
+    )
+  )
+
+
+# Plot predictions from the combined GAM across all years
+pmap(
+  gam_combined,
+  \(obs, pred, ...) ggplot(
+    data = obs,
+    aes(day_smolt_yr, presmolt_est)
+  ) +
+    facet_wrap(
+      ~lake,
+      ncol = 1,
+      strip.position = "right",
+      scales = "free_y"
+    ) +
+    geom_line(
+      data = pred,
+      aes(y = fit, group = smolt_year_f),
+      colour = "grey70"
+    ) +
+    geom_point() 
+)
+# Looks a bit better; there seems enough signal in the data for a 
+# peak in fry abundances around smolt year day 150 (~17 August).
+
+
+# Split data for each lake from combined GAM approach into its own row
+gam_combined_split <- gam_combined |> 
+  select(obs, pred) |> 
+  as.list() |> 
+  map(list_rbind) |> 
+  imap(\(x, idx) nest(x, .by = lake, .key = idx)) %>% 
+  {left_join(.[[1]], .[[2]])} |> 
+  rowwise() |> 
+  mutate(
+    model = gam_combined$model,
+    # Make plot of predicted versus observed
+    pred_plot = list(
+      ggplot(
+        data = obs,
+        aes(day_smolt_yr, presmolt_est)
+      ) +
+        facet_wrap(
+          ~smolt_year_f, 
+          scales = "free_y",
+          ncol = 5
+        ) +
+        geom_vline(
+          xintercept = 365-20, # March 1st (day 365 = 20 March)
+          lty = 2
+        ) + 
+        geom_text(
+          aes(label = smolt_year_f),
+          x = Inf,
+          y = Inf,
+          hjust = 1.5,
+          vjust = 1.5,
+          check_overlap = T,
+          colour = "grey50",
+          size = 4
+        ) +
+        geom_pointrange(
+          aes(
+            ymin = presmolt_lwr,
+            ymax = presmolt_upr
+          )
+        ) +
+        geom_ribbon(
+          data = pred,
+          aes(
+            y = fit,
+            ymin = lci,
+            ymax = uci
+          ),
+          alpha = 0.3,
+          colour = NA
+        ) +
+        geom_line(
+          data = pred,
+          aes(y = fit)
+        ) +
+        scale_y_continuous(
+          limits = c(0, NA),
+          expand = expansion(mult = c(0, 0.05)),
+          labels = scales::label_number(accuracy = 1),
+          breaks = scales::pretty_breaks(n = 3)
+        ) +
+        scale_x_continuous(
+          expand = c(0, 0),
+          labels = scales::label_number(accuracy = 1),
+          breaks = scales::pretty_breaks(n = 3)
+        ) +
+        labs(
+          title = paste(lake, "GAM predictions and ATS estimates by date"),
+          x = "Days since 20 March",
+          y = "Sockeye fry abundance (millions)"
+        ) +
+        theme(
+          strip.text = element_blank(),
+          strip.background = element_blank(),
+          panel.grid.minor = element_blank()
+        )
+    )
+  ) |> 
+  ungroup()
+
+
+# View annual predictions per lake
+gam_combined_split |> 
+  pull(pred_plot, name = lake)
+
 
 # Save the plots
-gam_frame |> 
+gam_combined_split |> 
   pull(pred_plot, name = lake) |> 
   iwalk(
     \(x, idx) ggsave(
@@ -684,12 +861,13 @@ gam_frame |>
 
 
 # Annual predictions per lake and stock on 1 March
-ann_gam_pred <- gam_frame |> 
+ann_gam_pred <- gam_combined_split |> 
   rowwise() |> 
   mutate(
     ann_val = list(
       expand.grid(
-        smolt_year_f = levels(pred$smolt_year_f),
+        lake = lake,
+        smolt_year_f = levels(obs$smolt_year_f),
         day_smolt_yr = 345 # = March 1st
       )
     ),
@@ -702,20 +880,23 @@ ann_gam_pred <- gam_frame |>
           cv = se/fit_response,
           lci = fit - se.fit*1.28,
           uci = fit + se.fit*1.28,
-          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
+          # Back-transform and convert to millions
+          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x)*1e6)
         )
     )
   ) |> 
-  select(lake, ann_pred) |> 
+  select(ann_pred) |> 
   unnest(ann_pred) |> 
   mutate(smolt_year = as.numeric(as.character(smolt_year_f))) |> 
-  select(lake, smolt_year, day_smolt_yr, est = fit, lwr = lci, upr = uci, cv, se)
+  select(lake, smolt_year, day_smolt_yr, est = fit, lwr = lci, upr = uci, cv)
 
 
 # Export predicted pre-smolt abundance estimates
 ann_gam_pred |> 
   mutate(estimate_date = as.Date(paste0(smolt_year, "-03-01"))) |> 
   select(-day_smolt_yr) |> 
+  # Ensure CI widths are explicit in the output file
+  rename_with(\(x) paste0(x, "_80"), .cols = c(lwr, upr)) |> 
   write.csv(
     file = here(
       "3. outputs",
