@@ -541,7 +541,7 @@ fit_stan_model <- function(stan_data, index, iter = 4000) {
     iter = iter,
     chains = 4,
     control = list(
-      adapt_delta = 0.99
+      adapt_delta = 0.995
       ,max_treedepth = 15
     )
   )
@@ -554,8 +554,8 @@ fit_stan_model <- function(stan_data, index, iter = 4000) {
 
 # Fit models for each lake (toggle to TRUE to run)
 if(
-  #FALSE
-  TRUE
+  FALSE
+  #TRUE
 ) {
   lakes_stan_fits <- lakes_stan_data |> 
     imap(fit_stan_model, 6000) # Adjust such that iter is lake-specific?
@@ -564,8 +564,8 @@ if(
 
 # Save fitted models as RDS objects (toggle to TRUE to run)
 if(
-  TRUE
-  #FALSE
+  #TRUE
+  FALSE
 ) {
   lakes_stan_fits |> 
     iwalk(
@@ -669,7 +669,7 @@ post_annual <- lakes_stan_fits |>
   list_rbind(names_to = "lake") |> 
   pivot_longer(
     cols = !c(lake, parameter, draw),
-    names_to = "Y",
+    names_to = "year",
     values_to = "value",
     names_transform = \(x) str_extract(x, "\\d+")
   ) |> 
