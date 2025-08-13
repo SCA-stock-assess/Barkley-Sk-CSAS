@@ -86,17 +86,17 @@ transformed parameters{
   }
 
   // Calculate returns, spawners and catch by return year
-for (t in 1:nyrs) {
-  N[t] = sum(N_ta[t, 1:A]);
-  real N_age3 = N_ta[t, 1];  // age-3 is the first column (a=1)
-  real N_adults = N[t] - N_age3;
-
-  S[t] = N_adults * (1 - U[t]);        // spawners exclude age-3s
-  lnS[t] = log(S[t]);
-
-  C[t] = N[t] * U[t];                  // catch includes all age classes
-  lnC[t] = log(C[t]);
-}
+  for (t in 1:nyrs) {
+    N[t] = sum(N_ta[t, 1:A]);
+    real N_age3 = N_ta[t, 1];  // age-3 is the first column (a=1)
+    real N_adults = N[t] - N_age3;
+  
+    S[t] = N_adults * (1 - U[t]);        // spawners exclude age-3s
+    lnS[t] = log(S[t]);
+  
+    C[t] = N[t] * U[t];                  // catch includes all age classes
+    lnC[t] = log(C[t]);
+  }
 
   // Calculate age proportions by return year
   for (t in 1:nyrs) {
