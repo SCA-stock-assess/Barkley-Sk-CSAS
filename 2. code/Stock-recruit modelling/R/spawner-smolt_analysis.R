@@ -2,7 +2,7 @@
 
 
 pkgs <- c(
-  "here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes"
+  "here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes", "bayesplot"
   )
 #install.packages(pkgs)
 
@@ -14,7 +14,7 @@ library(broom)
 library(gsl)
 library(rstan)
 library(tidybayes)
-library(cowplot)
+library(bayesplot)
 
 
 # Sgen calculation for B-H model from Carrie Holt
@@ -831,16 +831,16 @@ make_stan_data_somass <- function(cu_name, R_param) {
   sigma_R_obs <- cu_data$sigma_R
   
   # Alpha prior: plausible maximum number of recruits per spawner
-  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)*2
+  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)
   
   # Beta prior: plausible maximum number of recruits
-  beta_prior <- max(cu_data$R_50)
+  Rmax_prior <- max(cu_data$R_50)
   
   # Alpha variability prior (on log scale)
-  sigma_alpha_prior <- 0.2
+  #sigma_alpha_prior <- 0.5
   
   # Beta variability prior (on log scale)
-  sigma_beta_prior <- 0.4
+  #sigma_Rmax_prior <- 0.5
   
   stan_data <- list(
     Y = Y,
@@ -848,10 +848,10 @@ make_stan_data_somass <- function(cu_name, R_param) {
     R_obs = R_obs,
     sigma_S_obs = sigma_S_obs,
     sigma_R_obs = sigma_R_obs,
+    #sigma_alpha_prior = sigma_alpha_prior,
+    #sigma_beta_prior = sigma_beta_prior,
     alpha_prior = alpha_prior,
-    beta_prior = beta_prior,
-    sigma_alpha_prior = sigma_alpha_prior,
-    sigma_beta_prior = sigma_beta_prior
+    Rmax_prior = Rmax_prior
   )
   
   return(stan_data)
@@ -880,12 +880,12 @@ fit_stan_somass <- function(stan_data, cu) {
     ), 
     model_name = cu,
     data = stan_data, 
-    iter = 3000, 
-    chains = 3, 
-    warmup = 1000,
+    #warmup = 1000,
+    iter = 6000, 
+    chains = 4, 
     control = list(
-      max_treedepth = 14,
-      adapt_delta = 0.9
+      max_treedepth = 15,
+      adapt_delta = 0.997
     )
   )
 }
@@ -977,7 +977,14 @@ somass_stan_fits |>
   map(\(x) pairs(x, pars = c("alpha", "beta")))
 
 
-# Explore the posterior
+
+# Explore Somass models' posteriors ---------------------------------------
+
+
+# Posterior density distributions
+somass_stan_fits |> 
+  map(\(x) mcmc_areas(x, pars = c("k_R", "tau_R", "sigma_R_proc", "sigma_S")))
+
 
 # Dataframe with first year in time series for each lake
 # used to properly code years in the Stan outputs
@@ -1026,6 +1033,15 @@ posterior_df <- bind_rows(
   select(-min_yr)
 
 
+# Plot time series of AR1 process variation SD
+posterior_df |> 
+  filter(parameter == "v") |> 
+  summarize(.by = c(cu, Rmeas, year), v_sd = sd(value)) |> 
+  ggplot(aes(year, v_sd)) +
+  facet_grid(Rmeas ~ cu) +
+  geom_point()
+
+
 # Observed values for spawners and recruits
 obs_sr <- somass_sr |> 
   mutate(
@@ -1047,7 +1063,7 @@ obs_sr <- somass_sr |>
   mutate(set = "obs")
 
 
-# Plot posterior estimates for spawners and recruits
+# Plot posterior estimates versus observations for spawners and recruits
 posterior_df |> 
   filter(parameter %in% c("S_true", "R_true")) |> 
   pivot_wider(
@@ -1090,6 +1106,7 @@ posterior_df |>
           ymin = `10`,
           ymax = `90`
         ),
+        position = position_dodge(width = 0.5),
         alpha = 0.5
       ) +
       theme(
@@ -1098,9 +1115,9 @@ posterior_df |>
         strip.placement = "outside"
       )
   )
-# Still some shrinkage occurring in the posterior recruitment estimates
+# Still some shrinkage occurring in the posterior recruitment estimates?
 
-# Plot predicted Beverton-Holt curve versus observed data
+# Plot predicted Beverton-Holt curve versus latent states data
 
 # Extract posterior samples of alpha and beta
 somass_a_b_draws <- posterior_df |> 
@@ -1192,19 +1209,10 @@ latent_sr <- posterior_df |>
     geom_line() +
     geom_ribbon(
       aes(
-        ymin = R_pred_2.5,
-        ymax = R_pred_97.5
-      ),
-      alpha = 0.25
-    ) +
-    geom_ribbon(
-      aes(
         ymin = R_pred_10,
         ymax = R_pred_90
       ),
-      fill = NA,
-      colour = "black",
-      lty = 2
+      alpha = 0.25
     ) +
     geom_linerange(
       data = latent_sr,
@@ -1277,7 +1285,7 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
   cu_data <- hucuktlis_sr |> 
     filter(parameter == R_param) |> 
     mutate(
-      S_sd = adult_S * S_cv, # Add additional uncertainty to observed spawners?
+      S_sd = adult_S * S_cv, 
       mu_S = log(adult_S^2 / sqrt(S_sd^2 + adult_S^2)),
       sigma_S = sqrt(log(1 + (S_sd^2 / adult_S^2)))
     )
@@ -1301,16 +1309,18 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
   sigma_R_obs <- cu_data$sigma_R
   
   # Alpha prior: plausible maximum number of recruits per spawner
-  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)*2
+  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)
   
-  # Beta prior: plausible maximum number of recruits
-  beta_prior <- max(cu_data$R_50)
+  # Beta priors: plausible maximum number of recruits
+  Rmax_enh_prior <- max(filter(cu_data, enhanced == 1)$R_50)
+  Rmax_noenh_prior <- max(filter(cu_data, enhanced == 0)$R_50)
+  
   
   # Alpha variability prior (on log scale)
-  sigma_alpha_prior <- 0.2
+  #sigma_alpha_prior <- 0.2
   
   # Beta variability prior (on log scale)
-  sigma_beta_prior <- 0.4
+  #sigma_beta_prior <- 0.4
   
   stan_data <- list(
     Y = Y,
@@ -1319,10 +1329,11 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
     R_obs = R_obs,
     sigma_S_obs = sigma_S_obs,
     sigma_R_obs = sigma_R_obs,
+    #sigma_alpha_prior = sigma_alpha_prior,
+    #sigma_beta_prior = sigma_beta_prior,
     alpha_prior = alpha_prior,
-    beta_prior = beta_prior,
-    sigma_alpha_prior = sigma_alpha_prior,
-    sigma_beta_prior = sigma_beta_prior
+    Rmax_enh_prior = Rmax_enh_prior,
+    Rmax_noenh_prior = Rmax_noenh_prior
   )
   
   return(stan_data)
@@ -1340,7 +1351,6 @@ hucuktlis_stan_data <- expand_grid(
   pmap(make_stan_data_hucuktlis)
 
 
-
 # Function to fit Stan model 
 fit_stan_hucuktlis <- function(stan_data, cu = "hucuktlis") {
   stan(
@@ -1352,11 +1362,11 @@ fit_stan_hucuktlis <- function(stan_data, cu = "hucuktlis") {
     ), 
     model_name = cu,
     data = stan_data, 
-    iter = 4000, 
-    chains = 3, 
+    iter = 6000, 
+    chains = 4, 
     control = list(
-      max_treedepth = 14,
-      adapt_delta = 0.9
+      max_treedepth = 15,
+      adapt_delta = 0.997
     )
   )
 }
@@ -1364,8 +1374,8 @@ fit_stan_hucuktlis <- function(stan_data, cu = "hucuktlis") {
 
 # Fit the models for Hucuktlis
 if(
-  FALSE
-  #TRUE
+  #FALSE
+  TRUE
 ) {
   hucuktlis_stan_fits <- hucuktlis_stan_data |> 
     imap(fit_stan_hucuktlis)
@@ -1374,8 +1384,8 @@ if(
 
 # Save fitted models as RDS objects (toggle to TRUE to run)
 if(
-  #TRUE
-  FALSE
+  TRUE
+  #FALSE
 ) {
   hucuktlis_stan_fits |> 
     iwalk(
@@ -1447,8 +1457,17 @@ hucuktlis_stan_fits |>
 hucuktlis_stan_fits |> 
   map(\(x) pairs(x, pars = c("alpha_noenh", "beta_noenh")))
 
+# Pair plots
+hucuktlis_stan_fits |> 
+  map(\(x) pairs(x, pars = c("alpha_enh", "beta_enh")))
 
-# Explore the posterior
+
+# Explore Hucuktlis models' posteriors ------------------------------------
+
+# Posterior density distributions
+hucuktlis_stan_fits |> 
+  map(\(x) mcmc_areas(x, pars = c("k_R", "tau_R", "sigma_R_proc", "sigma_S")))
+
 
 # Dataframe with first year in time series for each lake
 # used to properly code years in the Stan outputs
@@ -1671,7 +1690,7 @@ latent_sr_huc <- posterior_df_huc |>
   ) |> 
   ggplot(
     aes(
-      x = S, 
+      x = S+1e-6, 
       y = R_pred_50,
       colour = enhanced,
       fill = enhanced
@@ -1691,19 +1710,11 @@ latent_sr_huc <- posterior_df_huc |>
   geom_line() +
   geom_ribbon(
     aes(
-      ymin = R_pred_2.5,
-      ymax = R_pred_97.5
-    ),
-    colour = NA,
-    alpha = 0.25
-  ) +
-  geom_ribbon(
-    aes(
       ymin = R_pred_10,
       ymax = R_pred_90
     ),
-    fill = NA,
-    lty = 2
+    colour = NA,
+    alpha = 0.25
   ) +
   geom_linerange(
     data = latent_sr_huc,
@@ -1720,7 +1731,7 @@ latent_sr_huc <- posterior_df_huc |>
     aes(
       y = R_true_50,
       x = S_true_50,
-      xmin = S_true_10,
+      xmin = S_true_10+1e-6,
       xmax = S_true_90,
       fill = enhanced
     ),
@@ -1734,7 +1745,8 @@ latent_sr_huc <- posterior_df_huc |>
   ) +
   scale_x_continuous(
     name = "Adult spawners (1000s)",
-    limits = c(0, NA),
+    limits = c(1, NA),
+    trans = "log10",
     expand = expansion(mult = c(0, 0.05)),
     labels = scales::label_number()
   ) +
