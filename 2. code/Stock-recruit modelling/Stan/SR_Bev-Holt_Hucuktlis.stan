@@ -4,7 +4,8 @@ data {
   vector[Y] R_obs;                  // (log) observed recruits
   vector[Y] sigma_S_obs;            // (log) annual uncertainty for spawners
   vector[Y] sigma_R_obs;            // (log) annual uncertainty for recruits
-  real<lower=0> alpha_prior;        // plausible maximum recruits per spawner
+  real<lower=0> alpha_enh_prior;    // plausible maximum recruits per spawner at origin (enhanced)
+  real<lower=0> alpha_noenh_prior;  // plausible maximum recruits per spawner at origin (not enhanced)
   real<lower=0> Rmax_noenh_prior;   // plausible maximum recruitment (not enhanced)
   real<lower=0> Rmax_enh_prior;     // plausible maximum recruitment (enhanced)
   int<lower=0,upper=1> enhanced[Y]; // Binary indicator for enhancement (0 = no, 1 = yes)
@@ -64,8 +65,8 @@ transformed parameters {
 
 model {
   // Priors
-  alpha_enh ~ lognormal(log(alpha_prior), 0.5);
-  alpha_noenh ~ lognormal(log(alpha_prior), 0.5);
+  alpha_enh ~ lognormal(log(alpha_enh_prior), 0.5);
+  alpha_noenh ~ lognormal(log(alpha_noenh_prior), 0.5);
   Rmax_enh ~ lognormal(log(Rmax_enh_prior), 0.5);
   Rmax_noenh ~ lognormal(log(Rmax_noenh_prior), 0.5);
   phi ~ normal(0, 0.5);
