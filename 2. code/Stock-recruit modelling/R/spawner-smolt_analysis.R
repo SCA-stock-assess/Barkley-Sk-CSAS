@@ -2,32 +2,21 @@
 
 
 pkgs <- c(
-  "here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes", "bayesplot"
-  )
+  "here", "readxl", "tidyverse", "broom", "gsl", "rstan", "tidybayes", 
+  "bayesplot", "cowplot"
+)
 #install.packages(pkgs)
 
 
 library(here)
 library(tidyverse); theme_set(theme_bw())
+library(cowplot)
 library(readxl)
 library(broom)
 library(gsl)
 library(rstan)
 library(tidybayes)
 library(bayesplot)
-
-
-# Sgen calculation for B-H model from Carrie Holt
-sGenSolverBH <- function (a, b) {
-  # Function to estimate Sgen from a and b BH parameters
-  # Assuming BH form: R = aS/(1 + (a/b) *S)
-  # Assuming approximation for SMSY: b*sqrt(1/a) - b/a
-  sMSY <- b*sqrt(1/a) - b/a
-  fn <- function(S){ -sum( dnorm ( log(sMSY) - log( a*S/ (1+ (a/b) * S) ), 
-                                   0, 1, log = T)) }
-  fit <- optimize(f = fn, interval = c(0, sMSY))
-  return(fit$minimum)
-}
 
 
 # Load pre-smolt abundance and adult spawner data --------------
@@ -114,8 +103,6 @@ spwn_fry <- left_join(
   ) |> 
   arrange(cu, parameter, year)
   
-
-
 
 # Plot relationships between spawners and pre-smolts ---------------------
 
@@ -831,7 +818,14 @@ make_stan_data_somass <- function(cu_name, R_param) {
   sigma_R_obs <- cu_data$sigma_R
   
   # Alpha prior: plausible maximum number of recruits per spawner
-  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)
+  alpha_prior <- cu_data |> 
+    slice_min(
+      order_by = adult_S,
+      prop = 0.15
+    ) |> 
+    mutate(rs = R_50/adult_S) |> 
+    summarize(alpha_prior = max(rs)) |> 
+    pull(alpha_prior)
   
   # Beta prior: plausible maximum number of recruits
   Rmax_prior <- max(cu_data$R_50)
@@ -1308,12 +1302,33 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
   # Annual standard deviation of recruitment, in log space
   sigma_R_obs <- cu_data$sigma_R
   
-  # Alpha prior: plausible maximum number of recruits per spawner
-  alpha_prior <- max(cu_data$R_97.5/cu_data$adult_S)
+  # Alpha prior: plausible maximum number of recruits per spawner at 
+  # low spawner abundances
+  alpha_prior <- cu_data |> 
+    slice_min(
+      order_by = adult_S,
+      prop = 0.15 # Keep the lowest 15% of spawner abundances
+    ) |> 
+    mutate(rs = R_50/adult_S) |> 
+    summarize(
+      .by = enhanced,
+      alpha_prior = max(rs)
+    )
+  
+  alpha_enh_prior <- alpha_prior[alpha_prior$enhanced == 1,]$alpha_prior
+  alpha_noenh_prior <- alpha_prior[alpha_prior$enhanced == 0,]$alpha_prior
+  
   
   # Beta priors: plausible maximum number of recruits
-  Rmax_enh_prior <- max(filter(cu_data, enhanced == 1)$R_50)
-  Rmax_noenh_prior <- max(filter(cu_data, enhanced == 0)$R_50)
+  Rmax <- cu_data |> 
+    filter(R_50 < max(R_50)) |> # Exclude the highest year (mitigate beta bias) 
+    summarize(
+      .by = enhanced,
+      Rmax = max(R_50)
+    )
+  
+  Rmax_enh_prior <- Rmax[Rmax$enhanced == 1,]$Rmax
+  Rmax_noenh_prior <- Rmax[Rmax$enhanced == 0,]$Rmax
   
   
   # Alpha variability prior (on log scale)
@@ -1331,7 +1346,8 @@ make_stan_data_hucuktlis <- function(R_param, ...) {
     sigma_R_obs = sigma_R_obs,
     #sigma_alpha_prior = sigma_alpha_prior,
     #sigma_beta_prior = sigma_beta_prior,
-    alpha_prior = alpha_prior,
+    alpha_enh_prior = alpha_enh_prior,
+    alpha_noenh_prior = alpha_enh_prior,
     Rmax_enh_prior = Rmax_enh_prior,
     Rmax_noenh_prior = Rmax_noenh_prior
   )
@@ -1374,8 +1390,8 @@ fit_stan_hucuktlis <- function(stan_data, cu = "hucuktlis") {
 
 # Fit the models for Hucuktlis
 if(
-  #FALSE
-  TRUE
+  FALSE
+  #TRUE
 ) {
   hucuktlis_stan_fits <- hucuktlis_stan_data |> 
     imap(fit_stan_hucuktlis)
@@ -1384,8 +1400,8 @@ if(
 
 # Save fitted models as RDS objects (toggle to TRUE to run)
 if(
-  TRUE
-  #FALSE
+  #TRUE
+  FALSE
 ) {
   hucuktlis_stan_fits |> 
     iwalk(
@@ -1504,7 +1520,6 @@ post_annual_huc <- hucuktlis_stan_fits |>
   )
 
 
-
 # All posterior values
 posterior_df_huc <- bind_rows(
   post_annual_huc, 
@@ -1590,29 +1605,14 @@ posterior_df_huc |>
         strip.placement = "outside"
       )
   )
-# Still some shrinkage occurring in the posterior recruitment estimates
+
 
 # Plot predicted Beverton-Holt curve versus observed data
-
 # Extract posterior samples of alpha and beta
 hucuktlis_a_b_draws <- posterior_df_huc |> 
   filter(str_detect(parameter, "alpha|beta")) |> 
   pivot_wider(names_from = parameter) |> 
   select(-enhanced)
-
-
-# Export posterior alpha and beta samples for Wendell Challenger
-write.csv(
-  x = bind_rows(somass_a_b_draws, hucuktlis_a_b_draws),
-  file = here(
-    "3. outputs",
-    "Stock-recruit modelling",
-    "Spawner-smolt posterior",
-    "Barkley_Sockeye_spawner-smolt_BevHolt-params_posterior.csv"
-  ),
-  row.names = FALSE
-)
-
 
 
 # Create CU-specific range of spawners to predict across
@@ -1906,7 +1906,36 @@ ggsave(
 )
 
 
-# Summarize estimated alpha and beta from each model ----------------------
+# Miscellaneous summaries and exports ----------------------
+
+
+# Export posterior Beverton-Holt parameter samples for Wendell Challenger
+if(
+  #FALSE
+  TRUE
+) {
+  list(posterior_df, posterior_df_huc) |> 
+    map(
+      \(x) filter(
+        .data = x,
+        case_when(
+          parameter %in% c("v", "z_v", "phi", "k_R", "tau_R", "sigma_R_proc") ~ TRUE,
+          str_detect(parameter, "alpha|beta") ~ TRUE,
+          .default = FALSE
+        )
+      )
+    ) |> 
+    list_rbind() |> 
+    write.csv(
+      file = here(
+        "3. outputs",
+        "Stock-recruit modelling",
+        "Spawner-smolt posterior",
+        "Barkley_Sockeye_spawner-smolt_BevHolt-params_posterior.csv"
+      ),
+      row.names = FALSE
+    )
+}
 
 
 bind_rows(
@@ -1927,3 +1956,39 @@ bind_rows(
     lci = quantile(value, 0.1),
     uci = quantile(value, 0.9)
   )
+
+
+# Export beta prior information for stock-recruit Ricker models
+bind_rows(
+  posterior_df_huc,
+  posterior_df
+) |> 
+  filter(str_detect(parameter, "alpha|beta")) |> 
+  mutate(
+    enhanced = case_when(
+      str_detect(parameter, "_enh") ~ 1,
+      str_detect(parameter, "_noenh") ~ 0,
+      .default = NA
+    )
+  ) |> 
+  pivot_wider(names_from = parameter) |> 
+  mutate(
+    ricker_beta_prior = case_when(
+      is.na(enhanced) ~ alpha/beta,
+      enhanced == 0 ~ alpha_noenh/beta_noenh,
+      enhanced == 1 ~ alpha_enh/beta_enh
+    )
+  ) |> 
+  summarize(
+    .by = c(cu, Rmeas, enhanced),
+    mean_ln_b = mean(log(ricker_beta_prior)),
+    sd_ln_b = sd(log(ricker_beta_prior))
+  ) |> 
+  saveRDS(
+    file = here(
+      "3. outputs",
+      "Stock-recruit modelling",
+      "Ricker_beta_priors_smoltBev-Holt.RDS"
+    )
+  )
+
