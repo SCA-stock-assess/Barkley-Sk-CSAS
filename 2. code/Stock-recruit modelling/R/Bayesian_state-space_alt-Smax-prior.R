@@ -1,11 +1,15 @@
 # Packages ----------------------------------------------------------------
 
-pkgs <- c("here", "tidyverse", "readxl", "rstan", "bayesplot", "geomtextpath")
+pkgs <- c(
+  "here", "tidyverse", "readxl", "rstan", "bayesplot", "geomtextpath",
+  "ggpubr"
+)
 #install.packages(pkgs)
 
 library(here)
 library(tidyverse); theme_set(theme_bw())
 library(geomtextpath)
+library(ggpubr)
 library(rstan)
 library(readxl)
 library(bayesplot)
@@ -91,6 +95,23 @@ presumed_Smax <- list(
 )
 
 
+# beta priors derived from Beverton-Holt spawner-smolt relationships
+beta_priors <- readRDS(
+  here(
+    "3. outputs",
+    "Stock-recruit modelling",
+    "Ricker_beta_priors_smoltBev-Holt.RDS"
+  )
+) |> 
+  mutate(
+    stock = case_when(
+      cu == "Great Central" ~ "GCL",
+      cu == "Sproat" ~ "SPR",
+      cu == "Hucuktlis" ~ "HUC"
+    )
+  )
+
+
 # Plot harvest rate versus spawner numbers
 # (Wor et al 2025 paper states Smax from observed data likely to be biased
 # low when historic exploitation rates were high on high run sizes...)
@@ -157,6 +178,25 @@ make_stan_data <- function(stock_name) {
   # note that additional years are added at the beginning of the time series
   # (i.e. nRyrs does not extend into the future)
   
+  # Beta prior values from smolt Beverton-Holt fits
+  beta_prior <- beta_priors |> 
+    filter(
+      stock == stock_name,
+      Rmeas == "BYO",
+      is.na(enhanced) | enhanced == 0
+    ) |> 
+    select(matches("(mean|sd)_ln_b")) |> 
+    as.list()
+  
+  beta_prior_enh <- beta_priors |> 
+    filter(
+      stock == stock_name,
+      Rmeas == "BYO",
+      enhanced == 1
+    ) |> 
+    select(matches("(mean|sd)_ln_b")) |> 
+    as.list()
+  
   # Declare which years to include in state-space SR model
   use <- fn_data |> 
     # Exclude 1993 for Hucuktlis model
@@ -177,13 +217,11 @@ make_stan_data <- function(stock_name) {
     "H_cv" = H_cv, 
     "use" = use,
     "e" = e,
-    "Smax_p" = presumed_Smax[[stock_name]], # use carrying-capacity estimates from L-IFMP
-    # use wide sigma (i.e. = mean)
-    "Smax_p_sig" = if(stock_name == "HUC") {
-      presumed_Smax[[stock_name]]*2
-    } else {
-      presumed_Smax[[stock_name]]
-    }
+    "mu_beta" = beta_prior$mean_ln_b,
+    "sigma_beta" = beta_prior$sd_ln_b,
+    # Below terms not used in Stan code for GCL or SPR
+    "mu_beta_enh" = beta_prior_enh$mean_ln_b,
+    "sigma_beta_enh" = beta_prior_enh$sd_ln_b
   )
   
   return(stan.data)
@@ -219,7 +257,7 @@ fit_stan_mod <- function(stan_data, stock, model_filename, iterations) {
 #  Stan model on GCL data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(FALSE) {
+if(TRUE) {
   GCL_AR1 <- fit_stan_mod(
     stocks_stan_data$GCL, 
     stock = "GCL",
@@ -242,7 +280,7 @@ if(FALSE) {
 # Try stan model on SPR data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(FALSE) {
+if(TRUE) {
   SPR_AR1 <- fit_stan_mod(
     stan_data = stocks_stan_data$SPR, 
     stock = "SPR",
@@ -699,7 +737,7 @@ HUC_sr_plots_data |>
 
 
 # This time use the Hucuktlis-specific Stan model
-if(FALSE) {
+if(TRUE) {
 
   HUC_round2_mods <- HUC_stan_data |> 
     set_names(\(x) paste0(x, "_enh")) |> # Rename so model names have "_enh" suffix
@@ -1351,8 +1389,9 @@ all_mods_pred_frame <- list_rbind(all_mods_data$pred_frame) |>
       y = "Recruits (1000s)"
     ) +
     theme(
-      strip.background = element_blank(),
-      panel.grid = element_blank()
+      strip.background = element_rect(fill = "white"),
+      panel.grid = element_blank(),
+      axis.title = element_text(face = "bold")
     )
 )
 
@@ -1363,7 +1402,7 @@ ggsave(
   here(
     "3. outputs", 
     "Plots",
-    "All_Barkley_Sk_AR1_fits_alt-Smax.png"
+    "All_Barkley_Sk_AR1_fits_alt-beta.png"
   ),
   height = 7, 
   width = 11,
@@ -1376,16 +1415,14 @@ ggsave(
 
 
 # Make dataframe of prior densities for Smax
-Smax_priors <- stocks_stan_data |> 
+beta_priors <- stocks_stan_data |> 
   map(
     function(x) {
-      Smax_p_sig_corr <- sqrt(log(1+(x[["Smax_p_sig"]]^2)/(x[["Smax_p"]]^2)))
-      Smax_p_corr <- log(x[["Smax_p"]])-0.5*(Smax_p_sig_corr)^2
-      
+
       dist <- rlnorm(
         n = 1e5,
-        meanlog = Smax_p_corr,
-        sdlog = Smax_p_sig_corr
+        meanlog = x$mu_beta,
+        sdlog = x$sigma_beta
       ) |> 
         as_tibble_col()
     }
@@ -1400,7 +1437,7 @@ Smax_priors <- stocks_stan_data |>
   )
 
 
-Smax_posterior <- ab_posterior |> 
+beta_posterior <- ab_posterior |> 
   filter(
     case_when(
       model %in% c("GCL", "SPR") ~ TRUE,
@@ -1418,22 +1455,31 @@ Smax_posterior <- ab_posterior |>
   )
 
 
-(prior_v_posterior_p <- Smax_priors |> 
-    ggplot() +
+(prior_v_posterior_p <- beta_priors |> 
+    slice_max(
+      by = stock,
+      order_by = value,
+      prop = 0.995 # Drop the lowest 0.5% of values
+    ) |> 
+    ggplot(aes(x = 1/value)) +
     facet_wrap(
       ~stock, 
       ncol = 1,
       strip.position = "right",
-      scales = "free_y"
+      scales = "free"
     ) +
     geom_textdensity(
-      aes(x = value),
       colour = "red",
       label = "prior",
       hjust = 0.1
     ) +
     geom_textdensity(
-      data = Smax_posterior,
+      data = slice_max(
+        beta_posterior,
+        by = stock,
+        order_by = beta,
+        prop = 0.995 # Drop the lowest 0.5% of values
+      ),
       aes(x = 1/beta),
       label = "posterior",
       hjust = 0.35
@@ -1443,8 +1489,8 @@ Smax_posterior <- ab_posterior |>
       expand = expansion(mult = c(0, 0.05))
     ) +
     scale_x_continuous(
-      name = expression(S[max]),
-      limits = c(0, 6e5),
+      name = expression(beta^-1),
+      limits = c(0, NA),
       labels = scales::label_number(),
       expand = expansion(mult = c(0, 0.05)),
       oob = scales::oob_keep
@@ -1462,7 +1508,7 @@ ggsave(
   filename = here(
     "3. outputs",
     "Plots",
-    "State-space_prior_vs_posterior_alt-Smax.png"
+    "State-space_prior_vs_posterior_alt-beta.png"
   ),
   width = 7,
   height = 5,
@@ -1498,6 +1544,6 @@ saveRDS(
   file = here(
     "3. outputs",
     "Stock-recruit modelling",
-    "State-space_spawner_recruit_latent_states_ts_alt-Smax.RDS"
+    "State-space_spawner_recruit_latent_states_ts_alt-beta.RDS"
   )
 )

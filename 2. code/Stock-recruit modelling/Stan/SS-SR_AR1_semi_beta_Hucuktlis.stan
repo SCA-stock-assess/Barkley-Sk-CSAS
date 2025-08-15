@@ -1,38 +1,33 @@
 // Stan version of age-structured state-space spawner-recruitment model with AR-1 process variation (adapted from Fleischman et al. CJFAS. 2013)
 
 data{
-  int nyrs;           // number of calender years
-  int a_min;          // minimum age class
-  int a_max;          // maximum age class
-  int A;              // number of age classes
-  int nRyrs;          // number of recruitment years
-  int A_obs[nyrs, A]; // observed age composition in counts by age class
-  vector[nyrs] S_obs; // observed spawners
-  vector[nyrs] H_obs; // observed harvest
-  vector[nyrs] S_cv;  // spawner observation error CV
-  vector[nyrs] H_cv;  // harvest observation error CV
-  int e[nyrs];        // binary variable indicating whether lake was enhanced in a given year
-  real Smax_p;        // prior for Smax
-  real Smax_p_sig;    // prior for Smax
-  vector[nyrs] use;   // binary variable determining whether to use data for state space model
+  int nyrs;             // number of calender years
+  int a_min;            // minimum age class
+  int a_max;            // maximum age class
+  int A;                // number of age classes
+  int nRyrs;            // number of recruitment years
+  int A_obs[nyrs, A];   // observed age composition in counts by age class
+  vector[nyrs] S_obs;   // observed spawners
+  vector[nyrs] H_obs;   // observed harvest
+  vector[nyrs] S_cv;    // spawner observation error CV
+  vector[nyrs] H_cv;    // harvest observation error CV
+  int e[nyrs];          // binary variable indicating whether lake was enhanced in a given year
+  real mu_beta;         // prior for beta mean (not enhanced)
+  real sigma_beta;      // prior for beta SD (not enhanced)
+  real mu_beta_enh;     // prior for beta mean (enhanced)
+  real sigma_beta_enh;  // prior for beta SD (enhanced)
+  vector[nyrs] use;     // binary variable determining whether to use data for state space model
 
 }
 
-transformed data{
-  real Smax_p_corr;
-  real Smax_p_sig_corr;
-
-  Smax_p_sig_corr = sqrt(log(1+(Smax_p_sig^2)/(Smax_p^2))); //this converts sigma on the untransformed scale to a log scale
-  Smax_p_corr = log(Smax_p)-0.5*(Smax_p_sig_corr)^2; //convert smax prior to per capita slope - transform to log scale with bias correction
-}
 
 parameters{
   // [Is it appropriate for the log parameters to have a lower bound of 0?]
   vector<lower=0>[nRyrs] lnR;             // log recruitment states
   real<lower=0> lnalpha_enh;              // lnalpha for enhanced state
-  real<lower=0> lnalpha_unenh;            // lnalpha for unenhanced state
-  real<lower=0> Smax_enh;                 // Smax for enhanced state
-  real<lower=0> Smax_unenh;               // Smax for unenhanced state  
+  real<lower=0> lnalpha_unenh;            // lnalpha for not enhanced state
+  real<lower=0> beta_enh;                 // beta for enhanced state
+  real<lower=0> beta_unenh;               // beta for not enhanced state  
   real<lower=0> sigma_R;                  // process error
   real<lower=0> sigma_R0;                 // process error for first a.max years with no spawner link
   real<lower=-1,upper=1> phi;             // lag-1 correlation in process error
@@ -61,8 +56,6 @@ transformed parameters{
   real<lower=0> D_sum;                  // inverse of D_scale which governs variability of age proportion vectors across cohorts
   vector<lower=0>[A] Dir_alpha;         // Dirichlet shape parameter for gamma distribution used to generate vector of age-at-maturity proportions
   matrix<lower=0, upper=1>[nyrs, A] q;  // age composition by year/age classr matrix
-  real beta_enh;                        // Ricker b for enhanced state
-  real beta_unenh;                      // Ricker b for unenhanced state
 
   // Maturity schedule: use a common maturation schedule to draw the brood year specific schedules
   pi[1] = prob[1];
@@ -80,8 +73,6 @@ transformed parameters{
 
   // simple calculations
   R = exp(lnR);
-  beta_enh = 1/Smax_enh;
-  beta_unenh = 1/Smax_unenh;
   sigma_R_corr = (sigma_R*sigma_R)/2;
 
   // Calculate the numbers at age matrix as brood year recruits at age (proportion that matured that year)
@@ -141,8 +132,8 @@ model{
   // Priors
   lnalpha_enh ~ normal(1, 2);
   lnalpha_unenh ~ normal(1, 2);
-  Smax_enh ~ lognormal(Smax_p_corr, Smax_p_sig_corr); // 1/beta
-  Smax_unenh ~ lognormal(Smax_p_corr, Smax_p_sig_corr); // 1/beta
+  beta_enh ~ lognormal(mu_beta_enh, sigma_beta_enh); 
+  beta_unenh ~ lognormal(mu_beta, sigma_beta); 
   sigma_R ~ normal(0,2);
   lnresid_0 ~ normal(0,10);
   mean_ln_R0 ~ normal(0,10);
