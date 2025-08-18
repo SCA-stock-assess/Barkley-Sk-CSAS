@@ -40,6 +40,8 @@ r_ts <- read.csv(
     smolt_year = brood_year + fw_age,
     run = catch + escapement
   ) |> 
+  # Ensure only complete smolt years are used
+  filter(smolt_year <= (max(return_year) - max(ttl_age-fw_age))) |> 
   summarize(
     .by = c(lake, smolt_year),
     R = sum(run)
@@ -67,10 +69,60 @@ oni <- read.csv(
   )
 
 
+# Ocean temperature time series
+temp <- read.csv(
+  here(
+    "1. data",
+    "combined_temp5_1981_2024_region.csv"
+  ),
+  row.names = 1
+) |> 
+  pivot_longer(
+    !Region,
+    names_to = "y_m",
+    values_to = "temp_5m",
+    names_prefix = "X"
+  ) |> 
+  separate(
+    y_m,
+    into = c("year", "month"),
+    sep = "_",
+    convert = TRUE
+  ) |> 
+  filter(Region == "Somass") |> 
+  select(!Region) |> 
+  mutate(month = month.abb[month])
+
+
+# PDO time series
+pdo <- read.csv(
+  here(
+    "1. data",
+    "pdo.timeseries.sstens.csv"
+  )
+) |> 
+  rename("pdo" = 2) |> 
+  mutate(Date = as.Date(Date)) |> 
+  filter(Date > min(as.Date(paste0(r_ts$smolt_year, "-01-01")))) |> 
+  mutate(
+    year = as.numeric(format(Date, "%Y")),
+    month = format(Date, "%b"),
+    .keep = "unused"
+  )
+
+
+# Merge covariate data sets
+covariates <- full_join(
+  oni,
+  temp
+) |> 
+  left_join(pdo)
+
+
 # Annual marine survival estimates ----------------------------------------
 
 
-# Join recruit estimates with brood year smolt data and calculate survival
+# Join recruit estimates with smolt year abundance data and calculate survival
 sas <- posterior_df |> 
   filter(parameter == "SYO") |> 
   select(year, lake, smolts = value) |> 
@@ -109,26 +161,82 @@ sas_summary |>
   )
 
 
-# Look for best-related ONI windows ---------------------------------------
+# Look for best-related covariate windows ---------------------------------------
+
+
+# How well are temperature and ONI correlated?
+covariates |> 
+  mutate(month_num = match(month, month.abb)) |> 
+  arrange(date) |> 
+  mutate(
+    across(
+      temp_5m,
+      .fns = list(
+        "lag0" = ~lag(.x, 0),
+        "lag1" = ~lag(.x, 1),
+        "lag2" = ~lag(.x, 2),
+        "lag3" = ~lag(.x, 3),
+        "lag4" = ~lag(.x, 4),
+        "lag5" = ~lag(.x, 5),
+        "lag6" = ~lag(.x, 6),
+        "lag7" = ~lag(.x, 7),
+        "lag8" = ~lag(.x, 8),
+        "lag9" = ~lag(.x, 9)
+      ),
+      .names = "temp_{.fn}"
+    )
+  ) |> 
+  pivot_longer(
+    contains("temp_lag"),
+    names_to = "lag",
+    names_prefix = "temp_lag",
+    values_to = "temp_lag"
+  ) |> 
+  ggplot(
+    aes(
+      x = oni, 
+      y = temp_lag, 
+      colour = month_num,
+      group = month_num
+    )
+  ) +
+  facet_wrap(~lag) +
+  geom_point() +
+  geom_smooth(
+    method = "lm", 
+    se = FALSE
+  ) +
+  scale_colour_viridis_c()
+# ONI seems to predict temperature during February-June with either a 0
+# or 1 month lag. Considering this, it is probably fine to use month-aligned
+# ONI and temperature as equivalent covariates.
 
 
 # Simple first step is to look at average ONI for the first three months of 
 # each year. Expectation is that ONI sets up marine food web state 3-6 
 # months in advance of interactions with the incoming Barkley Sockeye
 # cohort. 
-oni |> 
+covariates |> 
   filter(month %in% month.abb[1:3]) |> 
+  pivot_longer(
+    c(oni, temp_5m, pdo),
+    names_to = "covariate"
+  ) |> 
   summarize(
-    .by = year,
-    oni = mean(oni)
+    .by = c(year, covariate),
+    value = mean(value)
   ) |> 
   left_join(
     sas_summary,
-    relationship = "one-to-many"
+    relationship = "many-to-many"
   ) |> 
   filter(!is.na(lake)) |> 
-  ggplot(aes(x = oni, y = `50%`, colour = year)) +
-  facet_wrap(~lake, nrow = 1) +
+  ggplot(aes(x = value, y = `50%`, colour = year)) +
+  facet_grid(
+    lake~covariate, 
+    scales = "free",
+    switch = "x"
+  ) +
   geom_linerange(aes(ymin = `10%`, ymax = `90%`)) +
   geom_point() +
   geom_smooth(
@@ -143,48 +251,69 @@ oni |>
     expand = c(0, 0)
   ) +
   labs(
-    x = "Average Jan-Mar ONI anomaly",
+    x = "Average Jan-Mar covariate value",
     y = "Estimated smolt-to-adult survival",
     colour = "Smolt\nyear"
+  ) +
+  theme(
+    strip.placement = "outside",
+    strip.background.x = element_blank()
   )
 # Interesting that a clearer pattern isn't evident for Hucuktlis.
 # Indicative of poorer quality estimates? Different marine migration timing?
-# Different limiting factors?  
+# Different limiting factors? 
 
 
 # Try various different aggregations of ONI data to look for best correlations
 # with Marine survival rates for each lake.
-oni_windows <- expand_grid(
+covariate_windows <- expand_grid(
   window_size = 3:9,
-  oni_data = list(select(.data = oni, date, oni))
+  covariates = list(select(.data = covariates, date, oni, temp_5m, pdo))
 ) |> 
   rowwise() |> 
   mutate(lead_months = list(0:(window_size-1))) |> 
   unnest_longer(lead_months) |> 
   rowwise() |> 
-  mutate(oni_data = list(mutate(oni_data, oni = lead(oni, n = lead_months)))) |> 
-  unnest(oni_data) |> 
+  mutate(
+    covariates = list(
+      mutate(
+        covariates, 
+        across(
+          c(oni, temp_5m, pdo),
+          \(x) lead(x, n = lead_months)
+        )
+      )
+    )
+  ) |> 
+  unnest(covariates) |> 
+  pivot_longer(
+    c(oni, temp_5m, pdo),
+    names_to = "covariate",
+    values_to = "value"
+  ) |> 
   pivot_wider(
     names_from = lead_months,
-    values_from = oni,
-    names_prefix = "oni_lead"
+    values_from = value,
+    names_prefix = "lead"
   ) |> 
-  nest(.by = window_size) |> 
+  nest(.by = c(covariate, window_size)) |> 
   rowwise() |> 
   mutate(data = list(mutate(data, end_date = lead(date, n = window_size-1)))) |> 
   unnest(data) |> 
   rowwise() |> 
-  mutate(mean_oni = mean(c_across(contains("oni_lead")), na.rm = TRUE)) |> 
-  select(start_date = date, end_date, mean_oni, window_size)
+  mutate(cov_mean = mean(c_across(contains("lead")), na.rm = TRUE)) |> 
+  select(covariate, start_date = date, end_date, cov_mean, window_size) |> 
+  filter(!is.na(cov_mean), !is.nan(cov_mean))
 
 
-# Join the marine survival data to the ONI windows
-sas_oni_mods <- oni_windows |> 
+# Join the marine survival data to the covariate windows
+sas_cov_mods <- covariate_windows |> 
   mutate(
     start_month = as.numeric(format(start_date, "%m")),
     end_month = as.numeric(format(end_date, "%m")),
     start_year = as.numeric(format(start_date, "%Y")),
     end_year = as.numeric(format(end_date, "%Y")),
+    # Ensure month windows align with the correct survival value
     smolt_year = case_when(
       end_month %in% 1:10 ~ end_year,
       end_month %in% 11:12 & window_size %in% 3:5 ~ start_year,
@@ -200,30 +329,34 @@ sas_oni_mods <- oni_windows |>
   filter(!is.na(lake)) |> # Remove years without marine survival estimates
   ungroup() |> 
   # Compartmentalize data frames by variables of interest
-  nest(.by = c(start_month, end_month, window_size, lake)) |> 
+  nest(.by = c(covariate, start_month, end_month, window_size, lake)) |> 
   rowwise() |> 
   # Fit models for each CU
   mutate(
-    model = list(betareg(`50%` ~ mean_oni, data = data)),
+    model = list(betareg(`50%` ~ cov_mean, data = data)),
     glance = list(broom::glance(model)),
-    window = paste0(month.abb[start_month], "-", month.abb[end_month])
+    window = paste0(month.abb[start_month], "-", month.abb[end_month]),
+    p = broom::tidy(model) |> 
+      filter(term == "cov_mean") |> 
+      pull(p.value)
   ) |> 
   unnest_wider(glance)
 
 
-# Investigate which ONI windows are best for each CU
-sas_oni_mods |> 
-  slice_min(
-    by = lake,
-    order_by = AIC,
+# Investigate which covariate windows are best for each CU
+sas_cov_mods |> 
+  slice_max(
+    by = c(lake, covariate),
+    order_by = pseudo.r.squared,
     n = 5
-  )
+  ) |> 
+  print(n = 50)
 # Interesting. Seems like very little relation exists between Hucuktlis survival
-# rates and ONI.
+# rates and ONI or ocean temperature.
 
 
 # Plot R squared values for all models
-sas_oni_mods |> 
+sas_cov_mods |> 
   mutate(
     fake_start_date = as.Date(paste0("2000-", start_month, "-01")),
     fake_end_date = if_else(
@@ -233,14 +366,12 @@ sas_oni_mods |>
     )
   ) |> 
   mutate(
-    .by = lake,
+    .by = c(covariate, lake),
     standardized_r_squared = pseudo.r.squared/max(pseudo.r.squared)
   ) |> 
   ggplot(aes(y = fake_start_date, x = as.factor(window_size))) +
-  facet_wrap(
-    ~lake,
-    ncol = 1,
-    strip.position = "right"
+  facet_grid(
+    lake~covariate
   ) +
   coord_flip() +
   annotate(
@@ -283,18 +414,18 @@ sas_oni_mods |>
     colour = expression(paste("Proportion\nof best\nmodel", R^2))
   ) +
   theme_minimal()
-# Starting the windows in January seems best for GCL and SPR
+# Starting the windows in Feb-March seems best for GCL and SPR
 
 
 # Add dataframes containing model predictions across ONI values
-sas_oni_pred <- sas_oni_mods |> 
+sas_cov_pred <- sas_cov_mods |> 
   rowwise() |> 
   mutate(
     pred_frame = list(
       tibble(
-        mean_oni = seq(
-          min(data$mean_oni), 
-          max(data$mean_oni), 
+        cov_mean = seq(
+          min(data$cov_mean), 
+          max(data$cov_mean), 
           length.out = 100
         )
       )
@@ -313,44 +444,44 @@ sas_oni_pred <- sas_oni_mods |>
 
 
 # Save a list of the top 5 models for each lake
-best_mods <- sas_oni_pred |> 
-  slice_min(
-    by = lake,
-    order_by = AIC,
+best_mods <- sas_cov_pred |> 
+  slice_max(
+    by = c(lake, covariate),
+    order_by = pseudo.r.squared,
     n = 5
   ) |> 
-  select(lake, window, pseudo.r.squared, data, predictions)
-# February - April model is the best for both GCL and SPR
+  select(covariate, lake, window, pseudo.r.squared, data, predictions)
+# March - May model is the best for both GCL and SPR
 # June - August for Hucuktlis but relationship is very weak
 
 
 # Plot predictions versus survival values from top models for each lake
 points_data <- best_mods |> 
-  select(lake, window, pseudo.r.squared, data) |> 
+  select(covariate, lake, window, pseudo.r.squared, data) |> 
   unnest(data)
 
 lines_data <- best_mods |> 
-  select(lake, window, pseudo.r.squared, predictions) |> 
+  select(covariate, lake, window, pseudo.r.squared, predictions) |> 
   unnest(predictions)
 
 label_data <- points_data |> 
   summarize(
-    .by = c(lake, window, pseudo.r.squared),
-    max_oni = max(mean_oni),
+    .by = c(covariate, lake, window, pseudo.r.squared),
+    cov_mean = max(cov_mean),
     max_surv = max(`90%`)
   ) |> 
   mutate(
-    .by = lake,
-    max_oni = max(max_oni),
+    .by = c(lake, covariate),
+    cov_max = max(cov_mean),
     max_surv = max(max_surv)
   )
 
 (best_oni_models_p <- ggplot(
   data = lines_data,
-  aes(x = mean_oni, y = q_0.5)
+  aes(x = cov_mean, y = q_0.5)
 ) +
     facet_grid(
-      window ~ lake,
+      window ~ lake + covariate,
       scales = "free"
     ) +
     geom_ribbon(
@@ -371,7 +502,7 @@ label_data <- points_data |>
     geom_text(
       data = label_data,
       aes(
-        x = max_oni,
+        x = cov_max,
         y = max_surv,
         label = paste0("R^2==", round(pseudo.r.squared, 3))
       ),
@@ -387,34 +518,22 @@ label_data <- points_data |>
       breaks = scales::pretty_breaks(n = 3)
     ) +
     labs(
-      x = "Average ONI across time window",
+      x = "Average covariate value across time window",
       y = "Estimated marine survival"
     )
 )
 
   
-# Plot marine survival versus ONI -----------------------------------------
+# Plot marine survival versus covariates -----------------------------------------
 
 
 # Time series plot
-(sas_ts_oni <- sas_summary |> 
+(sas_ts <- sas_summary |> 
    ggplot(aes(x = date, y = `50%`)) +
    facet_wrap(
      ~lake,
      ncol = 1,
      strip.position = "right"
-   ) +
-   geom_rect(
-     data = oni,
-     aes(
-       x = start_date,
-       xmin = start_date -1,
-       xmax = end_date +1,
-       y = 0.5,
-       ymin = -Inf,
-       ymax = Inf,
-       fill = oni
-     )
    ) +
    geom_linerange(
      aes(
@@ -422,7 +541,7 @@ label_data <- points_data |>
        ymax = `97.5%`
      ),
      linewidth = 0.25,
-     colour = "grey"
+     colour = "grey25"
    ) +
    geom_pointrange(
      aes(
@@ -431,18 +550,16 @@ label_data <- points_data |>
      ),
      size = 0.25
    ) +
-   scale_fill_distiller(palette = "RdYlGn") +
    scale_y_continuous(
      limits = c(0, 0.5),
      expand = c(0, 0),
      labels = scales::percent,
      oob = scales::oob_keep
    ) +
-   scale_x_date(expand = c(0, 0)) +
+   scale_x_date(expand = c(0.05, 0.05)) +
    labs(
-     x = "Brood year",
-     y = "Smolt-to-adult survival",
-     fill = "Ocean Ni\u00f1o\nIndex (\u00b0C)"
+     x = "Ocean-entry year",
+     y = "Smolt-to-adult survival"
    ) +
    theme(
      strip.background = element_rect(fill = "white"),
@@ -454,11 +571,11 @@ label_data <- points_data |>
 
 # Save the time series plot
 ggsave(
-  sas_ts_oni,
+  sas_ts,
   filename = here(
     "3. outputs",
     "Plots",
-    "Smolt-to-adult_survival_with-ONI.png"
+    "Smolt-to-adult_survival_time-series.png"
   ),
   width = 7,
   height = 5,
@@ -467,93 +584,81 @@ ggsave(
 )
 
 
-# Regular time series of marine survival
-(sas_ts <- sas_summary |> 
-  ggplot(aes(x = date, y = `50%`)) +
-  facet_wrap(
-    ~lake,
-    ncol = 1,
-    strip.position = "right",
-    scales = "free_y"
-  ) +
-  geom_linerange(
-    aes(
-      ymin = `2.5%`,
-      ymax = `97.5%`
-    ),
-    linewidth = 0.25,
-    colour = "grey"
-  ) +
-  geom_pointrange(
-    aes(
-      ymin = `10%`,
-      ymax = `90%`
-    ),
-    size = 0.25
-  ) +
-  scale_y_continuous(
-    limits = c(0, NA),
-    expand = c(0, 0),
-    breaks = scales::pretty_breaks(n = 3),
-    labels = scales::percent
-  ) +
-  labs(
-    x = "Brood year",
-    y = "Smolt-to-adult (marine) survival"
-  ) +
-  theme(
-    strip.background = element_rect(fill = "white"),
-    panel.grid.minor = element_blank(),
-    panel.spacing.y = unit(1, "lines")
-  )
-)
-
-
-# Marine survival versus Feb-Apr ONI
-oni_corr_p_data <- sas_oni_pred |> 
-  filter(window == "Feb-Apr") |> 
-  select(lake, pseudo.r.squared, data, predictions) |> 
+# Marine survival versus Mar-May ONI & temp
+oni_corr_p_data <- sas_cov_pred |> 
+  filter(
+    case_when(
+      covariate == "pdo" & window == "Aug-Jan" ~ TRUE,
+      covariate %in% c("oni", "temp_5m") & window == "Mar-May" ~ TRUE,
+      .default = FALSE
+    )
+  ) |> 
+  select(covariate, lake, pseudo.r.squared, data, predictions, window, p) |> 
   {
     function(x) {
       points_data <- x |> 
-        select(lake, pseudo.r.squared, data) |> 
+        select(covariate, lake, pseudo.r.squared, data) |> 
         unnest(data) |> 
+        pivot_wider(
+          names_from = covariate,
+          values_from = cov_mean
+        ) |> 
         pivot_longer(
-          cols = c(mean_oni, smolt_year),
+          cols = c(oni, temp_5m, pdo),
           names_to = "x_var",
           values_to = "x"
         ) |> 
         mutate(
           x_var = factor(
             x_var,
-            levels = c("smolt_year", "mean_oni"),
-            labels = c("Ocean entry year", "Ocean Ni\u00f1o Index (\u00b0C)")
-          ),
-          smolt_year = if_else(
-            x_var == "Ocean entry year",
-            min(end_year),
-            end_year
+            levels = c("pdo", "oni", "temp_5m"),
+            labels = c(
+              "Pacific Decadal Oscillation", 
+              "Ocean Ni\u00f1o Index (\u00b0C)", 
+              "5-m temperature (\u00b0C)"
+            )
           )
         )
       
       lines_data <- x |> 
-        select(lake, pseudo.r.squared, predictions) |> 
+        select(covariate, lake, pseudo.r.squared, predictions, p) |> 
         unnest(predictions) |> 
-        mutate(x_var = "Ocean Ni\u00f1o Index (\u00b0C)") |> 
-        rename("x" = mean_oni)
+        mutate(
+          x_var = factor(
+            covariate,
+            levels = c("pdo", "oni", "temp_5m"),
+            labels = c(
+              "Pacific Decadal Oscillation", 
+              "Ocean Ni\u00f1o Index (\u00b0C)", 
+              "5-m temperature (\u00b0C)"
+            )
+          ),
+          across(c(q_0.025, q_0.975), \(x) if_else(p < 0.05, x, NA)),
+          alpha = if_else(p < 0.05, 1, 0.4)
+        ) |> 
+        rename("x" = cov_mean) 
       
       label_data <- x |> 
-        select(lake, pseudo.r.squared, data) |> 
+        select(!predictions) |> 
         unnest(data) |> 
         summarize(
-          .by = c(lake, pseudo.r.squared),
-          max_oni = max(mean_oni),
-          max_surv = max(`50%`),
-          x_var = "Ocean Ni\u00f1o Index (\u00b0C)"
+          .by = c(covariate, lake, pseudo.r.squared, p),
+          cov_max = max(cov_mean),
+          max_surv = max(`50%`)
         ) |> 
-        # Bump the y value down a little for GCL
-        mutate(max_surv = max(max_surv)*0.8)
-      
+        mutate(
+          x_var = factor(
+            covariate,
+            levels = c("pdo", "oni", "temp_5m"),
+            labels = c(
+              "Pacific Decadal Oscillation", 
+              "Ocean Ni\u00f1o Index (\u00b0C)", 
+              "5-m temperature (\u00b0C)"
+            )
+          ),
+          alpha = if_else(p < 0.05, 1, 0.4)
+        )
+    
       return(
         list(
           "points" = points_data, 
@@ -572,7 +677,7 @@ oni_corr_p_data <- sas_oni_pred |>
     facet_grid(
       lake ~ x_var,
       switch = "x",
-      scales = "free_x"
+      scales = "free"
     ) +
     geom_ribbon(
       data = oni_corr_p_data$lines,
@@ -581,25 +686,27 @@ oni_corr_p_data <- sas_oni_pred |>
     ) +
     geom_line(
       data = oni_corr_p_data$lines,
-      aes(y = q_0.5)
+      aes(y = q_0.5, alpha = alpha)
     ) +
-    geom_pointrange(
-      aes(ymin = `10%`, ymax = `90%`, colour = smolt_year),
-      size = 0.3
-    ) +
+    geom_point(aes(colour = smolt_year)) +
+    # R^2 labels
     geom_text(
       data = oni_corr_p_data$labels,
       aes(
-        x = max_oni,
-        y = max_surv,
-        label = paste0("R^2==", round(pseudo.r.squared, 3))
+        x = cov_max,
+        y = max_surv*0.65,
+        label = paste0("R^2==", round(pseudo.r.squared, 3)),
+        alpha = alpha
       ),
       vjust = 1, 
       hjust = 1,
       parse = TRUE,
       size = 3
     ) +
-    scale_colour_viridis_c(option = "mako") +
+    scale_colour_viridis_c(
+      option = "mako",
+      breaks = c(1985, 1995, 2005, 2015)
+    ) +
     scale_y_continuous(
       name = "Estimated smolt-to-adult (marine) survival",
       limits = c(0, NA),
@@ -607,9 +714,10 @@ oni_corr_p_data <- sas_oni_pred |>
       breaks = scales::pretty_breaks(n = 3),
       labels = scales::percent
     ) +
+    scale_alpha_identity() +
     guides(
       colour = guide_colorbar(
-        title = "Ocean entry year",
+        title = "Ocean-entry year",
         theme = theme(
           legend.direction = "horizontal",
           legend.title.position = "top",
@@ -644,24 +752,8 @@ ggsave(
     "Plots",
     "Marine_survival_time-series_ONI-correlation.png"
   ),
-  width = 7,
+  width = 8,
   height = 7,
   units = "in",
   dpi = "print"
 )
-
-
-# Show summaries of best models for each CU
-sas_oni_mods |> 
-  slice_max(
-    order_by = pseudo.r.squared,
-    by = lake
-  ) |> 
-  select(lake, model) |> 
-  deframe() |> 
-  map(function(x) 
-    list(
-      "summary" = broom::tidy(x, conf.int = TRUE),
-      "lrt" = car::Anova(x)
-    )
-  )
