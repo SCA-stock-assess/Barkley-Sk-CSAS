@@ -36,12 +36,12 @@ sr_data <- here(
 # Reference points (from Working Paper)
 ref_pts <- tribble(
   ~stock, ~refpt, ~q10, ~q50, ~q90,
-  "Great Central", "Smsy", 103114, 141969, 226490,
-  "Great Central", "Umsy", 0.35, 0.51, 0.64,
-  "Great Central", "Sgen", 28735, 50729, 98582,
-  "Sproat", "Smsy", 79568, 102591, 155510,
-  "Sproat", "Umsy", 0.45, 0.61, 0.73,
-  "Sproat", "Sgen", 13041, 26103, 56265,
+  "Great Central", "Smsy", 95382, 118488, 152044,
+  "Great Central", "Umsy", 0.45, 0.58, 0.68,
+  "Great Central", "Sgen", 20667, 33680, 52929,
+  "Sproat", "Smsy", 73018, 89388, 113683,
+  "Sproat", "Umsy", 0.54, 0.67, 0.77,
+  "Sproat", "Sgen", 9426, 17321, 31329,
   "Hucuktlis", "Smsy", NA, 13948, NA,
   "Hucuktlis", "Umsy", 0.07, 0.28, 0.57,
   "Hucuktlis", "Sgen", NA, 9576, NA,
