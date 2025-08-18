@@ -28,7 +28,7 @@ AR1_fits <- here(
   "Stock-recruit modelling"
 ) |> 
   list.files(
-    pattern = "_AR1_alt-Smax.rds",
+    pattern = "_AR1_alt-beta.rds",
     full.names = TRUE
   ) |> 
   set_names(~str_extract(.x, "(?<=/)(GCL|SPR|HUC).*(?=_AR1)")) |> 
@@ -79,7 +79,7 @@ ref_pts <- AR1_frame |>
   mutate(
     Smsy = get_Smsy(lnalpha, beta),
     Smsy0.8 = 0.8*Smsy,
-    Sgen = get_Sgen(exp(lnalpha), beta, -1, 1/beta*2, Smsy),
+    Sgen = sGenDirect(lnalpha, beta),
     Umsy = (1 - lambert_W0(exp(1 - lnalpha))),
     Seq = lnalpha/beta
   ) |> 
@@ -209,7 +209,7 @@ ggsave(
   filename = here(
     "3. outputs",
     "Plots",
-    "Barkley-Sk_bootstrapped_ref_pts_alt-Smax.png"
+    "Barkley-Sk_bootstrapped_ref_pts_alt-beta.png"
   ),
   width = 10,
   height = 10,
@@ -228,7 +228,7 @@ ref_pts_summary |>
     file = here(
       "3. outputs",
       "Stock-recruit modelling",
-      "Barkley-Sk_CU_ref_pts_summary_alt-Smax.csv"
+      "Barkley-Sk_CU_ref_pts_summary_alt-beta.csv"
     ),
     row.names = FALSE
   )

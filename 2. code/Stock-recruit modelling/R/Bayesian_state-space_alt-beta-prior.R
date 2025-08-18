@@ -257,7 +257,7 @@ fit_stan_mod <- function(stan_data, stock, model_filename, iterations) {
 #  Stan model on GCL data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(TRUE) {
+if(FALSE) {
   GCL_AR1 <- fit_stan_mod(
     stocks_stan_data$GCL, 
     stock = "GCL",
@@ -271,7 +271,7 @@ if(TRUE) {
     file = here(
       "3. outputs",
       "stock-recruit modelling",
-      "GCL_AR1_alt-Smax.rds"
+      "GCL_AR1_alt-beta.rds"
     )
   )      
 }
@@ -280,12 +280,12 @@ if(TRUE) {
 # Try stan model on SPR data
 # `FALSE` disables the code from running
 # Switch to `TRUE` to run
-if(TRUE) {
+if(FALSE) {
   SPR_AR1 <- fit_stan_mod(
     stan_data = stocks_stan_data$SPR, 
     stock = "SPR",
     model_filename = "SS-SR_AR1_semi_beta_Somass.stan",
-    iterations = 1e5 # Bulk ESS issues with Sproat
+    iterations = 1e4 # Bulk ESS issues with Sproat
   )
   
   # Save the fitted model object
@@ -294,7 +294,7 @@ if(TRUE) {
     file = here(
       "3. outputs",
       "stock-recruit modelling",
-      "SPR_AR1_alt-Smax.rds"
+      "SPR_AR1_alt-beta.rds"
     )
   )      
 }
@@ -315,7 +315,7 @@ if(!exists("GCL_AR1")) {
     here(
       "3. outputs",
       "stock-recruit modelling",
-      "GCL_AR1_alt-Smax.rds"
+      "GCL_AR1_alt-beta.rds"
     )
   )
 }
@@ -327,7 +327,7 @@ if(!exists("SPR_AR1")) {
     here(
       "3. outputs",
       "stock-recruit modelling",
-      "SPR_AR1_alt-Smax.rds"
+      "SPR_AR1_alt-beta.rds"
     )
   )
 }
@@ -342,8 +342,6 @@ Somass_mods <- list(
 
 # Run diagnostic plots?
 if(FALSE) {
-
-# some diagnostics
 
 # n_eff versus Rhat
 Somass_mods |> 
@@ -693,7 +691,7 @@ if(FALSE) {
         file = here(
           "3. outputs",
           "stock-recruit modelling",
-          paste0(idx, "_AR1_alt-Smax.rds")
+          paste0(idx, "_AR1_alt-beta.rds")
         )
       )     
     )
@@ -710,7 +708,7 @@ if(!exists("HUC_round1_mods")) {
         here(
           "3. outputs",
           "stock-recruit modelling",
-          paste0(x, "_AR1_alt-Smax.rds")
+          paste0(x, "_AR1_alt-beta.rds")
         )
       )
     )
@@ -737,7 +735,7 @@ HUC_sr_plots_data |>
 
 
 # This time use the Hucuktlis-specific Stan model
-if(TRUE) {
+if(FALSE) {
 
   HUC_round2_mods <- HUC_stan_data |> 
     set_names(\(x) paste0(x, "_enh")) |> # Rename so model names have "_enh" suffix
@@ -758,7 +756,7 @@ if(TRUE) {
         file = here(
           "3. outputs",
           "stock-recruit modelling",
-          paste0(idx, "_AR1_alt-Smax.rds")
+          paste0(idx, "_AR1_alt-beta.rds")
         )
       )     
     )
@@ -775,7 +773,7 @@ if(!exists("HUC_round2_mods")) {
         here(
           "3. outputs",
           "stock-recruit modelling",
-          paste0(x, "_AR1_alt-Smax.rds")
+          paste0(x, "_AR1_alt-beta.rds")
         )
       )
     )
@@ -1096,7 +1094,7 @@ resids_corr <- tibble(
   filter(!if_any(matches("lwr|mid|upr"), \(x) is.na(x) | x == 0)) |> 
   mutate(
     pair = paste0(y_cu, "-", x_cu),
-    across(c(x_cu, y_cu), \(x) paste(x, "recruits-per-spawner residuals"))
+    across(c(x_cu, y_cu), \(x) paste(x, "R/S residuals"))
   )
 
 
@@ -1129,13 +1127,19 @@ resids_corr_ps <- split(resids_corr, resids_corr$pair) |>
         shape = 21,
         stroke = NA
       ) +
-      scale_fill_viridis_c(name = "Brood\nyear") +
-      #coord_equal() + # not producing expected behaviour
+      scale_fill_viridis_c(
+        name =  "Brood\nyear",
+        breaks = c(1985, 1995, 2005, 2015),
+        guide = guide_colorbar(
+          theme = theme(legend.key.width = unit(dev.size()[1]/3, units = "in"))
+        )
+      ) +
+      theme_bw(base_size = 16) +
       theme(
         axis.title = element_blank(),
         strip.placement = "outside",
         strip.background = element_blank(),
-        strip.text = element_text(size = 11)
+        panel.grid = element_blank()
       )
   )
 
@@ -1156,7 +1160,7 @@ ggsave(
     "S-R_residuals_correlations_all-CUs.png"
   ),
   height = 5,
-  width = 14,
+  width = 11,
   units = "in",
   dpi = "print"
 )
@@ -1414,90 +1418,101 @@ ggsave(
 # Prior vs posterior density plots ----------------------------------------
 
 
-# Make dataframe of prior densities for Smax
-beta_priors <- stocks_stan_data |> 
-  map(
-    function(x) {
-
-      dist <- rlnorm(
-        n = 1e5,
-        meanlog = x$mu_beta,
-        sdlog = x$sigma_beta
-      ) |> 
-        as_tibble_col()
-    }
-  ) |> 
-  list_rbind(names_to = "stock") |> 
+# Make dataframe of prior and posterior draws for beta
+beta_draws <- beta_priors |> 
+  filter(Rmeas == "BYO") |> 
+  select(stock, enhanced, mean_ln_b, sd_ln_b) |>
+  # add enhancement states data for GCL and SPR
   mutate(
-    stock = factor(
-      stock, 
-      levels = c("GCL", "SPR", "HUC"),
-      labels = c("Great Central", "Sproat", "Hucuktlis")
-    )
-  )
-
-
-beta_posterior <- ab_posterior |> 
-  filter(
-    case_when(
-      model %in% c("GCL", "SPR") ~ TRUE,
-      model == "HUC_full_enh" & enh == 0 ~ TRUE,
-      .default = FALSE
+    enh = case_when(
+      stock == "GCL" ~ 1,
+      stock == "SPR" ~ 0,
+      .default = enhanced
     )
   ) |> 
-  unnest(ab_draws) |> 
+  right_join(ab_posterior) |> 
+  left_join(select(all_mods_data, model, enh, long_name)) |> 
+  rowwise() |> 
   mutate(
-    stock = factor(
-      stock, 
-      levels = c("GCL", "SPR", "HUC"),
-      labels = c("Great Central", "Sproat", "Hucuktlis")
-    )
-  )
+    enh = if_else(str_detect(long_name, "enhance"), as.character(enh), "NA"), 
+    prior = list(rlnorm(nrow(ab_draws), mean_ln_b, sd_ln_b))
+  ) |> 
+  unnest(c(ab_draws, prior)) |> 
+  rename("posterior" = beta)
 
 
-(prior_v_posterior_p <- beta_priors |> 
-    slice_max(
-      by = stock,
-      order_by = value,
-      prop = 0.995 # Drop the lowest 0.5% of values
+# Use compact scientific notation where 0 is just "0"
+custom_scientific_labels <- function(x) {
+  ifelse(x == 0, "0", scales::label_scientific()(x))
+}
+
+
+(prior_v_posterior_p <- beta_draws |> 
+    pivot_longer(
+      cols = c(posterior, prior),
+      names_to = "label"
+    ) |>
+    # Custom positioning for text labels along density curves
+    mutate(
+      hjust = case_when(
+        label == "posterior" & enh %in% c("1", "NA") ~ 0.3,
+        label == "posterior" & enh == "0" ~ 0.25,
+        label == "prior" & enh %in% c("NA", "0") ~ 0.4,
+        label == "prior" & enh == "1" ~ 0.25
+        )
     ) |> 
-    ggplot(aes(x = 1/value)) +
+    slice_min(
+      by = c(model, enh),
+      order_by = value,
+      prop = 0.99 # Drop the highest 0.5% of values
+    ) |> 
+    ggplot(aes(x = value, 
+               group = interaction(enh, label))) +
     facet_wrap(
-      ~stock, 
-      ncol = 1,
-      strip.position = "right",
+      ~long_name, 
+      ncol = 2,
       scales = "free"
     ) +
     geom_textdensity(
-      colour = "red",
-      label = "prior",
-      hjust = 0.1
-    ) +
-    geom_textdensity(
-      data = slice_max(
-        beta_posterior,
-        by = stock,
-        order_by = beta,
-        prop = 0.995 # Drop the lowest 0.5% of values
+      aes(
+        colour = enh,
+        fill = enh,
+        label = label,
+        hjust = hjust
       ),
-      aes(x = 1/beta),
-      label = "posterior",
-      hjust = 0.35
+      size = 2.5,
+      vjust = -0.2,
+      key_glyph = "path"
     ) +
     scale_y_continuous(
       limits = c(0, NA),
       expand = expansion(mult = c(0, 0.05))
     ) +
     scale_x_continuous(
-      name = expression(beta^-1),
+      name = expression(beta),
+      breaks = scales::pretty_breaks(n = 3),
+      labels = custom_scientific_labels,
       limits = c(0, NA),
-      labels = scales::label_number(),
-      expand = expansion(mult = c(0, 0.05)),
-      oob = scales::oob_keep
+      expand = expansion(mult = c(0, 0.0))
     ) +
+    scale_colour_manual(
+      name = "Enhancement\nstate",
+      values = c(
+        "NA" = "grey50",
+        "1" = "blue",
+        "0" = "red"
+      )
+    ) + 
     theme(
       panel.grid.minor = element_blank(),
-      strip.background = element_blank()
+      panel.grid.major.y = element_blank(),
+      strip.background = element_rect(fill = "white"),
+      legend.position = "top",
+      legend.direction = "horizontal",
+      legend.text.position = "bottom",
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      panel.spacing.x = unit(1, "lines")
     )
 )
 
@@ -1510,8 +1525,8 @@ ggsave(
     "Plots",
     "State-space_prior_vs_posterior_alt-beta.png"
   ),
-  width = 7,
-  height = 5,
+  width = 8,
+  height = 6,
   units = "in",
   dpi = "print"
 )
