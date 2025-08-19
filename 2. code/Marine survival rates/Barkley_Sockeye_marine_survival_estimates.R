@@ -41,34 +41,39 @@ r_ts <- read.csv(
     run = catch + escapement
   ) |> 
   # Ensure only complete smolt years are used
-  filter(smolt_year <= (max(return_year) - max(ttl_age-fw_age))) |> 
+  filter(
+    between(
+      smolt_year,
+      min(return_year) - min(ttl_age-fw_age),
+      max(return_year) - max(ttl_age-fw_age)
+    )
+  ) |> 
   summarize(
     .by = c(lake, smolt_year),
     R = sum(run)
   )
 
 
-# Ocean Nino Index (ONI) time series
-oni <- read.csv(
+# Ocean Nino Index (ONI) and Pacific Decadal Oscillation (PDO) time series
+cci <- list.files(
   here(
     "1. data",
-    "ENSO (ONI) 250505(ONI).csv"
-  )
+    "California Current indices"
+  ),
+  pattern = "(?i)PDO|ONI",
+  full.names = TRUE
 ) |> 
+  map(read.csv) |> 
+  reduce(full_join) |> 
   mutate(
-    date = as.Date(DateTime.UTC),
-    start_date = date,
-    end_date = lead(start_date, 1) - 1,
-    oni = ONI.degrees.C,
+    date = as.Date(date),
     month = as.character(format(date, "%b")),
     year = as.numeric(format(date, "%Y"))
   ) |> 
-  filter(
-    start_date >= as.Date("1976-01-01"),
-    end_date <= as.Date("2024-12-31")
-  )
-
-
+  filter(between(year, min(r_ts$smolt_year), max(r_ts$smolt_year)))
+  
+  
+  
 # Ocean temperature time series
 temp <- read.csv(
   here(
@@ -89,34 +94,16 @@ temp <- read.csv(
     sep = "_",
     convert = TRUE
   ) |> 
-  filter(Region == "Somass") |> 
+  filter(
+    Region == "Somass",
+    !is.na(temp_5m)
+  ) |> 
   select(!Region) |> 
   mutate(month = month.abb[month])
 
 
-# PDO time series
-pdo <- read.csv(
-  here(
-    "1. data",
-    "pdo.timeseries.sstens.csv"
-  )
-) |> 
-  rename("pdo" = 2) |> 
-  mutate(Date = as.Date(Date)) |> 
-  filter(Date > min(as.Date(paste0(r_ts$smolt_year, "-01-01")))) |> 
-  mutate(
-    year = as.numeric(format(Date, "%Y")),
-    month = format(Date, "%b"),
-    .keep = "unused"
-  )
-
-
 # Merge covariate data sets
-covariates <- full_join(
-  oni,
-  temp
-) |> 
-  left_join(pdo)
+covariates <- full_join(cci, temp)
 
 
 # Annual marine survival estimates ----------------------------------------
@@ -194,7 +181,7 @@ covariates |>
   ) |> 
   ggplot(
     aes(
-      x = oni, 
+      x = ONI, 
       y = temp_lag, 
       colour = month_num,
       group = month_num
@@ -219,7 +206,7 @@ covariates |>
 covariates |> 
   filter(month %in% month.abb[1:3]) |> 
   pivot_longer(
-    c(oni, temp_5m, pdo),
+    c(ONI, temp_5m, PDO),
     names_to = "covariate"
   ) |> 
   summarize(
@@ -268,7 +255,7 @@ covariates |>
 # with Marine survival rates for each lake.
 covariate_windows <- expand_grid(
   window_size = 3:9,
-  covariates = list(select(.data = covariates, date, oni, temp_5m, pdo))
+  covariates = list(select(.data = covariates, date, ONI, temp_5m, PDO))
 ) |> 
   rowwise() |> 
   mutate(lead_months = list(0:(window_size-1))) |> 
@@ -279,7 +266,7 @@ covariate_windows <- expand_grid(
       mutate(
         covariates, 
         across(
-          c(oni, temp_5m, pdo),
+          c(ONI, temp_5m, PDO),
           \(x) lead(x, n = lead_months)
         )
       )
@@ -287,7 +274,7 @@ covariate_windows <- expand_grid(
   ) |> 
   unnest(covariates) |> 
   pivot_longer(
-    c(oni, temp_5m, pdo),
+    c(ONI, temp_5m, PDO),
     names_to = "covariate",
     values_to = "value"
   ) |> 
@@ -410,11 +397,12 @@ sas_cov_mods |>
   scale_y_date(date_labels = "%b") +
   labs(
     y = "Month",
-    x = "Number of months in\nONI summary window",
+    x = "Number of months in\nsummary window",
     colour = expression(paste("Proportion\nof best\nmodel", R^2))
   ) +
   theme_minimal()
-# Starting the windows in Feb-March seems best for GCL and SPR
+# Starting the windows in Feb-March seems best for ONI and temp;
+# PDO relationships seem best in months following outmigration
 
 
 # Add dataframes containing model predictions across ONI values
@@ -476,7 +464,7 @@ label_data <- points_data |>
     max_surv = max(max_surv)
   )
 
-(best_oni_models_p <- ggplot(
+(best_ONI_models_p <- ggplot(
   data = lines_data,
   aes(x = cov_mean, y = q_0.5)
 ) +
@@ -585,11 +573,11 @@ ggsave(
 
 
 # Marine survival versus Mar-May ONI & temp
-oni_corr_p_data <- sas_cov_pred |> 
+ONI_corr_p_data <- sas_cov_pred |> 
   filter(
     case_when(
-      covariate == "pdo" & window == "Aug-Jan" ~ TRUE,
-      covariate %in% c("oni", "temp_5m") & window == "Mar-May" ~ TRUE,
+      covariate == "PDO" & window == "Oct-Mar" ~ TRUE,
+      covariate %in% c("ONI", "temp_5m") & window == "Mar-May" ~ TRUE,
       .default = FALSE
     )
   ) |> 
@@ -604,14 +592,14 @@ oni_corr_p_data <- sas_cov_pred |>
           values_from = cov_mean
         ) |> 
         pivot_longer(
-          cols = c(oni, temp_5m, pdo),
+          cols = c(ONI, temp_5m, PDO),
           names_to = "x_var",
           values_to = "x"
         ) |> 
         mutate(
           x_var = factor(
             x_var,
-            levels = c("pdo", "oni", "temp_5m"),
+            levels = c("PDO", "ONI", "temp_5m"),
             labels = c(
               "Pacific Decadal Oscillation", 
               "Ocean Ni\u00f1o Index (\u00b0C)", 
@@ -626,7 +614,7 @@ oni_corr_p_data <- sas_cov_pred |>
         mutate(
           x_var = factor(
             covariate,
-            levels = c("pdo", "oni", "temp_5m"),
+            levels = c("PDO", "ONI", "temp_5m"),
             labels = c(
               "Pacific Decadal Oscillation", 
               "Ocean Ni\u00f1o Index (\u00b0C)", 
@@ -649,7 +637,7 @@ oni_corr_p_data <- sas_cov_pred |>
         mutate(
           x_var = factor(
             covariate,
-            levels = c("pdo", "oni", "temp_5m"),
+            levels = c("PDO", "ONI", "temp_5m"),
             labels = c(
               "Pacific Decadal Oscillation", 
               "Ocean Ni\u00f1o Index (\u00b0C)", 
@@ -671,7 +659,7 @@ oni_corr_p_data <- sas_cov_pred |>
 
 
 (sas_corr_ts_p <- ggplot(
-  data = oni_corr_p_data$points,
+  data = ONI_corr_p_data$points,
   aes(x = x, y = `50%`)
 ) +
     facet_grid(
@@ -680,18 +668,18 @@ oni_corr_p_data <- sas_cov_pred |>
       scales = "free"
     ) +
     geom_ribbon(
-      data = oni_corr_p_data$lines,
+      data = ONI_corr_p_data$lines,
       aes(y = q_0.5, ymin = q_0.025, ymax = q_0.975),
       alpha = 0.2
     ) +
     geom_line(
-      data = oni_corr_p_data$lines,
+      data = ONI_corr_p_data$lines,
       aes(y = q_0.5, alpha = alpha)
     ) +
     geom_point(aes(colour = smolt_year)) +
     # R^2 labels
     geom_text(
-      data = oni_corr_p_data$labels,
+      data = ONI_corr_p_data$labels,
       aes(
         x = cov_max,
         y = max_surv*0.65,
