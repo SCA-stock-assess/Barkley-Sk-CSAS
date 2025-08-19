@@ -81,6 +81,7 @@ cci_long <- cci |>
    ) |> 
    ggplot(aes(date, value)) +
    geom_line(aes(colour = long_name)) +
+   scale_x_date(expand = expansion(mult = c(0, 0.05))) +
    scale_y_continuous(expand = expansion(mult = c(0.05, 0.4))) +
    labs(
      x = NULL,
@@ -98,8 +99,9 @@ cci_long <- cci |>
     mutate(value = if_else(indicator == "BEUTI", value/13, value)) |> 
     ggplot(aes(date, value)) +
     geom_line(aes(colour = long_name)) +
+    scale_x_date(expand = expansion(mult = c(0, 0.05))) +
     scale_y_continuous(
-      expand = expansion(mult = c(0.05, 0.4)),
+      expand = expansion(mult = c(0.05, 0.3)),
       sec.axis = sec_axis(
         name = "BEUTI",
         transform = ~.x*13
@@ -125,26 +127,17 @@ cci_long <- cci |>
     mutate(value = if_else(indicator == "MHW_area", value/10e6, value)) |> 
     ggplot(aes(date, value)) +
     geom_line(aes(colour = long_name)) +
+    scale_x_date(expand = expansion(mult = c(0, 0.05))) +
     scale_y_continuous(
       limits = c(0, 1),
       expand = c(0, 0),
+      breaks = c(0, 0.2, 0.4, 0.6, 0.8, 1),
       labels = scales::percent,
       sec.axis = sec_axis(
-        name = expression("Maximum area"~~(km^2)),
-        transform = ~.x*10e6,
-        labels = function(x) {
-          ifelse(
-            x == 0,
-            "0",
-            parse(
-              text = gsub(
-                "e\\+", 
-                "%*%10^", 
-                scales::scientific_format(digits = 1)(x)
-              )
-            )
-          )
-        }
+        name = expression("Maximum area"~~(km^2%*%10^6)),
+        transform = ~.x*10,
+        breaks = c(0, 2, 4, 6, 8, 10),
+        labels = scales::label_number()
       )
     ) +  
     labs(
