@@ -28,9 +28,10 @@ sr_data <- here(
       levels = c("GCL", "SPR", "HUC"),
       labels = c("Great Central", "Sproat", "Hucuktlis")
     ),
-    HR = H/N
+    HR = H/N,
+    R_S = R/S
   ) |> 
-  select(year, stock, H, S, HR, R)
+  select(year, stock, H, S, HR, R_S)
   
 
 # Reference points (from Working Paper)
@@ -72,19 +73,19 @@ ref_pts <- tribble(
 fourpp_data <- sr_data |> 
   pivot_longer(!c(stock, year)) |> 
   mutate(
-    value = if_else(name != "HR", value/1000, value),
+    value = if_else(name %in% c("H", "S"), value/1000, value),
     long_name = case_when(
       name == "HR" ~ "Exploitation rate",
       name == "H" ~ "Harvest (1000s)",
       name == "S" ~ "Escapement (1000s)",
-      name == "R" ~ "Recruitment (1000s)"
+      name == "R_S" ~ "Recruits per spawner"
     ) |> 
       factor(
         levels = c(
         "Harvest (1000s)",
         "Escapement (1000s)",
         "Exploitation rate",
-        "Recruitment (1000s)"
+        "Recruits per spawner"
         )
       )
   ) |> 
@@ -110,7 +111,7 @@ bs_agg <- fourpp_data |>
   pivot_wider(names_from = long_name) |> 
   mutate(
     `Exploitation rate` = `Harvest (1000s)` / (`Harvest (1000s)` + `Escapement (1000s)`),
-    `Recruitment (1000s)` = if_else(year > max(year) - 6, NA, `Recruitment (1000s)`)
+    `Recruits per spawner` = if_else(year > max(year) - 6, NA, `Recruits per spawner`)
   ) |> 
   pivot_longer(
     !year,
@@ -260,7 +261,11 @@ plots <- fourpp_data |>
         # Add colour values to escapement time series lines
         scale_colour_manual(values = c("black", "grey65")) +
         labs(
-          x = "Adult return year",
+          x = if(long_name == "Recruits per spawner") {
+            "Brood year"
+            } else {
+              "Adult return year"
+            },
           y = long_name
         ) +
         # Disable legends in all panels except escapement (panel b)
@@ -287,15 +292,7 @@ plots <- fourpp_data |>
           ),
           legend.position = "inside",
           legend.position.inside = c(0.001, 0.999),
-          legend.justification.inside = c(0, 1),
-          # axis.ticks.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
-          #   element_blank()
-          # },
-          axis.title.x = if(long_name %in% c("Harvest (1000s)", "Escapement (1000s)")) {
-            element_blank()
-          } else {
-            element_text(size = 9)
-          }
+          legend.justification.inside = c(0, 1)
         ) 
     ),
     name = paste0(stock, "_", long_name)
