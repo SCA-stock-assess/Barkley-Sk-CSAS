@@ -77,8 +77,8 @@ ref_pts <- here(
 # Add reference points manually from ResDoc table
 ref_pts_alt <- tribble(
   ~method, ~stock, ~Umsy_q50, ~Umsy_q10, ~Umsy_q90, ~Smsy_q50, ~Smsy_q10, ~Smsy_q90,
-  "S[MSY]", "Great Central", 0.51, 0.35, 0.64, 141969, 103114, 226490,
-  "S[MSY]", "Sproat", 0.61, 0.45, 0.73, 102591, 79568, 155510,
+  "S[MSY]", "Great Central", 0.58, 0.45, 0.68, 118488, 95382, 152044,
+  "S[MSY]", "Sproat", 0.67, 0.54, 0.77, 89388, 73018, 113683,
   #"S-R", "Hucuktlis", 0.28, 0.07, 0.57, 9630, 2453, 47816,
   "50^th~percentile", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
 ) |> 
@@ -208,7 +208,7 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
       legend.position = "top",
       panel.spacing.x = unit(0.5, "lines"), # Move panels further apart
       panel.grid = element_blank(),
-      legend.key.width = unit(dev.size()[1]/15, "in")
+      legend.key.width = unit(dev.size()[1]/10, "in")
     )
 }
 
