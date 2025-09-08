@@ -1,0 +1,340 @@
+,Lake,Species,M/DD/YY,Length (mm),Weight (g),Scale Book,Scale #,UNB ID,Received,Age,Comment
+9,GC,SK,2/15/23,63,1.6,1047209,9,34,0,,
+10,GC,SK,2/15/23,60,1.2,1047209,10,35,0,,
+11,GC,SK,2/15/23,54,0.9,1047209,11,36,0,,
+12,GC,SK,2/15/23,57,1,1047209,12,37,0,,
+13,GC,SK,2/15/23,47,0.6,1047209,13,38,0,,
+14,GC,SK,2/15/23,66,1.6,1047209,14,39,0,,
+15,GC,SK,2/15/23,75,2.5,1047209,15,40,0,,
+16,GC,SK,2/15/23,69,2.2,1047209,16,41,0,,
+17,GC,SK,2/15/23,64,1.6,1047209,17,42,0,,
+18,GC,SK,2/15/23,55,1,1047209,18,43,0,,
+19,GC,SK,2/15/23,55,1,1047209,19,44,0,,
+20,GC,SK,2/15/23,54,1,1047209,20,45,0,,
+21,GC,SK,2/15/23,54,0.9,1047209,21,46,0,,
+22,GC,SK,2/15/23,55,1,1047209,22,47,0,,
+23,GC,SK,2/15/23,48,0.7,1047209,23,48,0,,
+24,GC,SK,2/15/23,51,0.8,1047209,24,49,0,,
+25,GC,SK,2/15/23,64,1.5,1047209,25,50,0,,
+1,GC,SK,2/15/23,45,0.5,1047210,21,51,1,1,"Age 1, Anulli forming"
+2,GC,SK,2/15/23,45,0.6,1047210,25,52,1,,no readable scales
+3,GC,SK,2/15/23,47,0.7,1047210,17,53,1,1,"Age 1, but not showing annuli"
+4,GC,SK,2/15/23,48,0.7,1047210,16,54,1,1,low confidence due to pictures but size indicates 1
+5,GC,SK,2/15/23,54,1,1047210,5,55,1,1,"Age 1, but not showing annuli"
+6,GC,SK,2/15/23,55,1.1,1047210,24,56,1,1,"Age 1, Anulli forming"
+7,GC,SK,2/15/23,56,1.1,1047210,14,57,1,1,"Age 1, but not showing annuli"
+8,GC,SK,2/15/23,57,1.2,1047210,13,58,1,1,"Age 1, but not showing annuli"
+9,GC,SK,2/15/23,57,1.3,1047210,12,59,1,1+,Age 1+. Annuli +new growth
+10,GC,SK,2/15/23,58,1.2,1047210,19,60,1, ,no readable scales
+11,GC,SK,2/15/23,58,1.3,1047210,2,61,1,1,"Age 1, annuli forming"
+12,GC,SK,2/15/23,59,1.2,1047210,4,62,1, ,no readable scales
+13,GC,SK,2/15/23,59,1.2,1047210,9,63,1, ,no readable scales
+14,GC,SK,2/15/23,59,1.4,1047210,7,64,1,1,"Age 1, annuli forming"
+15,GC,SK,2/15/23,60,1.3,1047210,8,65,1,1,"Age 1, annuli forming"
+16,GC,SK,2/15/23,60,1.4,1047210,18,66,1, ,no readable scales
+17,GC,SK,2/15/23,60,1.5,1047210,10,67,1, ,no readable scales
+18,GC,SK,2/15/23,63,1.5,1047210,6,68,1, ,no readable scales
+19,GC,SK,2/15/23,64,1.8,1047210,15,69,1, ,no readable scales
+20,GC,SK,2/15/23,65,1.6,1047210,20,70,1, ,no readable scales
+21,GC,SK,2/15/23,65,1.8,1047210,23,71,1, ,no readable scales
+22,GC,SK,2/15/23,68,2,1047210,1,72,1,1+,Age 1+. Annuli +new growth 
+23,GC,SK,2/15/23,69,2.1,1047210,3,73,1, ,no readable scales
+24,GC,SK,2/15/23,70,2.2,1047210,22,74,1, ,no readable scales
+25,GC,SK,2/15/23,71,2.5,1047210,11,75,1, ,no readable scales
+26,GC,SK,2/15/23,59,1.1,1047211,1,76,0,,
+27,GC,SK,2/15/23,55,1.3,1047211,2,77,0,,
+28,GC,SK,2/15/23,60,1.4,1047211,3,78,0,,
+29,GC,SK,2/15/23,43,0.5,1047211,8,79,0,,
+30,GC,SK,2/15/23,x,x,1047211,4,80,0,,
+31,GC,SK,2/15/23,60,1.4,1047211,5,81,0,,
+32,GC,SK,2/15/23,61,1.5,1047211,6,82,0,,
+33,GC,SK,2/15/23,64,1.5,1047211,7,83,0,,
+34,GC,SK,2/15/23,48,0.7,1047211,9,84,0,,
+35,GC,SK,2/15/23,61,1.3,1047211,10,85,0,,
+36,GC,SK,2/15/23,54,1,1047211,11,86,0,,
+1,GC,Sk,11/6/2023,62,1.8,1047213,1,125,0,,
+2,GC,Sk,11/6/2023,50,0.9,1047213,2,126,0,,
+3,GC,Sk,11/6/2023,58,1.4,1047213,3,127,0,,
+4,GC,Sk,11/6/2023,61,1.6,1047213,4,128,0,,
+5,GC,Sk,11/6/2023,42,0.6,1047213,5,129,0,,
+6,GC,Sk,11/6/2023,54,1.3,1047213,6,130,0,,
+7,GC,Sk,11/6/2023,57,1.3,1047213,7,131,0,,
+8,GC,Sk,11/6/2023,53,1,1047213,8,132,0,,
+9,GC,Sk,11/6/2023,59,1.6,1047213,9,133,0,,
+10,GC,Sk,11/6/2023,70,2.8,1047213,10,134,0,,
+11,GC,Sk,11/6/2023,64,2,1047213,11,135,0,,
+12,GC,Sk,11/6/2023,65,2.2,1047213,12,136,0,,
+13,GC,Sk,11/6/2023,60,1.6,1047213,13,137,0,,
+14,GC,Sk,11/6/2023,68,2.3,1047213,14,138,0,,
+15,GC,Sk,11/6/2023,62,1.8,1047213,15,139,0,,
+16,GC,Sk,11/6/2023,56,1.3,1047213,16,140,0,,
+17,GC,Sk,11/6/2023,60,1.8,1047213,17,141,0,,
+18,GC,Sk,11/6/2023,65,2.2,1047213,18,142,0,,
+19,GC,Sk,11/6/2023,49,1,1047213,19,143,0,,
+20,GC,Sk,11/6/2023,52,1,1047213,20,144,0,,
+21,GC,Sk,11/6/2023,56,1.3,1047213,21,145,0,,
+22,GC,Sk,11/6/2023,68,2.6,1047213,22,146,0,,
+23,GC,Sk,11/6/2023,67,2.4,1047213,23,147,0,,
+24,GC,Sk,11/6/2023,67,2.4,1047213,24,148,0,,
+25,GC,Sk,11/6/2023,55,1.2,1047213,25,149,0,,
+26,GC,Sk,11/6/2023,56,1.3,1047214,1,150,0,,
+27,GC,Sk,11/6/2023,61,1.8,1047214,2,151,0,,
+28,GC,Sk,11/6/2023,68,2.5,1047214,3,152,0,,
+29,GC,Sk,11/6/2023,42,0.05,1047214,4,153,0,,
+30,GC,Sk,11/6/2023,60,1.5,1047214,5,154,0,,
+31,GC,Sk,11/6/2023,43,0.5,1047214,6,155,0,,
+32,GC,Sk,11/6/2023,61,2,1047214,7,156,0,,
+33,GC,Sk,11/6/2023,70,2.9,1047214,8,157,0,,
+34,GC,Sk,11/6/2023,53,1.1,1047214,9,158,0,,
+35,GC,Sk,11/6/2023,62,2,1047214,10,159,0,,
+36,GC,Sk,11/6/2023,52,1,1047214,11,160,0,,
+37,GC,Sk,11/6/2023,45,0.6,1047214,12,161,0,,
+38,GC,Sk,11/6/2023,56,1.5,1047214,13,162,0,,
+39,GC,Sk,11/6/2023,43,0.6,1047214,14,163,0,,
+40,GC,Sk,11/6/2023,39,0.5,1047214,15,164,0,,
+41,GC,Sk,11/6/2023,58,1.4,1047214,16,165,0,,
+42,GC,Sk,11/6/2023,62,1.8,1047214,17,166,0,,
+43,GC,Sk,11/6/2023,65,2.1,1047214,18,167,0,,
+44,GC,Sk,11/6/2023,61,1.8,1047214,19,168,0,,
+45,GC,Sk,11/6/2023,50,0.9,1047214,20,169,0,,
+46,GC,Sk,11/6/2023,50,1,1047214,21,170,0,,
+47,GC,Sk,11/6/2023,51,1.2,1047214,22,171,0,,
+48,GC,Sk,11/6/2023,55,1.2,1047214,23,172,0,,
+49,GC,Sk,11/6/2023,62,1.9,1047214,24,173,0,,
+1,GC,SK,01/30/2018,43,0.48,UNB,,198,1,1,"Age 1, annuli forming"
+1,GC,SK,01/30/2018,62,1.95,UNB,,199,1,1,"Age 1, annuli forming"
+3,GC,SK,01/30/2018,55,1.5,UNB,,200,1,1+,Age 1+. Annuli +new growth 
+4,GC,SK,01/30/2018,63,2.24,UNB,,201,1,1,"Age 1, annuli forming"
+5,GC,SK,01/30/2018,56,1.03,UNB,,202,1,1,"Age 1, but not showing annuli"
+6,GC,SK,01/30/2018,60,1.8,UNB,,203,1,1+,Age 1+. Annuli +new growth
+7,GC,SK,01/30/2018,55,1.47,UNB,,204,1,1,"Age 1, annuli forming"
+8,GC,SK,01/30/2018,51,0.84,UNB,,205,1,1,"Age 1, Anulli forming"
+9,GC,SK,01/30/2018,38,0.36,UNB,,206,1,1,"Age 1, but not showing annuli"
+10,GC,SK,01/30/2018,50,0.85,UNB,,207,1,1,"Age 1, but not showing annuli"
+11,GC,SK,01/30/2018,42,0.49,UNB,,208,1,,no readable scales 
+12,GC,SK,01/30/2018,48,0.84,UNB,,209,1,1,"Age 1, but not showing annuli"
+13,GC,SK,01/30/2018,53,1,UNB,,210,1,1,"Age 1, but not showing annuli"
+14,GC,SK,01/30/2018,52,0.95,UNB,,211,1,1,"Age 1, not showing annuli"
+15,GC,SK,01/30/2018,55,1.17,UNB,,212,1,1+,Age 1+. Annuli +new growth - low confidence
+16,GC,SK,01/30/2018,45,0.62,UNB,,213,1,1,"Age 1, but not showing annuli"
+17,GC,SK,01/30/2018,52,0.8,UNB,,214,1,1,"Age 1, but not showing annuli"
+18,GC,SK,01/30/2018,50,1,UNB,,215,1,1,"Age 1, but not showing annuli"
+19,GC,SK,01/30/2018,56,1.1,UNB,,216,1,1,"Age 1, but not showing annuli"
+20,GC,SK,01/30/2018,48,0.74,UNB,,217,1,1,"Age 1, but not showing annuli (based off scale b, scale a???)"
+21,GC,SK,01/30/2018,49,0.78,UNB,,218,1,,no scales in envelope
+22,GC,SK,01/30/2018,35,0.24,UNB,,219,1,1,"Age 1, but not showing annuli"
+23,GC,SK,01/30/2018,51,.,UNB,,220,1,1,"Age 1, Anulli forming"
+24,GC,SK,01/30/2018,39,0.41,UNB,,221,1,1,"Age 1, but not showing annuli"
+25,GC,SK,01/30/2018,51,0.9,UNB,,222,1,,no scales in envelope
+26,GC,SK,01/30/2018,42,0.5,UNB,,223,1,,no scales in envelope
+27,GC,SK,01/30/2018,64,2.19,UNB,,224,1,1+,Age 1+. Annuli +new growth 
+28,GC,SK,01/30/2018,59,1.61,UNB,,225,1,1,"Age 1, but not showing annuli"
+29,GC,SK,01/30/2018,44,0.63,UNB,,226,1,1,"Age 1, but not showing annuli"
+30,GC,SK,01/30/2018,55,1.39,UNB,,227,1,1,"Age 1, but not showing annuli"
+31,GC,SK,01/30/2018,52,0.98,UNB,,228,1,1,"Age 1, Anulli forming"
+32,GC,SK,01/30/2018,49,0.76,UNB,,229,1,1,"Age 1, but not showing annuli"
+33,GC,SK,01/30/2018,65,2.36,UNB,,230,1,1+,Age 1+. Annuli +new growth 
+34,GC,SK,01/30/2018,33,0.5,UNB,,231,1,1,"Age 1, but not showing annuli"
+35,GC,SK,01/30/2018,41,0.47,UNB,,232,1,1,"Age 1, but not showing annuli"
+36,GC,SK,01/30/2018,44,0.55,UNB,,233,1,1,"Age 1, but not showing annuli"
+37,GC,SK,01/30/2018,50,0.81,UNB,,234,1,1,"Age 1, but not showing annuli"
+38,GC,SK,01/30/2018,46,0.59,UNB,,235,1,1,"Age 1, but not showing annuli"
+39,GC,SK,01/30/2018,81,4.21,UNB,,236,1,2,"Age 2, second annuli forming."
+40,GC,SK,01/30/2018,67,2.16,UNB,,237,1,1,"Age 1, annuli forming"
+41,GC,SK,01/30/2018,54,1.12,UNB,,238,1,1,"Age 1, but not showing annuli"
+42,GC,SK,01/30/2018,56,1.41,UNB,,239,1,1,"Age 1, but not showing annuli"
+43,GC,SK,01/30/2018,65,1.76,UNB,,240,1,1,"Age 1, annuli forming"
+44,GC,SK,01/30/2018,51,0.78,UNB,,241,1,1,"Age 1, but not showing annuli"
+45,GC,SK,01/30/2018,47,0.79,UNB,,242,1,1,"Age 1, Anulli forming"
+46,GC,SK,01/30/2018,48,0.59,UNB,,243,1,1,"Age 1, but not showing annuli"
+47,GC,SK,01/30/2018,55,1.29,UNB,,244,1,1,"Age 1, but not showing annuli"
+48,GC,SK,01/30/2018,58,1.37,UNB,,245,1,1,"Age 1, but not showing annuli"
+49,GC,SK,01/30/2018,49,0.78,UNB,,246,1,1,"Age 1, but not showing annuli"
+50,GC,SK,01/30/2018,71,2.82,UNB,,247,1,1,"Age 1, annuli forming"
+1,GC,SK,3/12/2019,49,1.18,UNB,UNB,345,1,1,"Age 1, but not showing annuli"
+2,GC,SK,3/12/2019,48,1.18,UNB,UNB,346,1,1,"Age 1, Anulli forming. Could be called 1+"
+3,GC,SK,3/12/2019,72,3.34,UNB,UNB,347,1,2,"Age 2, second annuli forming. Low confidence"
+4,GC,SK,3/12/2019,53,1.51,UNB,UNB,348,1,1,"Age 1, Anulli forming"
+5,GC,SK,3/12/2019,65,2.7,UNB,UNB,349,1,1,"Age 1, annuli forming"
+6,GC,SK,3/12/2019,55,1.34,UNB,UNB,350,1,1,"Age 1, annuli forming"
+7,GC,SK,3/12/2019,71,3.37,UNB,UNB,351,1,1,"Age 1, annuli forming"
+8,GC,SK,3/12/2019,75,3.4,UNB,UNB,352,1,2,"Age 2, second annuli forming."
+9,GC,SK,3/12/2019,60,1.95,UNB,UNB,353,1,1+,Age 1+. Annuli +new growth
+10,GC,SK,3/12/2019,70,2.95,UNB,UNB,354,1,1,"Age 1, annuli forming"
+11,GC,SK,3/12/2019,62,1.84,UNB,UNB,355,1,1+,Age 1+. Annuli +new growth
+12,GC,SK,3/12/2019,67,2.57,UNB,UNB,356,1,1+,Age 1+. Annuli +new growth 
+13,GC,SK,3/12/2019,70,2.69,UNB,UNB,357,1,1,"Age 1, annuli forming"
+14,GC,SK,3/12/2019,65,2.17,UNB,UNB,358,1,1,"Age 1, annuli forming"
+15,GC,SK,3/12/2019,55,1.3,UNB,UNB,359,1,1,"Age 1, annuli forming"
+16,GC,SK,3/12/2019,63,1.94,UNB,UNB,360,1,1+,Age 1+. Annuli +new growth 
+17,GC,SK,3/12/2019,67,1.94,UNB,UNB,361,1,1,"Age 1, annuli forming"
+18,GC,SK,3/12/2019,72,2.83,UNB,UNB,362,1,2,"Age 2, second annuli forming."
+19,GC,SK,3/12/2019,69,2.54,UNB,UNB,363,1,1+,Age 1+. Annuli +new growth 
+20,GC,SK,3/12/2019,64,2.09,UNB,UNB,364,1,1+,Age 1+. Annuli +new growth 
+21,GC,SK,3/12/2019,50,0.98,UNB,UNB,365,1,1,"Age 1, but not showing annuli"
+22,GC,SK,3/12/2019,69,2.87,UNB,UNB,366,1,1,"Age 1, annuli forming"
+23,GC,SK,3/12/2019,64,2.1,UNB,UNB,367,1,1+,Age 1+. Annuli +new growth 
+24,GC,SK,3/12/2019,69,2.59,UNB,UNB,368,1,1,"Age 1, annuli forming"
+25,GC,SK,3/12/2019,88,3.67,UNB,UNB,369,1,2,"Age 2, second annuli forming."
+26,GC,SK,3/12/2019,64,2.34,UNB,UNB,370,1,1,"Age 1, annuli forming"
+27,GC,SK,3/12/2019,63,1.78,UNB,UNB,371,1,1+,Age 1+. Annuli +new growth 
+28,GC,SK,3/12/2019,61,1.85,UNB,UNB,372,1,1+,Age 1+. Annuli +new growth
+29,GC,SK,3/12/2019,60,2,UNB,UNB,373,1,1+,Age 1+. Annuli +new growth
+30,GC,SK,3/12/2019,58,1.31,UNB,UNB,374,1,1+,Age 1+. Annuli +new growth
+31,GC,SK,3/12/2019,48,1.12,UNB,UNB,375,1,1,"Age 1, but not showing annuli"
+32,GC,SK,3/12/2019,55,1.33,UNB,UNB,376,1,1,"Age 1, annuli forming"
+33,GC,SK,3/12/2019,68,2.7,UNB,UNB,377,1,1+,Age 1+. Annuli +new growth 
+34,GC,SK,3/12/2019,71,2.91,UNB,UNB,378,1,2,"Age 2, second annuli forming. Low confidence"
+35,GC,SK,3/12/2019,65,2.25,UNB,UNB,379,1,1,"Age 1, annuli forming"
+36,GC,SK,3/12/2019,62,1.43,UNB,UNB,380,1,1+,Age 1+. Annuli +new growth
+37,GC,SK,3/12/2019,52,1,UNB,UNB,381,1,1,"Age 1, but not showing annuli"
+38,GC,SK,3/12/2019,58,1.6,UNB,UNB,382,1,1+,Age 1+. Annuli +new growth
+39,GC,SK,3/12/2019,59,1.77,UNB,UNB,383,1,1+,Age 1+. Annuli +new growth
+40,GC,SK,3/12/2019,64,2.34,UNB,UNB,384,1,1+,Age 1+. Annuli +new growth 
+41,GC,SK,3/12/2019,71,3.24,UNB,UNB,385,1,1,"Age 1, annuli forming"
+42,GC,SK,3/12/2019,74,3.61,UNB,UNB,386,1,2,"Age 2, second annuli forming."
+43,GC,SK,3/12/2019,59,1.62,UNB,UNB,387,1,1,"Age 1, annuli forming"
+44,GC,SK,3/12/2019,65,2,UNB,UNB,388,1,1,"Age 1, annuli forming"
+45,GC,SK,3/12/2019,61,1.81,UNB,UNB,389,1,1+,Age 1+. Annuli +new growth
+46,GC,SK,3/12/2019,58,1.8,UNB,UNB,390,1,1,"Age 1, but not showing annuli"
+47,GC,SK,3/12/2019,56,1.37,UNB,UNB,391,1,1,"Age 1, but not showing annuli"
+48,GC,SK,3/12/2019,68,2.38,UNB,UNB,392,1,1,"Age 1, annuli forming"
+49,GC,SK,3/12/2019,66,2.35,UNB,UNB,393,1,1,"Age 1, annuli forming"
+50,GC,SK,3/12/2019,60,1.57,UNB,UNB,394,1,1+,Age 1+. Annuli +new growth
+1,GC,SK,2/20/2020,91,5.46,UNB,UNB,395,1,2,"Age 2, second annuli forming. Scale b potentially different fish?"
+2,GC,SK,2/20/2020,65,2.33,UNB,UNB,396,1,1,"Age 1, annuli forming"
+3,GC,SK,2/20/2020,66,1.47,UNB,UNB,397,1,1,"Age 1, annuli forming. Potential error with weight."
+4,GC,SK,2/20/2020,65,2.45,UNB,UNB,398,1,1+,Age 1+. Annuli +new growth 
+5,GC,SK,2/20/2020,63,2.17,UNB,UNB,399,1,1,"Age 1, annuli forming"
+6,GC,SK,2/20/2020,66,2.49,UNB,UNB,400,1,1,"Age 1, annuli forming"
+7,GC,SK,2/20/2020,78,4.49,UNB,UNB,401,1,2,"Age 2, second annuli forming."
+8,GC,SK,2/20/2020,81,3.23,UNB,UNB,402,1,2,"Age 2, second annuli forming."
+9,GC,SK,2/20/2020,75,3.86,UNB,UNB,403,1,2,"Age 2, second annuli forming."
+10,GC,SK,2/20/2020,74,3.81,UNB,UNB,404,1,2,"Age 2, second annuli forming."
+11,GC,SK,2/20/2020,55,1.64,UNB,UNB,405,1,1,"Age 1, but not showing annuli"
+12,GC,SK,2/20/2020,71,3.57,UNB,UNB,406,1,2,"Age 2, second annuli forming. Low confidence"
+13,GC,SK,2/20/2020,55,1.43,UNB,UNB,407,1,1,"Age 1, but not showing annuli"
+14,GC,SK,2/20/2020,66,2.57,UNB,UNB,408,1,1+,Age 1+. Annuli +new growth 
+15,GC,SK,2/20/2020,65,2.54,UNB,UNB,409,1,1,"Age 1, annuli forming"
+16,GC,SK,2/20/2020,56,1.62,UNB,UNB,410,1,1+,Age 1+. Annuli +new growth
+17,GC,SK,2/20/2020,65,2.88,UNB,UNB,411,1,2,"Age 2, second annuli forming. Potentially a recording error on the size"
+18,GC,SK,2/20/2020,65,2,UNB,UNB,412,1,1,"Age 1, annuli forming"
+19,GC,SK,2/20/2020,70,3.05,UNB,UNB,413,1,1,"Age 1, annuli forming"
+20,GC,SK,2/20/2020,78,4.39,UNB,UNB,414,1,2,"Age 2, second annuli forming."
+21,GC,SK,2/20/2020,62,1.97,UNB,UNB,415,1,1+,Age 1+. Annuli +new growth
+22,GC,SK,2/20/2020,57,1.09,UNB,UNB,416,1,1,"Age 1, annuli forming"
+23,GC,SK,2/20/2020,61,1.76,UNB,UNB,417,1,1+,Age 1+. Annuli +new growth
+24,GC,SK,2/20/2020,73,2.61,UNB,UNB,418,1,1+,Age 1+. Annuli +new growth 
+25,GC,SK,2/20/2020,60,2.07,UNB,UNB,419,1,1,"Age 1, annuli forming"
+1,GC,SK,2/20/2020,52,1.15,1034477,1,420,0,,
+2,GC,SK,2/20/2020,65,2.12,1034477,2,421,0,,
+3,GC,SK,2/20/2020,61,2,1034477,3,422,0,,
+4,GC,SK,2/20/2020,80,3.6,1034477,4,423,0,,
+5,GC,SK,2/20/2020,70,2.88,1034477,5,424,0,,
+6,GC,SK,2/20/2020,67,2.18,1034477,6,425,0,,
+7,GC,SK,2/20/2020,59,1.69,1034477,7,426,0,,
+8,GC,SK,2/20/2020,63,2.27,1034477,8,427,0,,
+9,GC,SK,2/20/2020,60,2.43,1034477,9,428,0,,
+10,GC,SK,2/20/2020,61,2,1034477,10,429,0,,
+11,GC,SK,2/20/2020,72,2.79,1034477,11,430,0,,
+12,GC,SK,2/20/2020,55,1.33,1034477,12,431,0,,
+13,GC,SK,2/20/2020,59,2.31,1034477,13,432,0,,
+14,GC,SK,2/20/2020,60,1.31,1034477,14,433,0,,
+15,GC,SK,2/20/2020,60,2,1034477,15,434,0,,
+16,GC,SK,2/20/2020,61,2.17,1034477,16,435,0,,
+17,GC,SK,2/20/2020,55,1.49,1034477,17,436,0,,
+18,GC,SK,2/20/2020,60,1.57,1034477,18,437,0,,
+19,GC,SK,2/20/2020,52,1.64,1034477,19,438,0,,
+20,GC,SK,2/20/2020,59,1.97,1034477,20,439,0,,
+21,GC,SK,2/20/2020,64,2.42,1034477,21,440,0,,
+22,GC,SK,2/20/2020,61,1.78,1034477,22,441,0,,
+23,GC,SK,2/20/2020,60,1.72,1034477,23,442,0,,
+24,GC,SK,2/20/2020,60,2.13,1034477,24,443,0,,
+25,GC,SK,2/20/2020,54,1.46,1034477,25,444,0,,
+1,GC,SK,2/8/2021,75,3.49,UNB,UNB,495,1,2,"Age 2, second annuli forming."
+2,GC,SK,2/8/2021,68,2.21,UNB,UNB,496,1,1,"Age 1, annuli forming"
+3,GC,SK,2/8/2021,68,2.13,UNB,UNB,497,1,1,"Age 1, annuli forming"
+4,GC,SK,2/8/2021,69,2.62,UNB,UNB,498,1,1,"Age 1, annuli forming"
+5,GC,SK,2/8/2021,64,2,UNB,UNB,499,1,1,"Age 1, annuli forming"
+6,GC,SK,2/8/2021,70,3.29,UNB,UNB,500,1,1,"Age 1, annuli forming"
+7,GC,SK,2/8/2021,61,1.89,UNB,UNB,501,1,1+,Age 1+. Annuli +new growth
+8,GC,SK,2/8/2021,65,2.2,UNB,UNB,502,1,1,"Age 1, annuli forming"
+9,GC,SK,2/8/2021,60,1.28,UNB,UNB,503,1,1,"Age 1, but not showing annuli"
+10,GC,SK,2/8/2021,56,1.04,UNB,UNB,504,1,1,"Age 1, annuli forming"
+11,GC,SK,2/8/2021,76,3.85,UNB,UNB,505,1,2,"Age 2, second annuli forming."
+12,GC,SK,2/8/2021,71,3.1,UNB,UNB,506,1,1+,Age 1+. Annuli +new growth 
+13,GC,SK,2/8/2021,48,0.82,UNB,UNB,507,1,1,"Age 1, Anulli forming"
+14,GC,SK,2/8/2021,60,1.65,UNB,UNB,508,1,1,"Age 1, but not showing annuli"
+15,GC,SK,2/8/2021,73,3.56,UNB,UNB,509,1,2,"Age 2, second annuli forming."
+16,GC,SK,2/8/2021,58,1.59,UNB,UNB,510,1,1+,Age 1+. Annuli +new growth
+17,GC,SK,2/8/2021,65,2.18,UNB,UNB,511,1,1,"Age 1, annuli forming"
+18,GC,SK,2/8/2021,72,2.82,UNB,UNB,512,1,1,"Age 1, annuli forming"
+19,GC,SK,2/8/2021,70,2.93,UNB,UNB,513,1,1,"Age 1, annuli forming"
+20,GC,SK,2/8/2021,67,2,UNB,UNB,514,1,1,"Age 1, annuli forming"
+21,GC,SK,2/8/2021,66,2.55,UNB,UNB,515,1,1,"Age 1, annuli forming"
+22,GC,SK,2/8/2021,72,2.92,UNB,UNB,516,1,1,"Age 1, annuli forming"
+23,GC,SK,2/8/2021,67,2.37,UNB,UNB,517,1,1+,Age 1+. Annuli +new growth 
+24,GC,SK,2/8/2021,60,1.37,UNB,UNB,518,1,1,"Age 1, annuli forming"
+25,GC,SK,2/8/2021,55,1.55,UNB,UNB,519,1,1+,Age 1+. Annuli +new growth
+26,GC,SK,2/8/2021,59,1.78,UNB,UNB,520,1,1,"Age 1, annuli forming"
+27,GC,SK,2/8/2021,70,2.85,UNB,UNB,521,1,1,"Age 1, annuli forming"
+28,GC,SK,2/8/2021,64,2.35,UNB,UNB,522,1,1,"Age 1, annuli forming"
+29,GC,SK,2/8/2021,52,0.88,UNB,UNB,523,1,1,"Age 1, Anulli forming"
+30,GC,SK,2/8/2021,62,1.71,UNB,UNB,524,1,1+,Age 1+. Annuli +new growth
+31,GC,SK,2/8/2021,68,2.43,UNB,UNB,525,1,1+,Age 1+. Annuli +new growth 
+32,GC,SK,2/8/2021,68,2.64,UNB,UNB,526,1,1,"Age 1, annuli forming"
+33,GC,SK,2/8/2021,65,2.53,UNB,UNB,527,1,1+,Age 1+. Annuli +new growth 
+34,GC,SK,2/8/2021,55,1.27,UNB,UNB,528,1,1+,Age 1+. Annuli +new growth
+35,GC,SK,2/8/2021,60,1.54,UNB,UNB,529,1,1,"Age 1, annuli forming"
+36,GC,SK,2/8/2021,61,2,UNB,UNB,530,1,1+,Age 1+. Annuli +new growth
+37,GC,SK,2/8/2021,55,1.33,UNB,UNB,531,1,1+,Age 1+. Annuli +new growth
+1,GC,SK,3/3/2022,62,2.39,UNB,UNB,532,1,1+,Age 1+. Annuli +new growth 
+2,GC,SK,3/3/2022,55,1.83,UNB,UNB,533,1,1+,Age 1+. Annuli +new growth
+3,GC,SK,3/3/2022,65,2.58,UNB,UNB,534,1,1+,Age 1+. Annuli +new growth 
+4,GC,SK,3/3/2022,74,2.88,UNB,UNB,535,1,1+,Age 1+. Annuli +new growth 
+5,GC,SK,3/3/2022,72,3.44,UNB,UNB,536,1,1,"Age 1, annuli forming"
+6,GC,SK,3/3/2022,67,2.61,UNB,UNB,537,1,1,"Age 1, annuli forming"
+7,GC,SK,3/3/2022,65,2.48,UNB,UNB,538,1,1+,Age 1+. Annuli +new growth 
+8,GC,SK,3/3/2022,50,1.24,UNB,UNB,539,1,1,"Age 1, Anulli forming"
+9,GC,SK,3/3/2022,62,2.66,UNB,UNB,540,1,1+,Age 1+. Annuli +new growth 
+10,GC,SK,3/3/2022,73,3.68,UNB,UNB,541,1,1,"Age 1, annuli forming"
+11,GC,SK,3/3/2022,68,2.93,UNB,UNB,542,1,1,"Age 1, annuli forming"
+12,GC,SK,3/3/2022,72,3.31,UNB,UNB,543,1,2,"Age 2, second annuli forming. Low confidence"
+13,GC,SK,3/3/2022,70,3.22,UNB,UNB,544,1,1,"Age 1, annuli forming"
+14,GC,SK,3/3/2022,72,2.79,UNB,UNB,545,1,2,"Age 2, second annuli forming."
+15,GC,SK,3/3/2022,72,3.11,UNB,UNB,546,1,1+,Age 1+. Annuli +new growth 
+16,GC,SK,3/3/2022,78,4.48,UNB,UNB,547,1,2,"Age 2, second annuli forming."
+17,GC,SK,3/3/2022,74,3.03,UNB,UNB,548,1,1+,Age 1+. Annuli +new growth 
+18,GC,SK,3/3/2022,64,2.55,UNB,UNB,549,1,1,"Age 1, annuli forming"
+19,GC,SK,3/3/2022,62,1.93,UNB,UNB,550,1,1+,Age 1+. Annuli +new growth 
+20,GC,SK,3/3/2022,60,1.86,UNB,UNB,551,1,1+,Age 1+. Annuli +new growth
+21,GC,SK,3/3/2022,56,1.53,UNB,UNB,552,1,1,"Age 1, annuli forming"
+22,GC,SK,3/3/2022,50,1.17,UNB,UNB,553,1,1,"Age 1, but not showing annuli"
+23,GC,SK,3/3/2022,55,1.66,UNB,UNB,554,1,1+,Age 1+. Annuli +new growth
+24,GC,SK,3/3/2022,55,1.23,UNB,UNB,555,1,1,"Age 1, annuli forming"
+25,GC,SK,3/3/2022,55,1.37,UNB,UNB,556,1,1+,Age 1+. Annuli +new growth
+26,GC,SK,3/3/2022,75,3.83,UNB,UNB,557,1,1+,Age 1+. Annuli +new growth 
+27,GC,SK,3/3/2022,80,4.44,UNB,UNB,558,1,2,"Age 2, second annuli forming."
+28,GC,SK,3/3/2022,64,2.22,UNB,UNB,559,1,1,"Age 1, annuli forming"
+29,GC,SK,3/3/2022,74,3.42,UNB,UNB,560,1,1+,Age 1+. Annuli +new growth 
+30,GC,SK,3/3/2022,69,2.74,UNB,UNB,561,1,1,"Age 1, annuli forming"
+31,GC,SK,3/3/2022,72,2.38,UNB,UNB,562,1,1+,Age 1+. Annuli +new growth 
+32,GC,SK,3/3/2022,69,2.57,UNB,UNB,563,1,1,"Age 1, annuli forming"
+33,GC,SK,3/3/2022,63,1.97,UNB,UNB,564,1,1,"Age 1, annuli forming"
+34,GC,SK,3/3/2022,58,1.82,UNB,UNB,565,1,1,"Age 1, annuli forming"
+35,GC,SK,3/3/2022,65,2.44,UNB,UNB,566,1,1+,Age 1+. Annuli +new growth 
+36,GC,SK,3/3/2022,67,2.94,UNB,UNB,567,1,1,"Age 1, annuli forming"
+37,GC,SK,3/3/2022,66,2.63,UNB,UNB,568,1,1,"Age 1, annuli forming"
+38,GC,SK,3/3/2022,68,2.75,UNB,UNB,569,1,1,"Age 1, annuli forming"
+39,GC,SK,3/3/2022,57,1.7,UNB,UNB,570,1,1,"Age 1, annuli forming"
+40,GC,SK,3/3/2022,81,4.17,UNB,UNB,571,1,2,"Age 2, second annuli forming."
+41,GC,SK,3/3/2022,59,1.61,UNB,UNB,572,1,1,"Age 1, annuli forming"
+42,GC,SK,3/3/2022,75,3.86,UNB,UNB,573,1,1,"Age 1, annuli forming"
+43,GC,SK,3/3/2022,53,1.34,UNB,UNB,574,1,1,"Age 1, but not showing annuli"
+44,GC,SK,3/3/2022,65,2.45,UNB,UNB,575,1,1,"Age 1, annuli forming"
+45,GC,SK,3/3/2022,69,3.2,UNB,UNB,576,1,1,"Age 1, annuli forming"
+46,GC,SK,3/3/2022,65,2.57,UNB,UNB,577,1,1,"Age 1, annuli forming"
+47,GC,SK,3/3/2022,75,3.56,UNB,UNB,578,1,1,"Age 1, annuli forming"
+48,GC,SK,3/3/2022,54,1.1,UNB,UNB,579,1,1,"Age 1, Anulli forming"
+49,GC,SK,3/3/2022,74,3,UNB,UNB,580,1,1+,Age 1+. Annuli +new growth 
+50,GC,SK,3/3/2022,63,2.08,UNB,UNB,581,1,1,"Age 1, annuli forming"
