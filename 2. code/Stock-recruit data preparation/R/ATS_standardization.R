@@ -9,7 +9,7 @@ library(here)
 library(tidyverse); theme_set(theme_bw())
 library(geomtextpath)
 library(readxl)
-library(mgcv) # For GAM fit
+library(brms) # For GAM fit
 
 
 # Function to calculate moving average of a vector
@@ -546,164 +546,28 @@ ggsave(
 # Standardize annual abundance estimates using GAM ------------------------
 
 
-# Fit one model per lake
-gam_frame <- ats_est |> 
-  # Convert pre-smolt numbers to millions in observed data
-  mutate(across(contains("presmolt_"), \(x) x/1e6)) |> 
-  nest(.by = lake, .key = "obs") |> 
-  rowwise() |> 
+# Model all 3 lakes together
+gamm_combined <- ats_est |> 
   mutate(
-    # Drop empty factor levels in observed data 
-    obs = list(droplevels(obs)),
-    # Fit model based on Patrick Thompson's code from:
-    # https://github.com/SiRE-P/OSO_ATS_analysis/blob/main/code/fry_smolt_GAM.R
-    model = list(
-      gam(
-        presmolt_est ~ 
-          s(day_smolt_yr, k = 5) + 
-          #s(day_smolt_yr, smolt_year_f, bs = "fs", k = 5), 
-          smolt_year_f, # Try without fitting annual splines
-        family = nb(link="log"), 
-        data = obs, 
-        method = "REML"
-      )
-    ),
-    # Save dataframe of values to predict over
-    newdata = list(
-      with(
-        obs,
-        expand.grid(
-          smolt_year_f = levels(smolt_year_f),
-          day_smolt_yr = seq.int(1, 365)
-          #day_smolt_yr = seq(min(day_smolt_yr), 365, length.out = 300)
-        )
-      )
-    ),
-    # create dataframe of predictions
-    pred = list(
-      predict(model, newdata, type = "link", se.fit = TRUE) |> 
-        cbind(newdata) |> 
-        mutate(
-          lci = fit - se.fit*1.96,
-          uci = fit + se.fit*1.96,
-          # Back-transform
-          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
-        )
-    ),
-    # Make plot of predicted versus observed
-    pred_plot = list(
-      ggplot(
-        data = obs,
-        aes(day_smolt_yr, presmolt_est)
-      ) +
-        facet_wrap(
-          ~smolt_year_f, 
-          scales = "free_y",
-          ncol = 5
-        ) +
-        geom_vline(
-          xintercept = 365-20, # March 1st (day 365 = 20 March)
-          lty = 2
-        ) + 
-        geom_text(
-          aes(label = smolt_year_f),
-          x = Inf,
-          y = Inf,
-          hjust = 1.5,
-          vjust = 1.5,
-          check_overlap = T,
-          colour = "grey50",
-          size = 4
-        ) +
-        geom_pointrange(
-          aes(
-            ymin = presmolt_lwr,
-            ymax = presmolt_upr
-          )
-        ) +
-        geom_ribbon(
-          data = pred,
-          aes(
-            y = fit,
-            ymin = lci,
-            ymax = uci
-          ),
-          alpha = 0.3,
-          colour = NA
-        ) +
-        geom_line(
-          data = pred,
-          aes(y = fit)
-        ) +
-        scale_y_continuous(
-          limits = c(0, NA),
-          expand = expansion(mult = c(0, 0.05)),
-          labels = scales::label_number(accuracy = 1),
-          breaks = scales::pretty_breaks(n = 3)
-        ) +
-        scale_x_continuous(
-          expand = c(0, 0),
-          labels = scales::label_number(accuracy = 1),
-          breaks = scales::pretty_breaks(n = 3)
-        ) +
-        labs(
-          title = paste(lake, "GAM predictions and ATS estimates by date"),
-          x = "Days since 20 March",
-          y = "Sockeye fry abundance (millions)"
-        ) +
-        theme(
-          strip.text = element_blank(),
-          strip.background = element_blank(),
-          panel.grid.minor = element_blank()
-        )
-    )
+    # Convert pre-smolt numbers to millions in observed data
+    across(contains("presmolt_"), \(x) x/1e6),
+    # Interaction term for year within lake
+    lake_year = interaction(lake, smolt_year, sep = "_")
   ) |> 
-  ungroup()
-
-
-# View predictions
-gam_frame |> 
-  pull(pred_plot, name = lake)
-
-# Plot predictions for all years in one panel
-gam_frame |> 
-  select(lake, obs, pred) |> 
-  pmap(
-    \(lake, obs, pred) ggplot(
-      data = obs,
-      aes(
-        day_smolt_yr, 
-        presmolt_est
-      )
-    ) +
-      geom_line(
-        data = pred,
-        aes(
-          y = fit,
-          group = as.numeric(as.character(smolt_year_f))
-        ),
-        colour = "grey80"
-      ) +
-      geom_point() +
-      ggtitle(lake)
-  )
-
-
-# What about modelling all 3 lakes together?
-gam_combined <- ats_est |> 
-  # Convert pre-smolt numbers to millions in observed data
-  mutate(across(contains("presmolt_"), \(x) x/1e6)) |> 
   nest(.key = "obs") |> 
   rowwise() |> 
   mutate(
     model = list(
-      gam(
-        presmolt_est ~ 
-          s(day_smolt_yr, lake, bs = "fs", k = 5) + 
-          lake:smolt_year_f, 
-        family = nb(link="log"), 
+      brm(
+        bf(
+          as.integer(presmolt_est) ~
+            s(day_smolt_yr, by = lake, bs = "fs", k = 5) +
+            (1 | smolt_year_f) +
+            (1 | smolt_year_f:lake),
+          family = negbinomial()
+        ),
         data = obs, 
-        method = "REML"
+        cores = 4
       )
     ),
     # Save dataframe of values to predict over
@@ -713,27 +577,36 @@ gam_combined <- ats_est |>
         expand.grid(
           lake = levels(lake),
           smolt_year_f = levels(smolt_year_f),
+          #smolt_year = seq.int(min(smolt_year), max(smolt_year)),
           day_smolt_yr = seq.int(1, 365)
         )
-      )
+      ) |> 
+        mutate(lake_year = interaction(lake, smolt_year_f, sep = "_"))
     ),
     # create dataframe of predictions
     pred = list(
-      predict(model, newdata, type = "link", se.fit = TRUE) |> 
-        cbind(newdata) |> 
-        mutate(
-          lci = fit - se.fit*1.96,
-          uci = fit + se.fit*1.96,
-          # Back-transform
-          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x))
+      as.data.frame(
+        t(
+          apply(
+            posterior_epred(
+              model, 
+              newdata = newdata,
+              allow_new_levels = TRUE
+            ), 
+            2, 
+            quantile, 
+            probs = c(0.05, 0.5, 0.95)
+          )
         )
+      ) |> 
+        bind_cols(newdata)
     )
   )
 
 
-# Plot predictions from the combined GAM across all years
+# Plot predictions from the bayesian gamm across all years
 pmap(
-  gam_combined,
+  gamm_combined,
   \(obs, pred, ...) ggplot(
     data = obs,
     aes(day_smolt_yr, presmolt_est)
@@ -746,17 +619,15 @@ pmap(
     ) +
     geom_line(
       data = pred,
-      aes(y = fit, group = smolt_year_f),
+      aes(y = `50%`, group = smolt_year_f),
       colour = "grey70"
     ) +
     geom_point() 
 )
-# Looks a bit better; there seems enough signal in the data for a 
-# peak in fry abundances around smolt year day 150 (~17 August).
 
 
-# Split data for each lake from combined GAM approach into its own row
-gam_combined_split <- gam_combined |> 
+# Split data for each lake from combined gamm approach into its own row
+gamm_combined_split <- gamm_combined |> 
   select(obs, pred) |> 
   as.list() |> 
   map(list_rbind) |> 
@@ -764,7 +635,7 @@ gam_combined_split <- gam_combined |>
   {left_join(.[[1]], .[[2]])} |> 
   rowwise() |> 
   mutate(
-    model = gam_combined$model,
+    model = gamm_combined$model,
     # Make plot of predicted versus observed
     pred_plot = list(
       ggplot(
@@ -780,8 +651,22 @@ gam_combined_split <- gam_combined |>
           xintercept = 365-20, # March 1st (day 365 = 20 March)
           lty = 2
         ) + 
+        geom_ribbon(
+          data = pred,
+          aes(
+            y = `50%`,
+            ymin = `5%`,
+            ymax = `95%`
+          ),
+          alpha = 0.3,
+          colour = NA
+        ) +
+        geom_line(
+          data = pred,
+          aes(y = `50%`)
+        ) +
         geom_text(
-          aes(label = smolt_year_f),
+          aes(label = smolt_year),
           x = Inf,
           y = Inf,
           hjust = 1.5,
@@ -794,21 +679,8 @@ gam_combined_split <- gam_combined |>
           aes(
             ymin = presmolt_lwr,
             ymax = presmolt_upr
-          )
-        ) +
-        geom_ribbon(
-          data = pred,
-          aes(
-            y = fit,
-            ymin = lci,
-            ymax = uci
           ),
-          alpha = 0.3,
-          colour = NA
-        ) +
-        geom_line(
-          data = pred,
-          aes(y = fit)
+          size = 0.15
         ) +
         scale_y_continuous(
           limits = c(0, NA),
@@ -822,7 +694,7 @@ gam_combined_split <- gam_combined |>
           breaks = scales::pretty_breaks(n = 3)
         ) +
         labs(
-          title = paste(lake, "GAM predictions and ATS estimates by date"),
+          title = paste(lake, "GAMM predictions and ATS estimates by date"),
           x = "Days since 20 March",
           y = "Sockeye fry abundance (millions)"
         ) +
@@ -837,12 +709,12 @@ gam_combined_split <- gam_combined |>
 
 
 # View annual predictions per lake
-gam_combined_split |> 
+gamm_combined_split |> 
   pull(pred_plot, name = lake)
 
 
 # Save the plots
-gam_combined_split |> 
+gamm_combined_split |> 
   pull(pred_plot, name = lake) |> 
   iwalk(
     \(x, idx) ggsave(
@@ -850,7 +722,7 @@ gam_combined_split |>
       filename = here(
         "3. outputs",
         "Plots",
-        paste0("GAM_fry-abun_pred_plot_", idx, ".png")
+        paste0("GAMM_fry-abun_pred_plot_", idx, ".png")
       ),
       width = 7,
       height = 8,
@@ -861,38 +733,44 @@ gam_combined_split |>
 
 
 # Annual predictions per lake and stock on 1 March
-ann_gam_pred <- gam_combined_split |> 
-  rowwise() |> 
-  mutate(
-    ann_val = list(
-      expand.grid(
-        lake = lake,
-        smolt_year_f = levels(obs$smolt_year_f),
-        day_smolt_yr = 345 # = March 1st
-      )
-    ),
-    ann_pred = list(
-      predict(model, ann_val, type = "link", se.fit = TRUE) |> 
-        cbind(ann_val) |> 
-        mutate(
-          fit_response = exp(fit),
-          se = fit_response * se.fit, # SE calculated via delta method
-          cv = se/fit_response,
-          lci = fit - se.fit*1.28,
-          uci = fit + se.fit*1.28,
-          # Back-transform and convert to millions
-          across(c(fit, lci, uci), \(x) nb(link = "log")$linkinv(x)*1e6)
-        )
-    )
-  ) |> 
-  select(ann_pred) |> 
-  unnest(ann_pred) |> 
-  mutate(smolt_year = as.numeric(as.character(smolt_year_f))) |> 
-  select(lake, smolt_year, day_smolt_yr, est = fit, lwr = lci, upr = uci, cv)
+ann_pred_frame <- expand.grid(
+  lake = levels(obs$lake),
+  smolt_year_f = levels(obs$smolt_year_f),
+  day_smolt_yr = 345 # = March 1st
+)
 
+ann_gamm_pred <- posterior_epred(
+  gamm_combined$model[[1]], 
+  newdata = ann_pred_frame,
+  allow_new_levels = TRUE
+) |> 
+  apply(
+    2, 
+    # Summarize posterior draws and convert to millions
+    function(x) {
+      y <- x*1e6
+      
+      c(
+        "mean" = mean(y),
+        "est" = median(y),
+        "lwr" = quantile(y, 0.1),
+        "upr" = quantile(y, 0.9),
+        "sd" = sd(y)
+      )
+    }
+  ) |> 
+  t() |> 
+  as.data.frame() |>
+  bind_cols(ann_pred_frame) |> 
+  mutate(
+    smolt_year = as.numeric(as.character(smolt_year_f)),
+    cv = sd/mean
+  ) |> 
+  select(lake, smolt_year, day_smolt_yr, est, lwr = `lwr.10%`, upr = `upr.90%`, cv)
+    
 
 # Export predicted pre-smolt abundance estimates
-ann_gam_pred |> 
+ann_gamm_pred |> 
   mutate(estimate_date = as.Date(paste0(smolt_year, "-03-01"))) |> 
   select(-day_smolt_yr) |> 
   # Ensure CI widths are explicit in the output file
@@ -901,32 +779,33 @@ ann_gam_pred |>
     file = here(
       "3. outputs",
       "Stock-recruit data",
-      "GAM-estimated_pre-smolt_time_series.csv"
+      "GAMM-estimated_pre-smolt_time_series.csv"
     ),
     row.names = FALSE
   )
 
 
-# Compare GAM predictions to raw values for each lake and year
-(gam_comp_p <- ats_est |> 
+# Compare gamm predictions to raw values for each lake and year
+(gamm_comp_p <- ats_est |> 
     filter(preferred_est == 1) |> 
-    # Screw around with column names so raw and GAM estimates can be
+    complete(lake, smolt_year) |> 
+    # Screw around with column names so raw and gamm estimates can be
     # compared side-by-side in the plot
     rename_with(\(x) str_replace_all(x, "presmolt", "raw")) |> 
     rename("raw_day" = day_smolt_yr) |> 
     left_join(
-      ann_gam_pred,
+      ann_gamm_pred,
       by = c("lake", "smolt_year")
     ) |> 
-    rename("gam_day" = day_smolt_yr) |> 
-    rename_with(\(x) paste0("gam_", x), .cols = c(est, lwr, upr)) |> 
-    # Lengthen data so raw (ATS) and GAM estimates have their own rows
+    rename("gamm_day" = day_smolt_yr) |> 
+    rename_with(\(x) paste0("gamm_", x), .cols = c(est, lwr, upr)) |> 
+    # Lengthen data so raw (ATS) and gamm estimates have their own rows
     pivot_longer(
-      matches("(raw|gam)_(est|lwr|upr|day)"),
+      matches("(raw|gamm)_(est|lwr|upr|day)"),
       names_sep = "_",
       names_to = c("method", ".value")
     ) |> 
-    mutate(across(c(est, lwr, upr), \(x) x/1e6)) |> # Convert to millions
+    mutate(across(c(est, lwr, upr), \(x) x/1e6)) |>  # Convert to millions
     ggplot(aes(x = smolt_year, y = est)) +
     facet_wrap(
       ~lake,
@@ -939,8 +818,9 @@ ann_gam_pred |>
         ymin = lwr,
         ymax = upr,
         shape = method,
-        colour = day # Show estimate date on a continuous colour scale
-        # (similar colours should have similar estimates from GAM vs. ATS)
+        colour = day 
+        # Show estimate date on a continuous colour scale
+        # (similar colours should have similar estimates from gamm vs. ATS)
       ),
       position = position_dodge(width = 0.5),
       linewidth = 0.2,
@@ -948,7 +828,8 @@ ann_gam_pred |>
     ) +
     scale_colour_viridis_c(
       direction = -1,
-      option = "mako"
+      option = "mako",
+      labels = 
     ) +
     scale_shape_manual(values = c(4, 19)) +
     scale_x_continuous(expand = expansion(mult = c(0.01, 0.01))) +
@@ -965,11 +846,11 @@ ann_gam_pred |>
 
 # Save the plot
 ggsave(
-  plot = gam_comp_p,
+  plot = gamm_comp_p,
   filename = here(
     "3. outputs",
     "Plots",
-    "Pre-smolt_estimates_GAM_vs_ATS.png"
+    "Pre-smolt_estimates_GAMM_vs_ATS.png"
   ),
   width = 8,
   height = 5,
