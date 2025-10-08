@@ -1,7 +1,10 @@
 # Packages ----------------------------------------------------------------
 
 
-pkgs <- c("here", "tidyverse", "janitor", "readxl", "geom_textpath", "mgcv")
+pkgs <- c(
+  "here", "tidyverse", "janitor", "readxl", "geom_textpath", 
+  "brms", "rstan",
+)
 #install.packages(pkgs)
 
 
@@ -10,6 +13,8 @@ library(tidyverse); theme_set(theme_bw())
 library(geomtextpath)
 library(readxl)
 library(brms) # For GAM fit
+library(rstan) # For state-space GAM
+library(splines) # base package but must be loaded to use bs()
 
 
 # Function to calculate moving average of a vector
@@ -858,6 +863,126 @@ ggsave(
   dpi = "print"
 )
 
+
+
+# Standardize annual abundance estimates using Bayesian state-space -------
+
+
+# Create a dataframe with rows of values that the model will estimate,
+# i.e. 1 March fry abundances for each year and lake in the timeseries
+pred_rows <- expand_grid(
+  lake = factor(levels(ats_est$lake)),
+  smolt_year_f = factor(levels(ats_est$smolt_year_f)),
+  day_smolt_yr = 345,
+  # Dummy (non-NA) values to feed into Stan
+  log_obs = 999,
+  log_se = 999, # Must be >0 per Stan input definitions
+  is_observed = 0
+)
+
+
+# Make some adjustments to ats_est for Stan input and add pred rows
+ats_est2 <- ats_est |> 
+  mutate(
+    log_obs = log(presmolt_est + 1e-6),
+    log_se = sqrt(log(1 + (cv)^2)),
+    is_observed = 1
+  ) |> 
+  bind_rows(pred_rows) |> 
+  mutate(
+    lake_id = as.integer(lake),
+    year_f = factor(smolt_year_f, levels = sort(unique(smolt_year_f))),
+    year_id = as.integer(year_f)
+  )
+
+
+# Build spline basis for day of smolt year
+# bs(..., df = K, degree = 3) yields K-column basis
+K <- 4
+B <- bs(
+  ats_est2$day_smolt_yr, 
+  df = K, 
+  degree = 3, 
+  intercept = FALSE,
+  Boundary.knots = c(0, 365)
+) |> 
+  as.matrix()
+# Yields and N x K matrix
+
+
+# for prediction grid later, build B_pred similarly on desired days
+
+# Build Stan data
+stan_data <- list(
+  N = nrow(ats_est2),
+  L = length(levels(ats_est2$lake)),
+  Y = length(levels(ats_est2$year_f)),
+  K = K,
+  lake = ats_est2$lake_id,
+  year = ats_est2$year_id,
+  B = B,
+  log_obs = ats_est2$log_obs,
+  log_se = ats_est2$log_se,
+  is_observed = ats_est2$is_observed
+)
+
+
+# Fit Stan model to ATS data 
+stan_gam <- stan(
+  file = here(
+    "2. code",
+    "Stock-recruit data preparation",
+    "Stan",
+    "ATS_standardization_gam_ss_mv_ar1.stan"
+  ),
+  data = stan_data,
+  iter = 3000,
+  chains = 4,
+  control = list(
+    #adapt_delta = 0.995
+    #,max_treedepth = 15
+  )
+)
+
+
+# Explore posterior
+post_ats <- rstan::extract(stan_gam)$log_true_all |> 
+  apply(2, quantile, probs = c(0.05, 0.5, 0.95)) |> 
+  t() |> 
+  as_tibble() |> 
+  bind_cols(ats_est2)
+
+
+# Plot predicted vs observed values for each survey
+post_ats |> 
+  filter(preferred_est == 1) |> 
+  ggplot(aes(x = survey_date, y = presmolt_est)) +
+  facet_wrap(
+    ~lake,
+    ncol = 1,
+    scales = "free_y",
+    strip.position = "right"
+  ) +
+  geom_pointrange(
+    aes(
+      ymin = presmolt_est - 1.96*presmolt_sd,
+      ymax = presmolt_est + 1.96*presmolt_sd
+    )
+  ) +
+  geom_pointrange(
+    aes(
+      y = exp(`50%`),
+      ymin = exp(`5%`),
+      ymax = exp(`95%`)
+    ),
+    colour = "red"
+  ) +
+  scale_y_continuous(
+    limits = c(0, NA),
+    expand = c(0, 0),
+    oob = scales::oob_keep
+  )
+  
 
 # Use smolt rates of capture to estimate annual production --------------
 
