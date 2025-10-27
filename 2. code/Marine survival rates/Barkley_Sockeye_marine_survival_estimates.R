@@ -142,7 +142,7 @@ sas_summary <- sas |>
 sas_summary |> 
   summarize(
     .by = lake,
-    median = median(`50%`),
+    geo_mean = exp(mean(log(`50%`))), # Geometric mean of the annual medians
     min = min(`50%`),
     max = max(`50%`)
   )
