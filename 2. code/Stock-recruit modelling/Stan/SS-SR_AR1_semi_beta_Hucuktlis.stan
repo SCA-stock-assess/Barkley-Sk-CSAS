@@ -110,9 +110,9 @@ transformed parameters{
   }
 
 
-// allow different alpha/beta for each enhancement state
-// could try above approach but allowing only alpha or only beta to vary according to enhancement
-// enhancement maybe has more an effect on beta than alpha?
+// allow different alpha and beta for each enhancement state
+// calculate state-specific Ricker curves, and use these to
+// calculate expected recruitment and residuals
   for (y in (A+a_min):nRyrs) {
     real beta = e[y - a_max] ? beta_enh : beta_unenh;
     real lnalpha = e[y - a_max] ? lnalpha_enh : lnalpha_unenh;
