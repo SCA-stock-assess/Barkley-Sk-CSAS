@@ -875,7 +875,7 @@ fit_stan_somass <- function(stan_data, cu) {
     model_name = cu,
     data = stan_data, 
     #warmup = 1000,
-    iter = 6000, 
+    iter = 7000, 
     chains = 4, 
     control = list(
       max_treedepth = 15,
@@ -1034,6 +1034,7 @@ posterior_df |>
   ggplot(aes(year, v_sd)) +
   facet_grid(Rmeas ~ cu) +
   geom_point()
+# Increasing over time?
 
 
 # Observed values for spawners and recruits
@@ -1247,8 +1248,7 @@ latent_sr <- posterior_df |>
       axis.title.y = element_blank(),
       strip.placement = "outside",
       panel.spacing.y = unit(1, "lines"),
-      panel.grid = element_blank(),
-      axis.text.x = element_text(angle = 45, hjust = 1)
+      panel.grid = element_blank()
     )
 )
 
@@ -1760,8 +1760,7 @@ latent_sr_huc <- posterior_df_huc |>
     strip.background = element_blank(),
     axis.title.y = element_blank(),
     strip.placement = "outside",
-    panel.spacing.y = unit(1, "lines"),
-    axis.text.x = element_text(angle = 45, hjust = 1)
+    panel.spacing.y = unit(1, "lines")
   )
 )
   
@@ -1769,95 +1768,95 @@ latent_sr_huc <- posterior_df_huc |>
 # Make combined plots of B-H fits and recruitment residuals ---------------
 
 
-
 # Start with recruitment residuals (easier)
 (R_resid_p <- posterior_df |> 
-  left_join(
-    somass_sr |> 
-      filter(parameter != "N1") |> 
-      distinct(cu, year, enhanced)
-  ) |> 
-  bind_rows(posterior_df_huc) |> 
-  filter(
-    .by = cu,
-    parameter == "lnresid",
-    !is.na(value),
+   left_join(
+     somass_sr |> 
+       filter(parameter != "N1") |> 
+       distinct(cu, year, enhanced)
+   ) |> 
+   bind_rows(posterior_df_huc) |> 
+   filter(
+     .by = cu,
+     parameter == "lnresid",
+     !is.na(value),
      year > min(year, na.rm = TRUE)
-  ) |> 
-  summarize(
-    .by = c(cu, Rmeas, year, enhanced),
-    resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
-  ) |> 
-  unnest_wider(resid) |> 
-  filter(year > min(year)) |> 
-  mutate(
-    .by = Rmeas,
-    line_y = max(`97.5%`) * 1.05,
-    cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis"))
-    ) |> 
-  ggplot(aes(x = year, y = `50%`)) +
-  facet_grid(
-    Rmeas ~ cu, 
-    scales = "free",
-    switch = "y",
-    labeller = labeller(
-      Rmeas = c(
-        "BYB" = "Smolt biomass per spawner residuals",
-        "BYO" = "Smolt abundance per spawner residuals"
-      )
-    )
-  ) +
-  geom_hline(
-    yintercept = 0, 
-    lty = 2, 
-    colour = "grey50"
-  ) +
-  geom_point(
-    aes(
-      y = line_y,
-      colour = enhanced
-    ),
-    shape = "_",
-    size = 2.5
-  ) +
-  geom_ribbon(
-    aes(
-      ymin = `2.5%`,
-      ymax = `97.5%`
-    ),
-    alpha = 0.2
-  ) +
-  geom_ribbon(
-    aes(
-      ymin = `10%`,
-      ymax = `90%`
-    ),
-    alpha = 0.3
-  ) +
-  geom_line() +
-  scale_y_continuous(breaks = scales::pretty_breaks(n = 3)) +
-  scale_colour_manual(values = c("blue", "red")) +
-  guides(
-    colour = guide_legend(
-      title = "Enhancement state",
-      theme = theme(
-        legend.direction = "horizontal",
-        legend.title.position = "top"
-      )
-    )
-  ) +
-  theme(
-    strip.background = element_blank(),
-    axis.title.y = element_blank(),
-    strip.placement = "outside",
-    panel.spacing.y = unit(1, "lines"),
-    panel.grid = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "inside",
-    legend.position.inside = c(0.03, 0.53),
-    legend.justification.inside = c(0, 0),
-    legend.background = element_rect(colour = "black", fill = alpha("white", 0.75))
-  )
+   ) |> 
+   summarize(
+     .by = c(cu, Rmeas, year, enhanced),
+     resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+   ) |> 
+   unnest_wider(resid) |> 
+   filter(year > min(year)) |> 
+   mutate(
+     .by = Rmeas,
+     line_y = max(`97.5%`) * 1.05,
+     cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis"))
+   ) |> 
+   ggplot(aes(x = year, y = `50%`)) +
+   facet_grid(
+     Rmeas ~ cu, 
+     scales = "free",
+     switch = "y",
+     labeller = labeller(
+       Rmeas = c(
+         "BYB" = "Smolt biomass per spawner residuals",
+         "BYO" = "Smolt abundance per spawner residuals"
+       )
+     )
+   ) +
+   geom_hline(
+     yintercept = 0, 
+     lty = 2, 
+     colour = "grey50"
+   ) +
+   geom_point(
+     aes(
+       y = line_y,
+       colour = enhanced
+     ),
+     shape = "_",
+     size = 2.5
+   ) +
+   geom_ribbon(
+     aes(
+       ymin = `2.5%`,
+       ymax = `97.5%`
+     ),
+     alpha = 0.2
+   ) +
+   geom_ribbon(
+     aes(
+       ymin = `10%`,
+       ymax = `90%`
+     ),
+     alpha = 0.3
+   ) +
+   geom_line() +
+   scale_y_continuous(breaks = scales::pretty_breaks(n = 3)) +
+   scale_colour_manual(values = c("blue", "red")) +
+   guides(
+     colour = guide_legend(
+       title = "Enhancement state",
+       theme = theme(
+         legend.direction = "horizontal",
+         legend.title.position = "top"
+       )
+     )
+   ) +
+   labs(x = "Brood year") +
+   theme(
+     strip.background = element_blank(),
+     axis.title.y = element_blank(),
+     strip.placement = "outside",
+     #panel.spacing.y = unit(1, "lines"),
+     panel.grid = element_blank(),
+     axis.text.x = element_text(angle = 45, hjust = 1),
+     legend.position = "inside",
+     legend.position.inside = c(0.03, 0.53),
+     legend.justification.inside = c(0, 0),
+     legend.background = element_rect(colour = "black", fill = alpha("white", 0.75))
+   )
 )
 # Does it make sense to include the last year in the time series?
 
@@ -1911,8 +1910,8 @@ ggsave(
 
 # Export posterior Beverton-Holt parameter samples for Wendell Challenger
 if(
-  #FALSE
-  TRUE
+  FALSE
+  #TRUE
 ) {
   list(posterior_df, posterior_df_huc) |> 
     map(
