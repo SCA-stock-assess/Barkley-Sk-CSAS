@@ -3,7 +3,7 @@
 
 pkgs <- c(
   "tidyverse", "rstan", "here", "bayesplot", "tidybayes", 
-  "geomtextpath", "writexl", "readxl", "ggridges"
+  "geomtextpath", "writexl", "readxl", "ggridges", "Hmisc"
 )
 #install.packages(pkgs)
 
@@ -223,7 +223,7 @@ fry_age <- here(
 ats_data <- here(
   "3. outputs",
   "Stock-recruit data",
-  "GAM-estimated_pre-smolt_time_series.csv"
+  "GAMM-estimated_pre-smolt_time_series.csv"
 ) |> 
   read.csv() |> 
   rename("year" = smolt_year) |> 
@@ -236,16 +236,22 @@ ats_data <- here(
   mutate(ats_se = ats_est*ats_cv)
 
 
-# Are there any years with missing estimates?
-ats_data |> 
+# View which years are missing estimates
+ats_data |>
   ggplot(aes(x = year, y = ats_est)) +
   facet_wrap(
     ~lake,
     ncol = 1,
     scales = "free_y"
   ) +
-  geom_pointrange(aes(ymin = ats_lwr_80, ymax = ats_upr_80))
-# No (but there should be for Hucuktlis? - 8 August 2025)
+  geom_pointrange(
+    aes(
+      ymin = ats_lwr_80, 
+      ymax = ats_upr_80,
+      colour = interpolated
+    )
+  ) +
+  scale_colour_manual(values = c("black", "grey"))
 
 
 # Join ATS, smolt, and fry data
@@ -266,13 +272,15 @@ lakes_data <- ats_data |>
   mutate(
     is_observed_count = !if_any(matches("count_age"), is.na),
     is_observed_fry = !if_any(matches("count_fry"), is.na),
-    is_observed_ats = !if_any(matches("ats"), is.na),
+    is_observed_ats = interpolated == "No",
     is_observed_WO1 = !if_any(matches("WO1"), is.na),
     is_observed_WO2 = !if_any(matches("WO2"), is.na), 
     count_total = count_age1 + count_age2,
     lake = factor(lake, levels = lake_names)
   ) |> 
-  arrange(lake, year)
+  arrange(lake, year) |> 
+  # Remove two interpolated years at beginning of Sproat time series
+  filter(!(lake == "Sproat" & year < 1980))
 
 
 
@@ -288,10 +296,8 @@ make_stan_data <- function(
     # (with sensible default values)
     mu_M_prior = logit(0.5),
     sigma_M_prior = 0.7,
-    mu_theta_prior = logit(0.85),
-    sigma_theta_prior = 1,
-    sigma_theta_sd_prior = 1,
-    sigma_M_sd_prior = 2
+    mu_theta_prior = logit(0.9),
+    sigma_theta_prior = 1
 ) {
   
   # Filter data for a single lake
@@ -384,14 +390,13 @@ make_stan_data <- function(
     )
   
   # Observation error on lake ATS estimates
-  obs_error_prior <- lake_data |> 
-    summarize(
-      ats_se = mean(ats_se),
-      ats_est = mean(ats_est)
-    ) |> 
-    mutate(ats_se = ats_se) |>
-    mutate(obs_error_prior = sqrt(log(1 + (ats_se^2 / ats_est^2)))) |> 
-    pull(obs_error_prior)
+  obs_error <- lake_data |> 
+    # summarize(
+    #   ats_se = mean(ats_se),
+    #   ats_est = mean(ats_est)
+    # ) |> 
+    mutate(obs_error = sqrt(log(1 + (ats_se^2 / ats_est^2)))) |> 
+    pull(obs_error)
   
   # Stan data list
   stan_data <- list(
@@ -415,15 +420,13 @@ make_stan_data <- function(
     is_observed_fry = as.integer(is_observed_fry),
     is_observed_WO1 = as.integer(is_observed_WO1),
     is_observed_WO2 = as.integer(is_observed_WO2),
-    obs_error_prior = obs_error_prior,
+    obs_error = obs_error,
     #mu_theta_prior = theta_prior$mu_theta,
     #sigma_theta_prior = theta_prior$sigma_theta,
     mu_theta_prior = theta_prior_alt$mu_theta, # alternative user specification
     sigma_theta_prior = theta_prior_alt$sigma_theta, # alternative user specification
     mu_M_prior = mu_M_prior,
     sigma_M_prior = sigma_M_prior,
-    sigma_theta_sd_prior = sigma_theta_sd_prior,
-    sigma_M_sd_prior = sigma_M_sd_prior,
     mu_N2_init_prior = N2_init_prior$N2_init_log_mean,
     sigma_N2_init_prior = N2_init_prior$N2_init_log_sigma,
     #w1_theta_prior = w1_theta_prior,
@@ -534,7 +537,7 @@ fit_stan_model <- function(stan_data, index, iter = 4000) {
       "2. code",
       "Stock-recruit data preparation",
       "Stan",
-      "smolt_production_model.stan"
+      "smolt_production_model_AR1_mv-thetaM.stan"
     ),
     model_name = index,
     data = stan_data,
@@ -549,7 +552,7 @@ fit_stan_model <- function(stan_data, index, iter = 4000) {
 
 
 # Try fitting the model with just one lake first
-# fit_stan_model(lakes_stan_data$`Great Central`, "Great Central")
+# test_fit <- fit_stan_model(lakes_stan_data$`Great Central`, "Great Central")
 
 
 # Fit models for each lake (toggle to TRUE to run)
@@ -634,7 +637,23 @@ lakes_stan_fits |>
 
 # Pair plots
 lakes_stan_fits |> 
-  map(\(x) bayesplot::mcmc_pairs(x, pars = c("obs_error", "lp__")))
+  map(
+    \(x) bayesplot::mcmc_pairs(
+      x, 
+      # AR1 params
+      pars = c("obs_error_scale", "lp__", "phi", "sigma_proc")
+    )
+  )
+
+lakes_stan_fits |> 
+  map(
+    \(x) bayesplot::mcmc_pairs(
+      x, 
+      # Holdover dynamics
+      pars = c("mu_M", "mu_theta", "sigma_M", "sigma_theta")
+    )
+  )
+
 
 
 # Plot predicted versus observed values -----------------------------------
@@ -653,7 +672,7 @@ min_yrs <- lakes_data |>
 post_interannual <- lakes_stan_fits |> 
   map(extract) |> 
   # Discard all parameters with year-specific estimates
-  map(\(x) discard(.x = x, .p = \(y) is.matrix(y))) |> 
+  map(\(x) discard(.x = x, .p = \(y) length(dim(y)) > 1)) |> 
   map(\(x) map(x, \(y) as_tibble(y, rownames = "draw"))) |> 
   map(\(x) list_rbind(x, names_to = "parameter")) |> 
   list_rbind(names_to = "lake") 
@@ -663,7 +682,7 @@ post_interannual <- lakes_stan_fits |>
 post_annual <- lakes_stan_fits |> 
   map(extract) |> 
   # Keep only parameters with year-specific estimates
-  map(\(x) keep(.x = x, .p = \(y) is.matrix(y))) |> 
+  map(\(x) keep(.x = x, .p = \(y) length(dim(y)) == 2 & dim(y)[2] > 10)) |> 
   map(\(x) map(x, \(y) as_tibble(y, .name_repair = NULL, rownames = "draw"))) |> 
   map(\(x) list_rbind(x, names_to = "parameter")) |> 
   list_rbind(names_to = "lake") |> 
@@ -671,11 +690,22 @@ post_annual <- lakes_stan_fits |>
     cols = !c(lake, parameter, draw),
     names_to = "year",
     values_to = "value",
+    values_drop_na = TRUE,
     names_transform = \(x) str_extract(x, "\\d+")
   ) |> 
   left_join(min_yrs) |> 
   mutate(year = as.numeric(year) - 1 + min_yr) |> 
   select(-min_yr)
+
+
+# theta-M correlation coefficients
+post_omega <- lakes_stan_fits |> 
+  map(extract) |> 
+  # Keep only parameters with year-specific estimates
+  map(\(x) keep_at(x = x, at = "Omega")) |> 
+  map(\(x) map(x, \(y) as_tibble(y[,1,2], rownames = "draw"))) |> 
+  map(\(x) list_rbind(x, names_to = "parameter")) |> 
+  list_rbind(names_to = "lake")
 
 
 # Calculate brood year total outmigrants and biomass from individual draws
@@ -722,6 +752,7 @@ post_sy_ttls <- post_annual |>
 posterior_df <- bind_rows(
   post_annual, 
   post_interannual,
+  post_omega,
   post_by_ttls,
   post_sy_ttls
 ) |> 
@@ -730,10 +761,10 @@ posterior_df <- bind_rows(
     parameter_long = case_when(
       parameter == "O1" ~ "age1 smolts",
       parameter == "O2" ~ "age2 smolts",
-      parameter == "BO1" ~ "age1 smolt biomass",
-      parameter == "BO2" ~ "age2 smolt biomass",
-      parameter == "w1" ~ "age1 smolt mean weight",
-      parameter == "w2" ~ "age2 smolt mean weight",
+      parameter == "BO1" ~ "age1 smolt biomass (g)",
+      parameter == "BO2" ~ "age2 smolt biomass (g)",
+      parameter == "w1" ~ "age1 smolt mean weight (g)",
+      parameter == "w2" ~ "age2 smolt mean weight (g)",
       parameter == "p1" ~ "age1 smolt proportion",
       parameter == "p2" ~ "age2 smolt proportion",
       parameter == "N1" ~ "age1 fry",
@@ -741,10 +772,12 @@ posterior_df <- bind_rows(
       parameter == "N_lake" ~ "lake total fry abundance",
       parameter == "theta" ~ "smolting rate",
       parameter == "M" ~ "age1 to age2 mortality",
-      parameter == "BYB" ~ "brood year smolt biomass production",
+      parameter == "Omega" ~ "smolting rate-mortality correlation coefficient",
+      parameter == "phi" ~ "AR1 correlation coefficient",
+      parameter == "BYB" ~ "brood year smolt biomass production (g)",
       parameter == "BYO" ~ "brood year smolt production",
       parameter == "SYO" ~ "smolt year total outmigrant abundance",
-      parameter == "SYB" ~ "smolt year total outmigrant biomass",
+      parameter == "SYB" ~ "smolt year total outmigrant biomass (g)",
       .default = "NO_ENTRY"
     )
   )
@@ -752,7 +785,7 @@ posterior_df <- bind_rows(
 
 # Plot posterior versus prior distributions for mu_theta and mu_M
 posterior_df |> 
-  filter(parameter %in% c("mu_M", "mu_theta")) %>% 
+  filter(parameter %in% c("mu_M", "mu_theta")) |> 
   ggplot(aes(x = binomial()$linkinv(value))) +
   facet_wrap(
     parameter ~ lake,
@@ -775,39 +808,23 @@ posterior_df |>
   labs(x = "value")
   
 
-# Plot posterior distributions for sigma_theta & sigma_M
+# Plot posterior distributions for sigma_theta, sigma_M, Omega, and phi
 posterior_df |> 
-  filter(parameter %in% c("sigma_M", "sigma_theta")) |> 
+  filter(parameter %in% c("sigma_M", "sigma_theta", "Omega", "phi")) |> 
   ggplot(aes(x = value)) +
-  facet_wrap(
+  facet_grid(
     parameter ~ lake,
     scales = "free",
     labeller = labeller(.multi_line = FALSE)
   ) +
-  geom_textdensity(
-    label = "posterior",
-    hjust = 0.8
+  geom_vline(
+    xintercept = 0,
+    lty = 2
   ) +
-  geom_textvline(
-    data = lakes_stan_data |> 
-      map(\(x) keep_at(x, paste0(c("sigma_M", "sigma_theta"), "_sd_prior"))) |> 
-      map(as_tibble) |> 
-      list_rbind(names_to = "lake") |> 
-      pivot_longer(
-        !lake,
-        names_to = "label",
-        values_to = "value"
-      ) |> 
-      mutate(parameter = str_remove(label, "_sd_prior")),
-    aes(
-      xintercept = value, 
-      label = label
-    ),
-    colour = "red",
-    hjust = 0.7
-  ) +
+  geom_density() +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(x = "value")
+  labs(x = "value") +
+  theme(panel.spacing.x = unit(1.5, "lines"))
 
 
 # Annual parameters estimated
@@ -834,8 +851,8 @@ obs_params <- lakes_data |>
       lake == "Hucuktlis" ~ lakes_stan_data[["Hucuktlis"]]$mu_M_prior
     ) |> 
       binomial(link = "logit")$linkinv(),
-    w1_ln = WO1_ln_mean,
-    w2_ln = WO2_ln_mean,
+    w1 = exp(WO1_ln_mean),
+    w2 = exp(WO2_ln_mean),
     N_lake = ats_est,
     BO1 = O1*exp(WO1_ln_mean),
     BO2 = O2*exp(WO2_ln_mean),
@@ -855,6 +872,7 @@ obs_params <- lakes_data |>
 
 
 # Plot predicted versus estimated values for parameters of interest across years
+# Ensure mean smolt weight is added to these plots
 (out_plots <- posterior_df |> 
     filter(
       !is.na(value),
@@ -895,7 +913,7 @@ obs_params <- lakes_data |>
         ) +
         geom_point(aes(y = obs), color = "red") +
         labs(y = idx) +
-        ggtitle(paste("Predicted versus estimated", idx))
+        ggtitle(paste("Posterior versus estimated", idx))
     )
 )
 
@@ -919,44 +937,6 @@ out_plots |>
   )
 
 
-# Make the same plots but with ridges
-(out_plots <- posterior_df |> 
-    filter(
-      !is.na(value),
-      parameter %in% unique(obs_params$parameter)
-    ) |> 
-    # Add observed values
-    left_join(obs_params) %>%
-    split(.$parameter_long) |> 
-    imap(
-      \(x, idx) x |> 
-        ggplot(aes(y = year, x = value, group = year)) +
-        facet_wrap(
-          ~lake,
-          scales = "free_x",
-          nrow = 1
-        ) +
-        stat_summary(
-          aes(x = obs),
-          geom = "point",
-          fun = \(y) median(y, na.rm = TRUE),
-          colour = "red",
-          shape = "|",
-          vjust = 1.5
-        ) +
-        geom_density_ridges(
-          rel_min_height = 0.001,
-          alpha = 0.5
-        ) +
-        scale_y_reverse() +
-        labs(x = idx) +
-        ggtitle(paste("Predicted versus estimated", idx)) +
-        theme_ridges() +
-        theme(strip.background = element_blank())
-    )
-)
-
-
 # Export posterior values of interest (with imputed years) -------------------
 
 
@@ -976,6 +956,7 @@ saveRDS(
 annual_estimates <- posterior_df |> 
   filter(
     parameter %in% str_subset(annual_params, "p\\d", negate = TRUE),
+    !parameter %in% c("z_N1", "w1_ln", "w2_ln", "logN1", "obs_sigma"),
     !is.na(value)
   ) |> 
   mutate(
@@ -1014,14 +995,12 @@ annual_estimates <- posterior_df |>
 
 
 # Metadata sheet
-metadata <- tibble(
-  parameter = unique(annual_estimates$parameter)
-) |> 
+metadata <- tibble(parameter = unique(annual_estimates$parameter)) |> 
   mutate(
     definition = case_when(
       parameter == "O1" ~ "Posterior estimates for age1 outmigrating smolts",
       parameter == "O2" ~ "Posterior estimates for age2 outmigrating smolts",
-      parameter == "w1" ~ "Posterior estimates for age1 smolt average weight (g)",
+      parameter == "w1" ~ "posterior estimates for age1 smolt average weight (g)",
       parameter == "w2" ~ "Posterior estimates for age2 smolts average weight (g)",
       parameter == "BO1" ~ "Posterior estimates for age1 smolt biomass (g)",
       parameter == "BO2" ~ "Posterior estimates for age2 smolt biomass (g)",
@@ -1127,7 +1106,8 @@ post_annual |>
   ) +
   theme(
     strip.background = element_rect(fill = "white"),
-    panel.grid.minor = element_blank()
+    panel.grid.minor = element_blank(),
+    panel.spacing.y = unit(1, "lines")
   )
 )
 
@@ -1165,18 +1145,22 @@ post_annual |>
   )
 
 
+
+# Smolt weight versus abundance relationships -----------------------------
+
+
 # Lookup for enhanced years
 enh_lu <- here(
   "3. outputs",
-  "Stock-recruit data",
-  "Barkley_Sockeye_stock-recruit_infilled.xlsx"
+  "Total return time series",
+  "Barkley Sockeye total annual returns by CU_collated.xlsx"
 ) |> 
-  read_xlsx(sheet = "S-R data") |> 
+  read_xlsx() |> 
   mutate(
-    hatchery_fry_release = if_else(is.na(hatchery_fry_release), 0, hatchery_fry_release),
-    enhanced = if_else(fertilized == 1 | hatchery_fry_release > 0, 1, 0),
+    across(matches("hat.*release"), \(x) if_else(is.na(x), 0, x)),
+    enhanced = if_else(fertilized == 1 | if_any(matches("hat.*release")) > 0, 1, 0),
     lake = factor(
-      stock,
+      CU,
       levels = c("GCL", "SPR", "HUC"),
       labels = lake_names
     )
@@ -1184,40 +1168,92 @@ enh_lu <- here(
   select(year, lake, enhanced)
 
 
-# Smolt weight versus abundance relationships
-(w_abun_p <- posterior_df |> 
-    filter(parameter %in% c("SYO", "SYB")) |> 
-    pivot_wider(
-      id_cols = c(lake, draw, year),
-      names_from = parameter,
-      values_from = value
-    ) |> 
-    mutate(
-      w = SYB/SYO,
-      lake = factor(lake, levels = lake_names),
-      SYO = SYO/1e6
-    ) |> 
-    summarize(
-      .by = c(lake, year),
-      across(
-        c(SYO, w),
-        .fns = list(
-          median = ~median(.x, na.rm = TRUE),
-          l_80 = ~quantile(.x, 0.1, na.rm = TRUE),
-          u_80 = ~quantile(.x, 0.9, na.rm = TRUE)
-        ),
-        .names = "{.fn}_{.col}"
-      ) 
-    ) |> 
-    left_join(enh_lu) |> 
-    left_join(select(lakes_data, lake, year, is_observed_WO1)) |> 
-    filter(is_observed_WO1) |> 
-    ggplot(aes(x = median_SYO, y = median_w)) +
-    facet_wrap(~lake, scales = "free_x") +
+# Create a dataframe of approximated annual average smolt weights from the 
+# observed sample data 
+BY_smolt_w <- smolt_sizes_csr |> 
+  filter(
+    fnlage %in% c(1, 2),
+    !is.na(fresh_std_weight)
+  ) |> 
+  # Convert year to brood year
+  mutate(year = if_else(fnlage == 1, year-2, year-3)) |> 
+  rename("w" = fresh_std_weight) |> 
+  summarize(
+    .by = c(lake, year),
+    median_w = Hmisc::wtd.quantile(w, weights = csr, probs = 0.5, na.rm = TRUE),
+    l_80_w = Hmisc::wtd.quantile(w, weights = csr, probs = 0.1, na.rm = TRUE),
+    u_80_w = Hmisc::wtd.quantile(w, weights = csr, probs = 0.9, na.rm = TRUE)
+  ) |> 
+  complete(lake, year)
+
+
+# Join observed weight data to posterior smolt abundance estimates
+obs_wt_posterior_BYO <- posterior_df |> 
+  filter(parameter == "BYO") |>
+  mutate(
+    lake = factor(lake, levels = lake_names),
+    BYO = value/1e6
+  ) |> 
+  summarize(
+    .by = c(lake, year),
+    across(
+      BYO,
+      .fns = list(
+        median = ~median(.x, na.rm = TRUE),
+        l_80 = ~quantile(.x, 0.1, na.rm = TRUE),
+        u_80 = ~quantile(.x, 0.9, na.rm = TRUE)
+      ),
+      .names = "{.fn}_{.col}"
+    ) 
+  ) |> 
+  left_join(enh_lu) |> 
+  left_join(BY_smolt_w) |> 
+  mutate(method = "Average smolt weight (g)\nfrom sample data")
+
+
+# Calculate abundance and weights from model posteriors
+posterior_BYO_wt <- posterior_df |> 
+  filter(parameter %in% c("BYO", "BYB")) |> 
+  pivot_wider(
+    id_cols = c(lake, draw, year),
+    names_from = parameter,
+    values_from = value
+  ) |> 
+  mutate(
+    w = BYB/BYO,
+    lake = factor(lake, levels = lake_names),
+    BYO = BYO/1e6
+  ) |> 
+  summarize(
+    .by = c(lake, year),
+    across(
+      c(BYO, w),
+      .fns = list(
+        median = ~median(.x, na.rm = TRUE),
+        l_80 = ~quantile(.x, 0.1, na.rm = TRUE),
+        u_80 = ~quantile(.x, 0.9, na.rm = TRUE)
+      ),
+      .names = "{.fn}_{.col}"
+    ) 
+  ) |> 
+  left_join(enh_lu) |> 
+  left_join(select(lakes_data, lake, year, is_observed_WO1)) |> 
+  #filter(is_observed_WO1) |> # Only include years where weights were measured?
+  mutate(method = "Average smolt weight (g) from\nlife cycle model posterior")
+
+
+(w_abun_p <- posterior_BYO_wt |> 
+    bind_rows(obs_wt_posterior_BYO) |> 
+    ggplot(aes(x = median_BYO, y = median_w)) +
+    facet_grid(
+      method~lake,
+      scales = "free_x",
+      switch = "y"
+    ) +
     geom_linerange(
       aes(
-        xmin = l_80_SYO,
-        xmax = u_80_SYO
+        xmin = l_80_BYO,
+        xmax = u_80_BYO
       ),
       colour = "grey50",
       alpha = 0.5
@@ -1236,21 +1272,28 @@ enh_lu <- here(
     scale_x_continuous(
       limits = c(0, NA),
       labels = scales::label_number(accuracy = 1),
+      breaks = scales::pretty_breaks(n = 4),
       expand = expansion(mult = c(0, 0.05))
     ) +
     scale_y_continuous(
-      limits = c(0, NA),
+      limits = c(0, 8),
       labels = scales::label_number(),
-      expand = expansion(mult = c(0, 0.05))
+      breaks = scales::pretty_breaks(n = 4),
+      expand = expansion(mult = c(0, 0.05)),
+      oob = scales::oob_keep
     ) +
     labs(
-      y = "Average smolt weight (g)",
-      x = "Smolt abundance (millions)",
+      x = "Brood year smolt abundance (millions)\nfrom life cycle model posterior",
+      y = NULL,
       fill = "Enhancement\nstate"
     ) +
     theme(
       strip.background = element_blank(),
-      panel.grid.minor = element_blank()
+      strip.text.x = element_text(face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.spacing.x = unit(1, "lines"),
+      strip.placement = "outside",
+      panel.spacing.y = unit(1, "lines")
     )
 )
 
@@ -1264,7 +1307,7 @@ ggsave(
     "Smolt_weight_versus_abundance.png"
   ),
   width = 8,
-  height = 3,
+  height = 5.2,
   units = "in",
   dpi = "print"
 )
