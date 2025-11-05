@@ -152,8 +152,6 @@ model {
   obs_error_scale ~ normal(1, 0.2);
   mu_thetaM[1] ~ normal(mu_theta_prior, sigma_theta_prior); // mu_theta
   mu_thetaM[2] ~ normal(mu_M_prior, sigma_M_prior);        // mu_M
-  // Use half-normal distributions
-  sigma_thetaM ~ normal(0, 0.5) T[0,];
   // total lake age1 fry abundance (in log space)
   mu_N1 ~ normal(mu_N1_prior, sigma_N1_prior);
   sigma_proc ~ normal(0, 0.5) T[0,];              // tune: 0.5 is a reasonable starting scale
