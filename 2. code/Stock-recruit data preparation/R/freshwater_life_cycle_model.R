@@ -1140,11 +1140,47 @@ post_annual |>
   summarize(
     .by = c(lake, name),
     median = median(value, na.rm = TRUE),
-    q10 = quantile(value, 0.25, na.rm = TRUE),
-    q90 = quantile(value, 0.75, na.rm = TRUE)
+    q25 = quantile(value, 0.25, na.rm = TRUE),
+    q75 = quantile(value, 0.75, na.rm = TRUE)
   )
 
 
+# Table of key parameters governing process dynamics
+posterior_df |> 
+  filter(
+    parameter %in% c(
+      "mu_theta", "mu_M", "sigma_theta", "sigma_M", "rho_theta_M",
+      "mu_N1", "phi", "sigma_proc", 
+      "obs_error_scale",
+      "N2_init"
+    )
+  ) |> 
+  # Back-transform values to natural/interpretation scale
+  mutate(
+    value = case_when(
+      parameter %in% c("mu_theta", "mu_M") ~ plogis(value),
+      parameter == "mu_N1" ~ exp(value),
+      .default = value
+    )
+  ) |> 
+  summarize(
+    .by = c(lake, parameter),
+    median = median(value, na.rm = TRUE),
+    q10 = quantile(value, 0.1, na.rm = TRUE),
+    q90 = quantile(value, 0.9, na.rm = TRUE)
+  ) |> 
+  mutate(
+    across(median:q90, \(x) round(x, 3)),
+    value = paste0(median, " (", q10, "-", q90, ")")
+  ) |> 
+  pivot_wider(
+    id_cols = parameter,
+    names_from = lake
+  ) |> 
+  write.table(
+    "clipboard",
+    row.names = FALSE
+  )
 
 # Smolt weight versus abundance relationships -----------------------------
 
