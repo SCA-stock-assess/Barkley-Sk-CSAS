@@ -1937,23 +1937,44 @@ if(
 }
 
 
+# Prepare summary table of key parameters for Appendix A
 bind_rows(
   posterior_df,
   posterior_df_huc
 ) |> 
-  filter(str_detect(parameter, "alpha|beta")) |> 
+  filter(str_detect(parameter, "alpha|beta|phi|sigma_R_proc|mu_S|sigma_S|^k|tau")) |> 
   mutate(
     value = case_when(
       str_detect(parameter, "beta") & Rmeas == "BYO" ~ value/1e6,
-      Rmeas == "BYB" ~ value/1e3,
+      str_detect(parameter, "alpha") & Rmeas == "BYB" ~ value/1e3,
+      parameter == "mu_S" ~ exp(value),
       .default = value
+    ),
+    cu = case_when(
+      cu == "Hucuktlis" & str_detect(parameter, "_enh") ~ paste0(cu, "_enh"),
+      cu == "Hucuktlis"~ paste0(cu, "_noenh"),
+      .default = cu
     )
   ) |> 
   summarize(
-    .by = c(cu, Rmeas, enhanced, parameter),
+    .by = c(cu, parameter, Rmeas),
     median = median(value),
     lci = quantile(value, 0.1),
     uci = quantile(value, 0.9)
+  ) |> 
+  mutate(
+    across(median:uci, \(x) round(x, 3)),
+    value = paste0(median, " (", lci, "-", uci, ")")
+  ) |> 
+  pivot_wider(
+    id_cols = c(parameter, Rmeas),
+    names_from = cu,
+    values_fill = "NA"
+  ) |> 
+  arrange(parameter, Rmeas) |> 
+  write.table(
+    "clipboard",
+    row.names = FALSE
   )
 
 
