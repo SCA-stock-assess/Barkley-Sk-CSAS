@@ -1092,7 +1092,7 @@ bayes_smolts <- here(
 
 
 # Add Bayesian model estimates to GAM comparison plot
-(gam_bayes_comp_p <- gam_comp_p +
+(gam_bayes_comp_p <- gamm_comp_p +
   geom_pointrange(
     data = bayes_smolts,
     aes(
@@ -1123,51 +1123,3 @@ ggsave(
   dpi = "print"
 )
 
-
-# Plot the Bayesian estimates on their own for chapter 4
-(bayes_ts_p <- bayes_smolts |> 
-    ggplot(aes(x = year, y = `50%`)) +
-    facet_wrap(
-      ~lake, 
-      ncol = 1,
-      strip.position = "right",
-      scales = "free_y"
-    ) +
-    geom_pointrange(
-      data = bayes_smolts,
-      aes(
-        ymin = `10%`,
-        ymax = `90%`,
-      )
-    ) + 
-    scale_y_continuous(
-      limits = c(0, NA),
-      labels = scales::label_number(accuracy = 1)
-    ) +
-    labs(
-      x = "Smolt outmigration year",
-      y = "Estimated Sockeye fry abundance (millions)",
-    ) +
-    theme(
-      panel.grid.minor = element_blank(),
-      strip.background = element_rect(fill = "white")
-    )
-)
-
-
-# Save the plot
-ggsave(
-  bayes_ts_p,
-  filename = here(
-    "3. outputs",
-    "Plots",
-    "Smolt_abundance_Bayesian_estimates.png"
-  ),
-  width = 8,
-  height = 5,
-  units = "in",
-  dpi = "print"
-)
-
-  
-  
