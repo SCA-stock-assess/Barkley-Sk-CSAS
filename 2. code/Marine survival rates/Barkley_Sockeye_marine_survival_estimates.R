@@ -517,7 +517,7 @@ label_data <- points_data |>
 
 # Time series plot
 (sas_ts <- sas_summary |> 
-   ggplot(aes(x = date, y = `50%`)) +
+   ggplot(aes(x = year, y = `50%`)) +
    facet_wrap(
      ~lake,
      ncol = 1,
@@ -544,7 +544,6 @@ label_data <- points_data |>
      labels = scales::percent,
      oob = scales::oob_keep
    ) +
-   scale_x_date(expand = c(0.05, 0.05)) +
    labs(
      x = "Ocean-entry year",
      y = "Smolt-to-adult survival"
