@@ -13,34 +13,33 @@ data{
   vector[nyrs] H_cv;  // harvest observation error CV
   real mu_beta;       // prior for beta mean
   real sigma_beta;    // prior for beta SD
-  vector[nyrs] use;   // binary variable determining whether to use data for state space model
-
+  int use[nyrs];      // binary variable determining whether to use data for state space model
 }
 
+
 parameters{
-  // [Is it appropriate for the log parameters to have a lower bound of 0?]
   vector<lower=0>[nRyrs] lnR;             // log recruitment states
-  real<lower=0> lnalpha;                  // log Ricker a 
+  real lnalpha;                           // log Ricker a 
   real<lower=0> beta;                     // Ricker beta
   real<lower=0> sigma_R;                  // process error
   real<lower=0> sigma_R0;                 // process error for first a.max years with no spawner link
   real<lower=-1,upper=1> phi;             // lag-1 correlation in process error
   real lnresid_0;                         // first residual for lag-1 correlation in process error
-  real<lower=0> mean_ln_R0;               // "true" mean log recruitment in first a.max years with no spawner link
+  real mean_ln_R0;                        // "true" mean log recruitment in first a.max years with no spawner link
   vector<lower=0.01,upper=0.99>[nyrs] U;  // harvest rate
   vector<lower=0,upper=1>[3] prob;        // maturity schedule probs
   real<lower=0,upper=1> D_scale;          // governs variability of age proportion vectors across cohorts
   matrix<lower=0.01>[nRyrs, A] g;         // individual year/age class gamma variates for generating age at maturity proportions
 }
 
+
 transformed parameters{
   vector<lower=0>[nyrs] N;              // run size states
   vector<lower=0>[nyrs] S;              // spawner states
-  vector[nyrs] lnS;                     // log spawner states
   vector<lower=0>[nyrs] C;              // catch states
+  vector[nyrs] lnS;                     // log spawner states
   vector[nyrs] lnC;                     // log catch states
   vector<lower=0>[nRyrs] R;             // recruitment states
-  real<lower=0> sigma_R_corr;           // log-normal bias-corrected process error
   vector[nRyrs] lnresid;                // log recruitment residuals
   vector[nRyrs] lnRm_1;                 // log recruitment states in absence of lag-one correlation
   vector[nRyrs] lnRm_2;                 // log recruitment states after accounting for lag-one correlation
@@ -66,7 +65,6 @@ transformed parameters{
   }
 
   R = exp(lnR);
-  sigma_R_corr = (sigma_R*sigma_R)/2;
 
   // Calculate the numbers at age matrix as brood year recruits at age (proportion that matured that year)
   for (t in 1:nyrs) {
@@ -102,12 +100,6 @@ transformed parameters{
     lnRm_2[i] = 0.0;
   }
 
-// Would add additional loop for either fertilization (or non-) years
-// considerations related to nesting: if else statement?
-// if treatment is on, relationship uses lnalpha/beta that are indexed by treatment
-// allow different alpha/beta btw treatment and control
-// could try above approach but allowing only alpha or only beta to vary according to fertilzation
-// fertilization maybe has more an effect on beta than alpha?
   for (y in (A+a_min):nRyrs) {
     lnRm_1[y] = lnS[y-a_max] + lnalpha - beta * S[y-a_max];
     lnresid[y] = lnR[y] - lnRm_1[y];
@@ -121,14 +113,15 @@ transformed parameters{
   }
 }
 
+
 model{
   // Priors
   lnalpha ~ normal(1,2);
   beta ~ lognormal(mu_beta, sigma_beta); 
-  sigma_R ~ normal(0,2);
+  sigma_R ~ normal(0,2) T[0,];
   lnresid_0 ~ normal(0,10);
   mean_ln_R0 ~ normal(0,10);
-  sigma_R0 ~ inv_gamma(2,1); 
+  sigma_R0 ~ normal(0,2) T[0,]; 
   prob[1] ~ beta(1,1);
   prob[2] ~ beta(1,1);
   prob[3] ~ beta(1,1);
@@ -151,8 +144,8 @@ model{
     // Adjust index to align "use" years with recruitment years
     int adj_y = y - (A - 1); 
     
-    if (use[adj_y]) {
-      lnR[y] ~ normal(lnRm_2[y], sigma_R_corr);
+    if (use[adj_y] == 1) {
+      lnR[y] ~ normal(lnRm_2[y], sigma_R);
     }
   }
 
@@ -162,7 +155,7 @@ model{
       target += multinomial_lpmf(A_obs[t,1:A]|to_vector(q[t,1:A]));
       U[t] ~ beta(1,1);
     //exclude chosen years from the observation model for harvest and spawners
-    if(use[t]) {
+    if(use[t] == 1) {
       H_obs[t] ~ lognormal(lnC[t], sqrt(log((H_cv[t]^2) + 1)));
       S_obs[t] ~ lognormal(lnS[t], sqrt(log((S_cv[t]^2) + 1)));
     }
