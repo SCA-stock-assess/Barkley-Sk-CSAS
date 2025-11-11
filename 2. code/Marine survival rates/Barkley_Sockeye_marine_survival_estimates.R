@@ -744,3 +744,34 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+
+# Model summaries
+mods_list <- sas_cov_mods |> 
+  filter(
+    case_when(
+      covariate == "PDO" & window == "Oct-Mar" ~ TRUE,
+      covariate %in% c("ONI", "temp_5m") & window == "Mar-May" ~ TRUE,
+      .default = FALSE
+    )
+  ) |> 
+  mutate(name = paste(covariate, lake, window, sep = "_")) %>% 
+  {split(.$model, .$name)} |> 
+  list_flatten() 
+
+
+# Likelihood ratio tests
+mods_list |> 
+  map(car::Anova)
+
+
+mods_list |> 
+  map(broom::tidy) |> 
+  map(\(x) filter(x, term == "cov_mean")) |> 
+  list_rbind(names_to = "name") |> 
+  select(name, estimate, std.error) |> 
+  mutate(
+    lci = estimate - 1.96*std.error,
+    uci = estimate + 1.96*std.error,
+    across(c(estimate, lci, uci), \(x) -(1-exp(x)))
+  )
