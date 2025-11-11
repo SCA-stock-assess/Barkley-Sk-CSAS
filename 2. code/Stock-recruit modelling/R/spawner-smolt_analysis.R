@@ -14,6 +14,7 @@ library(cowplot)
 library(readxl)
 library(broom)
 library(gsl)
+library(ggpubr)
 library(rstan)
 library(tidybayes)
 library(bayesplot)
@@ -1768,31 +1769,35 @@ latent_sr_huc <- posterior_df_huc |>
 # Make combined plots of B-H fits and recruitment residuals ---------------
 
 
+# Time series of model residuals
+resids <- posterior_df |> 
+  left_join(
+    somass_sr |> 
+      filter(parameter != "N1") |> 
+      distinct(cu, year, enhanced)
+  ) |> 
+  bind_rows(posterior_df_huc) |> 
+  filter(
+    .by = cu,
+    parameter == "lnresid",
+    !is.na(value),
+    year > min(year, na.rm = TRUE)
+  ) |> 
+  summarize(
+    .by = c(cu, Rmeas, year, enhanced),
+    resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
+  ) |> 
+  unnest_wider(resid) |> 
+  filter(year > min(year)) |> 
+  mutate(
+    .by = Rmeas,
+    line_y = max(`97.5%`) * 1.05,
+    cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis"))
+  )
+
+
 # Start with recruitment residuals (easier)
-(R_resid_p <- posterior_df |> 
-   left_join(
-     somass_sr |> 
-       filter(parameter != "N1") |> 
-       distinct(cu, year, enhanced)
-   ) |> 
-   bind_rows(posterior_df_huc) |> 
-   filter(
-     .by = cu,
-     parameter == "lnresid",
-     !is.na(value),
-     year > min(year, na.rm = TRUE)
-   ) |> 
-   summarize(
-     .by = c(cu, Rmeas, year, enhanced),
-     resid = list(quantile(value, c(0.025, 0.10, 0.50, 0.90, 0.975)))
-   ) |> 
-   unnest_wider(resid) |> 
-   filter(year > min(year)) |> 
-   mutate(
-     .by = Rmeas,
-     line_y = max(`97.5%`) * 1.05,
-     cu = factor(cu, levels = c("Great Central", "Sproat", "Hucuktlis"))
-   ) |> 
+(R_resid_p <- resids |> 
    ggplot(aes(x = year, y = `50%`)) +
    facet_grid(
      Rmeas ~ cu, 
@@ -1871,6 +1876,141 @@ ggsave(
   ),
   width = 6.5, 
   height = 5.5,
+  units = "in",
+  dpi = "print"
+)
+
+
+# Investigate pairwise correlations between CUs in Smolts/S residuals
+resids_corr <- tibble(
+  y_cu = c("Great Central", "Hucuktlis", "Hucuktlis"),
+  x_cu = c("Sproat", "Great Central", "Sproat")
+) |> 
+  expand_grid(Rmeas = unique(resids$Rmeas)) |> 
+  left_join(
+    resids,
+    by = c("y_cu" = "cu", "Rmeas"),
+    relationship = "many-to-many"
+  ) |> 
+  rename(
+    "y_lwr" = `10%`,
+    "y_mid" = `50%`,
+    "y_upr" = `90%`
+  ) |> 
+  left_join(
+    resids,
+    by = c("x_cu" = "cu", "Rmeas", "year"),
+    relationship = "many-to-many"
+  ) |> 
+  rename(
+    "x_lwr" = `10%`,
+    "x_mid" = `50%`,
+    "x_upr" = `90%`
+  ) |> 
+  select(matches("(x|y)_.*"), Rmeas, year) |> 
+  filter(!if_any(matches("lwr|mid|upr"), \(x) is.na(x))) |> 
+  mutate(
+    pair = paste0(y_cu, "-", x_cu, "_", Rmeas),
+    across(
+      c(x_cu, y_cu), 
+      \(x) if_else(
+        Rmeas == "BYO",
+        paste(x, "smolt abundance\nper spawner residuals"),
+        paste(x, "smolt biomass\nper spawner residuals")
+      )
+    )
+  ) |> 
+  nest(.by = pair) |> 
+  rowwise() |> 
+  mutate(r2 = summary(lm(y_mid ~ x_mid, data = data))$adj.r.squared) |> 
+  unnest(data)
+
+
+
+# Plot the relationships between residuals for each CU pair
+resids_corr_ps <- split(resids_corr, resids_corr$pair) |> 
+  map(
+    \(x) ggplot(
+      data = droplevels(x),
+      aes(x = x_mid, y = y_mid)
+    ) +
+      facet_grid(
+        x_cu ~ y_cu,
+        switch = "both"
+      ) +
+      geom_text(
+        aes(
+          x = min(x_lwr),
+          y = max(y_upr),
+          label = paste("italic(R)^2==", round(r2, 2))
+        ),
+        parse = TRUE,
+        hjust = 0,
+        vjust = 1
+      ) +
+      geom_smooth(
+        method = "lm",
+        colour = "black"
+      ) +
+      geom_linerange(
+        aes(
+          xmin = x_lwr,
+          xmax = x_upr
+        ),
+        colour = "grey"
+      ) +
+      geom_pointrange(
+        aes(
+          ymin = y_lwr,
+          ymax = y_upr,
+          fill = year
+        ),
+        colour = "grey",
+        shape = 21,
+        stroke = NA
+      ) +
+      scale_fill_viridis_c(
+        name =  "Smolt\nyear",
+        breaks = c(1985, 1995, 2005, 2015),
+        guide = guide_colorbar(
+          theme = theme(legend.key.width = unit(dev.size()[1]/3, units = "in"))
+        )
+      ) +
+      theme_bw(base_size = 16) +
+      theme(
+        axis.title = element_blank(),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        panel.grid = element_blank()
+      )
+  )
+
+
+(resids_corr_p <- ggarrange(
+  plotlist = list(
+    resids_corr_ps$`Great Central-Sproat_BYB`,
+    resids_corr_ps$`Hucuktlis-Great Central_BYB`,
+    resids_corr_ps$`Hucuktlis-Sproat_BYB`,
+    resids_corr_ps$`Great Central-Sproat_BYO`,
+    resids_corr_ps$`Hucuktlis-Great Central_BYO`,
+    resids_corr_ps$`Hucuktlis-Sproat_BYO`
+    ),
+  ncol = 3,
+  nrow = 2, 
+  common.legend = TRUE
+)
+)
+
+
+ggsave(
+  plot = resids_corr_p,
+  filename = here(
+    "3. outputs",
+    "Plots",
+    "Smolt-S_residuals_correlations_all-CUs.png"
+  ),
+  height = 8.25,
+  width = 11.5,
   units = "in",
   dpi = "print"
 )
