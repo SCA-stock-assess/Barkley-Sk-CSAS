@@ -87,6 +87,21 @@ sr_age_infill |>
   count(age_comp)
 
 
+# Export CV and age.ess values for Appendix table in ResDoc
+sr_age_infill |> 
+  select(year, stock, matches("._CV|^age\\..*")) |> 
+  pivot_wider(
+    id_cols = year,
+    names_from = stock,
+    values_from = !c(stock, year)
+  ) |> 
+  arrange(year) |> 
+  write.table(
+    "clipboard",
+    row.names = FALSE
+  )
+
+
 # System carrying capacity estimates from draft L-IFMP doc
 presumed_Smax <- list(
   "GCL" = 0.6*325000,
@@ -955,7 +970,7 @@ corr_HUC_p |>
 } # end of 'if' statement toggling diagnostic plots
 
 
-# Time series plots of model residuals ------------------------------------
+# Analysis of spawner-recruit residuals ------------------------------------
 
 
 # Residuals from fitted models
@@ -1095,7 +1110,11 @@ resids_corr <- tibble(
   mutate(
     pair = paste0(y_cu, "-", x_cu),
     across(c(x_cu, y_cu), \(x) paste(x, "R/S residuals"))
-  )
+  ) |> 
+  nest(.by = pair) |> 
+  rowwise() |> 
+  mutate(r2 = summary(lm(y_mid ~ x_mid, data = data))$adj.r.squared) |> 
+  unnest(data)
 
 
 # Plot the relationships between residuals for each CU pair
@@ -1109,7 +1128,20 @@ resids_corr_ps <- split(resids_corr, resids_corr$pair) |>
         x_cu ~ y_cu,
         switch = "both"
       ) +
-      geom_smooth(method = "lm") +
+      geom_text(
+        aes(
+        x = min(x_mid),
+        y = max(y_upr),
+        label = paste("italic(R)^2==", round(r2, 2))
+        ),
+        parse = TRUE,
+        hjust = 0,
+        vjust = 1
+      ) +
+      geom_smooth(
+        method = "lm",
+        colour = "black"
+      ) +
       geom_linerange(
         aes(
           xmin = x_lwr,
@@ -1159,7 +1191,7 @@ ggsave(
     "Plots",
     "S-R_residuals_correlations_all-CUs.png"
   ),
-  height = 5,
+  height = 4.5,
   width = 11,
   units = "in",
   dpi = "print"
