@@ -28,8 +28,8 @@ Huc_esc <- read.csv(
 # Percentile benchmarks for two time periods 
 Huc_bm <- tribble(
   ~year_start, ~year_end, ~p25, ~p50,
-  1981, 2000, 26760, 41056,
-  2007, 2024, 9576, 13948
+  -Inf, 2000, 26760, 41056,
+  2007, Inf, 9576, 13948
 )
 
 
@@ -52,7 +52,7 @@ Huc_bm <- tribble(
         ymax = p25
       ),
       fill = "#F1B6DA",
-      alpha = 0.75
+      alpha = 0.65
     ) +
     geom_rect(
       data = Huc_bm,
@@ -65,7 +65,7 @@ Huc_bm <- tribble(
         ymax = p50
       ),
       fill = "#FFFFBF",
-      alpha = 0.75
+      alpha = 0.65
     ) +
     geom_rect(
       data = Huc_bm,
@@ -78,7 +78,7 @@ Huc_bm <- tribble(
         ymax = Inf
       ),
       fill = "#B8E086",
-      alpha = 0.75
+      alpha = 0.65
     ) +
     geom_point() +
     geom_line() +
@@ -89,7 +89,10 @@ Huc_bm <- tribble(
       breaks = c(0, 3, 6, 9, 12, 15, 18)*1e4,
       labels = scales::label_number()
     ) +
-    labs(x = "Return year") +
+    scale_x_continuous(
+      name = "Return year",
+      expand = expansion(mult = c(0, 0.05))
+    ) +
     theme(
       panel.grid.minor = element_blank(),
       panel.grid.major.x = element_blank()
