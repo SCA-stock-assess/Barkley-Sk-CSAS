@@ -272,7 +272,7 @@ median_dates <- quantiles |>
       labels = scales::percent,
       breaks = scales::pretty_breaks(n = 3),
       expand = expansion(mult = c(0, 0.05)),
-      name = "Interannual daily average percentage of smolts counted",
+      name = "Daily average percentage of smolts counted",
     ) +
     coord_cartesian(
       xlim = c(
