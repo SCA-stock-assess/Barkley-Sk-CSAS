@@ -38,49 +38,12 @@ sr_data <- here(
   select(year, stock, S, ER)
   
 
-# CU specific reference points
-ref_pts <- here(
-  "3. outputs",
-  "Stock-recruit modelling",
-  "Barkley-Sk_CU_ref_pts_summary.csv"
-) |> 
-  read.csv() |> 
-  filter(ref_pt %in% c("Smsy", "Umsy")) |> 
-  pivot_wider(
-    names_from = ref_pt,
-    values_from = matches("q\\d+"),
-    names_glue = "{ref_pt}_{.value}"
-  ) |> 
-  mutate(
-    fert = case_when(
-      stock == "Great Central" ~ "enhanced",
-      stock == "Sproat" ~ "not enhanced",
-      enh == 1 ~ "enhanced",
-      enh == 0 ~ "not enhanced",
-      stock == "Hucuktlis" & is.na(enh) ~ "mixed"
-    ) |> 
-      factor(levels = c("not enhanced", "mixed", "enhanced")),
-    long_name = factor(
-      long_name,
-      levels = c(
-        "Great Central Lake",
-        "Sproat Lake",
-        "Hucuktlis Lake (all data)",
-        "Hucuktlis Lake (excl. 1993)",
-        "Hucuktlis Lake (w/enhancement)",
-        "Hucuktlis Lake (w/enhancement; excl. 1993)"
-      )
-    )
-  )
-
-
 # Add reference points manually from ResDoc table
 ref_pts_alt <- tribble(
   ~method, ~stock, ~Umsy_q50, ~Umsy_q10, ~Umsy_q90, ~Smsy_q50, ~Smsy_q10, ~Smsy_q90,
-  "S[MSY]", "Great Central", 0.58, 0.45, 0.68, 118488, 95382, 152044,
-  "S[MSY]", "Sproat", 0.67, 0.54, 0.77, 89388, 73018, 113683,
-  #"S-R", "Hucuktlis", 0.28, 0.07, 0.57, 9630, 2453, 47816,
-  "50^th~percentile", "Hucuktlis", 0.28, 0.07, 0.57, 13948, NA_real_, NA_real_
+  "S[MSY]", "Great Central", 0.51, 0.35, 0.64, 115286, 92950, 146123,
+  "S[MSY]", "Sproat", 0.61, 0.45, 0.73, 85395, 70993, 106639,
+  "50^th~percentile", "Hucuktlis", 0.59, 0.14, 0.81, 13948, NA_real_, NA_real_
 ) |> 
   mutate(stock = factor(stock, levels = c("Great Central", "Sproat", "Hucuktlis")))
 
@@ -183,7 +146,6 @@ make_kobe_p <- function(xy_data, reflines_data, endyrs_data, facet_rows) {
       vjust = 1.25,
       size = 3
     ) +
-    #add "crosshairs"
     scale_colour_viridis_c() +
     scale_y_continuous(
       limits = c(1e-6, NA),
@@ -238,18 +200,18 @@ pull(kobe_plots, kobe_p, name = group)
 
 # Save the Kobe plots
 kobe_plots |> 
-  mutate(height = if_else(group == "Hucuktlis", 5, 5)) |> 
-  select(kobe_p, group, height) |> 
+  mutate(width = if_else(group == "Hucuktlis", 5, 8)) |> 
+  select(kobe_p, group, width) |> 
   pwalk(
-    function(kobe_p, group, height) ggsave(
+    function(kobe_p, group, width) ggsave(
       plot = kobe_p,
       filename = here(
         "3. outputs",
         "Plots",
         paste0("Kobe_plots_", group,".png")
       ),
-      width = 7,
-      height = height,
+      width = width,
+      height = 5,
       units = "in",
       dpi = "print"
     )
