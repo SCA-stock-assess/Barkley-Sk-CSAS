@@ -1194,7 +1194,14 @@ enh_lu <- here(
   read_xlsx() |> 
   mutate(
     across(matches("hat.*release"), \(x) if_else(is.na(x), 0, x)),
-    enhanced = if_else(fertilized == 1 | if_any(matches("hat.*release")) > 0, 1, 0),
+    enhanced = case_when(
+      fertilized == 1 & if_any(matches("hat.*release")) > 0 ~ 
+        "Hatchery releases\n& lake fertilization",
+      fertilized == 1 ~ "Lake fertilization",
+      fertilized == 0 & if_any(matches("hat.*release")) > 0 ~ 
+        "Hatchery releases",
+      .default = "Not enhanced"
+    ),
     lake = factor(
       CU,
       levels = c("GCL", "SPR", "HUC"),
@@ -1304,7 +1311,7 @@ posterior_BYO_wt <- posterior_df |>
       colour = "grey50",
       shape = 21
     ) +
-    scale_fill_manual(values = c("red", "blue")) +
+    scale_fill_manual(values = c("purple", "blue", "turquoise", "red")) +
     scale_x_continuous(
       limits = c(0, NA),
       labels = scales::label_number(accuracy = 1),
