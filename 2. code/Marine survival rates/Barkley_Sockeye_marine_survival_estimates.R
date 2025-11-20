@@ -511,6 +511,49 @@ label_data <- points_data |>
     )
 )
 
+
+#  Try a multivariate model structure -------------------------------------
+
+
+# Arrange best time window indices together in a single dataframe per lake
+sas_mr_mods <- sas_cov_mods |> 
+  filter(
+    case_when(
+      covariate %in% c("ONI", "temp_5m") & window == "Mar-May" ~ TRUE,
+      covariate == "PDO" & window == "Oct-Mar" ~ TRUE,
+      .default = FALSE
+    )
+  ) |> 
+  select(1:data) |> 
+  unnest(data) |> 
+  pivot_wider(
+    id_cols = c(lake, smolt_year, `50%`),
+    names_from = covariate,
+    values_from = cov_mean
+  ) |> 
+  nest(.by = lake) |> 
+  rowwise() |> 
+  mutate(model = list(betareg(`50%` ~ PDO + temp_5m + ONI, data = data)))
+  
+
+# Individual relationships disappear--likely a result of multicollinearity
+sas_mr_mods |> 
+  pull(model, name = lake) |>
+  map(summary)
+
+
+# View correlations between indices
+sas_mr_mods[1, 2] |> 
+  unnest() |> 
+  select(PDO, ONI, temp_5m) |> 
+  cor(use = "complete.obs")
+  
+
+# check variance inflation factors
+sas_mr_mods |> 
+  pull(model, name = lake) |>
+  map(car::vif)
+
   
 # Plot marine survival versus covariates -----------------------------------------
 
