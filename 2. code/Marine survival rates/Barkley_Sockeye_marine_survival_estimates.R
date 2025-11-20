@@ -536,6 +536,7 @@ sas_mr_mods <- sas_cov_mods |>
   mutate(model = list(betareg(`50%` ~ PDO + temp_5m + ONI, data = data)))
   
 
+<<<<<<< HEAD
 # Individual relationships disappear--likely a result of multicollinearity
 sas_mr_mods |> 
   pull(model, name = lake) |>
@@ -553,6 +554,11 @@ sas_mr_mods[1, 2] |>
 sas_mr_mods |> 
   pull(model, name = lake) |>
   map(car::vif)
+=======
+sas_mr_mods |> 
+  pull(model) |>
+  map(car::Anova)
+>>>>>>> 3d0e43aaa6f52d8d831ceb7a076532dc1917ce1b
 
   
 # Plot marine survival versus covariates -----------------------------------------
