@@ -97,12 +97,11 @@ smolts <- list(smolts0, smolts1) |>
   mutate(across(everything(), parse_guess))
 
 
-# Build annual summary tables ---------------------------------------------
+# Build annual tables -----------------------------------------------------
 
 
 # Hyatt and all have vetted annual summary tables;
 # will take those at face value and model the 2018+ data accordingly
-
 smolts0 |> 
   filter(fnlage %in% c(1, 2)) |> 
   summarize(
@@ -111,6 +110,39 @@ smolts0 |>
     mean = mean(fresh_std_weight)
   ) |> 
   write.table("clipboard", row.names = FALSE)
+
+
+# Overall multi-year summary
+smolts |> 
+  mutate(K = 100*(fresh_std_weight/(fork_length/10)^3)) |> 
+  filter(
+    !if_all(c(fresh_std_weight, fork_length, K), is.na),
+    fnlage %in% c(1, 2)
+  ) |> 
+  summarize(
+    .by = c(cu, fnlage),
+    years = paste0(min(year), "-", max(year)),
+    N = n(),
+    across(
+      c(fork_length, fresh_std_weight, K),
+      \(x)
+      paste0(
+        quantile(round(x, 2), 0.5, na.rm = TRUE),
+        " (Q90: ",
+        quantile(round(x, 2), 0.05, na.rm = TRUE),
+        "-",
+        quantile(round(x, 2), 0.95, na.rm = TRUE),
+        ")"
+      )
+    )
+  ) |> 
+  write.table(
+    "clipboard", 
+    sep = ";",
+    quote = FALSE,
+    row.names = FALSE
+  )
+
 
 # Plots -------------------------------------------------------------------
 
