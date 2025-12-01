@@ -548,7 +548,7 @@ ggsave(
 )
 
 
-# Standardize annual abundance estimates using GAM ------------------------
+# Standardize annual abundance estimates using GAMM ------------------------
 
 
 # Model all 3 lakes together
@@ -872,6 +872,58 @@ ggsave(
   units = "in",
   dpi = "print"
 )
+
+
+
+# Use GAMM predictions to estimate fry-smolt survival --------------------
+
+
+# For each lake & year, determine which date corresponds to peak fry abundance
+pred_pairs <- gamm_combined |> 
+  unnest(pred) |> 
+  select(-c(obs:newdata)) |> 
+  filter(
+    .by = lake_year,
+    `50%` == max(`50%`)
+  ) |> 
+  select(lake, smolt_year_f, day_smolt_yr_max = day_smolt_yr, lake_year) |> 
+  mutate(day_345 = 345) |> 
+  filter(lake_year %in% paste0(ats_est$lake, "_", ats_est$smolt_year_f)) |>
+  arrange(lake, smolt_year_f) |> 
+  pivot_longer(
+    cols = c(day_smolt_yr_max, day_345),
+    names_to = "which_day",
+    values_to = "day_smolt_yr"
+  ) 
+
+
+# Get posterior expected values (draws × rows)
+# posterior_epred returns a matrix: draws x nrow(newdata)
+fs_s_pred <- posterior_epred(gamm_combined[["model"]][[1]], newdata = pred_pairs) |> 
+  t() |> 
+  as.data.frame() |> 
+  cbind(pred_pairs) |> 
+  pivot_longer(
+    cols = !colnames(pred_pairs),
+    names_to = "draw",
+    names_pattern = "V(.*)"
+  ) |> 
+  pivot_wider(
+    id_cols = !day_smolt_yr,
+    names_from = which_day,
+    values_from = value
+  ) |> 
+  mutate(fs_s = day_345/day_smolt_yr_max)
+
+
+# Multi-year summary of estimated fry-smolt survival rates
+fs_s_pred |> 
+  summarize(
+    .by = lake,
+    q50 = quantile(fs_s, 0.5),
+    q05 = quantile(fs_s, 0.05),
+    q95 = quantile(fs_s, 0.95)
+  )
 
 
 # Use smolt rates of capture to estimate annual production --------------
