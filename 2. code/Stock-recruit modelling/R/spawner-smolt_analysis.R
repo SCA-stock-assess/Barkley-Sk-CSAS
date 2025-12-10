@@ -1881,6 +1881,21 @@ ggsave(
 )
 
 
+# Export the residuals data time series
+if(FALSE) {
+  write.csv(
+    x = resids,
+    file = here(
+      "3. outputs",
+      "Stock-recruit modelling",
+      "Spawner-smolt posterior",
+      "Barkley_Sockeye_spawner-smolt_residuals_summary.csv"
+    ),
+    row.names = FALSE
+  )
+}
+  
+
 # Investigate pairwise correlations between CUs in Smolts/S residuals
 resids_corr <- tibble(
   y_cu = c("Great Central", "Hucuktlis", "Hucuktlis"),
