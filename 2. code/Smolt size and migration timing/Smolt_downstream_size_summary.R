@@ -355,6 +355,7 @@ annual_medians_age <- smolts0 |>
       shape = 21
     ) +
     scale_colour_manual(values = c("black", "grey70")) +
+    scale_x_continuous(limits = c(NA, 2024)) +
     labs(
       x = "Ocean entry year",
       y = NULL,
