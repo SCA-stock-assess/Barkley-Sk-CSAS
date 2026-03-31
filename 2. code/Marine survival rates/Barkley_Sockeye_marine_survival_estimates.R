@@ -38,18 +38,25 @@ r_ts <- read.csv(
       labels = c("Great Central", "Sproat", "Hucuktlis")
     ),
     smolt_year = brood_year + fw_age,
-    run = catch + escapement
-  ) |> 
-  # Ensure only complete smolt years are used
-  filter(
-    between(
-      smolt_year,
-      min(return_year) - min(ttl_age-fw_age),
-      max(return_year) - max(ttl_age-fw_age)
+    run = catch + escapement,
+    last_complete_year = max(return_year) - max(ttl_age-fw_age),
+    # Flag incomplete smolt years
+    completeness = if_else(
+      smolt_year <= last_complete_year,
+      1,
+      1-(smolt_year - last_complete_year)/(max(smolt_year)-last_complete_year)
     )
   ) |> 
+  # Ensure only complete smolt years are used
+  # filter(
+  #   between(
+  #     smolt_year,
+  #     min(return_year) - min(ttl_age-fw_age),
+  #     max(return_year) - max(ttl_age-fw_age)
+  #   )
+  # ) |> 
   summarize(
-    .by = c(lake, smolt_year),
+    .by = c(lake, smolt_year, completeness),
     R = sum(run)
   )
 
@@ -130,7 +137,7 @@ sas <- posterior_df |>
 sas_summary <- sas |> 
   filter(!is.na(survival)) |> 
   summarize(
-    .by = c(lake, year),
+    .by = c(lake, year, completeness),
     surv = list(quantile(survival, probs = c(0.025, 0.1, 0.5, 0.9, 0.975)))
   ) |> 
   unnest_wider(surv) |> 
@@ -140,6 +147,7 @@ sas_summary <- sas |>
 
 # Inter-annual summaries by CU
 sas_summary |> 
+  filter(completeness == 1) |> 
   summarize(
     .by = lake,
     geo_mean = exp(mean(log(`50%`))), # Geometric mean of the annual medians
@@ -561,7 +569,16 @@ sas_mr_mods |>
 
 # Time series plot
 (sas_ts <- sas_summary |> 
-   ggplot(aes(x = year, y = `50%`)) +
+   # Adjust completeness values to match desired alpha
+   mutate(
+     completeness_adj = case_when(
+       completeness == 1 ~ 1,
+       between(completeness, 0.6, 1) ~ 0.5,
+       between(completeness, 0.3, 0.6) ~ 0.25,
+       completeness < 0.3 ~ 0.1
+     )
+   ) |> 
+   ggplot(aes(x = year, y = `50%`, alpha = completeness_adj)) +
    facet_wrap(
      ~lake,
      ncol = 1,
@@ -588,6 +605,8 @@ sas_mr_mods |>
      labels = scales::percent,
      oob = scales::oob_keep
    ) +
+   scale_alpha_identity() +
+   guides(alpha = "none") +
    labs(
      x = "Ocean-entry year",
      y = "Smolt-to-adult survival"
