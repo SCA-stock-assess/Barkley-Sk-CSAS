@@ -111,3 +111,10 @@ hucuktlis_mgt_rule <- function(hucuktlis_run) {
   
 }
 
+# function to source part of file - ripped from (https://stackoverflow.com/questions/12214963/source-only-part-of-a-file)
+source2 <- function(file, start, end, ...) {
+  file.lines <- scan(file, what=character(), skip=start-1, nlines=end-start+1, sep='\n')
+  file.lines.collapsed <- paste(file.lines, collapse='\n')
+  source(textConnection(file.lines.collapsed), ...)
+}
+
