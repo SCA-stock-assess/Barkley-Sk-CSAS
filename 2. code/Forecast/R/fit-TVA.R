@@ -4,7 +4,7 @@ source(here("2. code/0. functions/common_functions.R"))
 
 # run part of the SR fitting just to get the data 
 source2(here("2. code/Stock-recruit modelling/R/Bayesian_state-space_alt-beta-prior.R"), 1, 250)
-  #^ breaks. looks like I need to run spawner-smolt_analyesi.R first but that also breaks 
+  #^ breaks. looks like I need to run spawner-smolt_analysis.R first but that also breaks 
     #at L919
 
 if(FALSE){
