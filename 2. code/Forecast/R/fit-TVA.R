@@ -5,7 +5,7 @@ source(here("2. code/0. functions/common_functions.R"))
 # run part of the SR fitting just to get the data 
 source2(here("2. code/Stock-recruit modelling/R/Bayesian_state-space_alt-beta-prior.R"), 1, 250)
   #^ breaks. looks like I need to run spawner-smolt_analysis.R first but that also breaks 
-    #at L919
+    #at L919. Had nick email me the `Ricker_beta_priors_smoltBev-Holt.RDS` - now it works
 
 if(FALSE){
 #fit models (1 by 1 for simplicity's sake)
