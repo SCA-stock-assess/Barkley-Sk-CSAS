@@ -575,17 +575,17 @@
 "SPR",2024,5,2,14471.9758136203,15769.5191279532,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "SPR",2024,5,3,1090.51551157582,3124.68545851101,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "SPR",2024,6,3,400.297633930374,55.3166391308953,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
-"GCL",2025,3,2,86045,10882,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2022
-"GCL",2025,4,2,214842,153769,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
-"GCL",2025,4,3,13584,1358,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
-"GCL",2025,5,2,68784,37680,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
-"GCL",2025,5,3,61776,28746,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"GCL",2025,3,2,86045,10868,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2022
+"GCL",2025,4,2,214842,153437,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
+"GCL",2025,4,3,13584,1349,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
+"GCL",2025,5,2,68784,37620,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"GCL",2025,5,3,61776,28703,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
 "GCL",2025,6,3,2586,1174,1,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "SPR",2025,3,2,42916,5420,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2022
-"SPR",2025,4,2,40044,28347,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
+"SPR",2025,4,2,40044,28334,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
 "SPR",2025,4,3,4473,757,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
-"SPR",2025,5,2,14313,15514,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
-"SPR",2025,5,3,3524,5279,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"SPR",2025,5,2,14313,15500,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"SPR",2025,5,3,3524,5277,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
 "SPR",2025,6,3,1043,248,0,0,"video counts","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "HUC",1972,3,2,0,0,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1969
 "HUC",1972,4,2,3185,825.37,0,0,"fishery officer","commercial catch records","scale sampling","assumed run timing",1968
@@ -846,16 +846,16 @@
 "HUC",2008,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2004
 "HUC",2008,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2003
 "HUC",2008,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","escapement",2002
-"HUC",2009,3,2,637.623762376238,148.046230317079,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
-"HUC",2009,4,2,15952.4752475248,3703.91438333661,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
-"HUC",2009,5,2,13201.9801980198,3065.29260100611,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
-"HUC",2009,6,2,91.0891089108911,21.1494614738685,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2003
+"HUC",2009,3,2,637.623762376238,147.287284218542,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
+"HUC",2009,4,2,15952.4752475248,3684.92658902042,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
+"HUC",2009,5,2,13201.9801980198,3049.57864560565,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
+"HUC",2009,6,2,91.0891089108911,21.0410406026489,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2003
 "HUC",2009,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
 "HUC",2009,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
-"HUC",2009,6,3,116.831683168317,27.1264831947443,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2003
-"HUC",2010,3,2,303.030303030303,289.612284804118,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2007
-"HUC",2010,4,2,26666.6666666667,25485.8810627624,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
-"HUC",2010,5,2,3030.30303030303,2896.12284804118,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
+"HUC",2009,6,3,116.831683168317,26.9874216425279,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2003
+"HUC",2010,3,2,303.030303030303,288.928875924921,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2007
+"HUC",2010,4,2,26666.6666666667,25425.741081393,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
+"HUC",2010,5,2,3030.30303030303,2889.28875924921,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
 "HUC",2010,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2004
 "HUC",2010,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2006
 "HUC",2010,5,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","HR model hindcast",2005
@@ -958,10 +958,10 @@
 "HUC",2024,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
 "HUC",2024,5,3,469.697929207802,633.302070792198,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "HUC",2024,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2018
-"HUC",2025,3,2,52.7369177000048,16.2630822999952,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2022
-"HUC",2025,4,2,15674.3291042275,4833.67089577249,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
-"HUC",2025,5,2,186.489969837698,57.5100301623019,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"HUC",2025,3,2,52.7369177000048,15.3314980609949,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2022
+"HUC",2025,4,2,15674.3291042275,4556.78785847656,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
+"HUC",2025,5,2,186.489969837698,54.2157322736631,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
 "HUC",2025,6,2,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
 "HUC",2025,4,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2021
-"HUC",2025,5,3,50.4440082347872,15.5559917652128,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
+"HUC",2025,5,3,50.4440082347872,14.6649111887777,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2020
 "HUC",2025,6,3,0,0,0,0,"AUC survey - Clemens","commercial + FN catch records + creel survey","scale sampling","DNA attribution",2019
