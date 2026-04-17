@@ -520,7 +520,7 @@ label_data <- points_data |>
 )
 
 
-#  Try a multivariate model structure -------------------------------------
+# Try a multivariate model structure -------------------------------------
 
 
 # Arrange best time window indices together in a single dataframe per lake
