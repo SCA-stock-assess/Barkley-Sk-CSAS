@@ -142,6 +142,60 @@ all_data <- hist_data |>
   bind_rows(ds_data)
 
 
+# Calculate annual quantiles
+# Calculate quantiles of dates for each stock
+all_data |> 
+  add_count(stock, year) |> 
+  summarize(
+    .by = c(julian, year, stock, n),
+    prop = sum(prop)
+  ) |> 
+  arrange(stock, year, julian) |> 
+  mutate(
+    .by = c(stock, year),
+    cumsum = cumsum(prop),
+    ttl = sum(prop),
+    prop = cumsum/ttl,
+    quartile = case_when(
+      between(prop, 0, 0.25) ~ "q1",
+      between(prop, 0.25, 0.5) ~ "q2",
+      between(prop, 0.5, 0.75) ~ "q3",
+      between(prop, 0.75, 1) ~ "q4",
+      TRUE ~ "check"
+    )
+  ) |> 
+  filter(cumsum > 0) |> 
+  mutate(
+    .by = c(stock, year, quartile),
+    width = max(julian - min(julian))
+  ) |> 
+  distinct(stock, year, quartile, .keep_all = TRUE) |> 
+  select(stock, year, quartile, julian, width, n) |> 
+  mutate(
+    start = julian,
+    end = julian + width,
+    across(
+      c(start, end), 
+      \(x) as.Date(paste0(x, "-", year), format = "%j-%Y") |> 
+        format("%d-%b-%Y")
+    )
+  ) |> 
+  pivot_wider(
+    id_cols = c(stock, year, n),
+    names_from = quartile,
+    values_from = c(start, end)
+  ) |> 
+  rename(
+    "min" = start_q1,
+    "lwr" = start_q2,
+    "median" = start_q3,
+    "upr" = start_q4,
+    "max" = end_q4
+  ) |> 
+  select(-matches("(start|end)_.*")) 
+
+
+
 
 # Plot the migration timing curves ----------------------------------------
 
