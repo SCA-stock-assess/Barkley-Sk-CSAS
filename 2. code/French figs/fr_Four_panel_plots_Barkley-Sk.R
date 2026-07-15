@@ -1,0 +1,347 @@
+# Packages ----------------------------------------------------------------
+
+pkgs <- c("here", "tidyverse", "readxl", "geomtextpath", "ggpubr", "zoo")
+#install.packages(pkgs)
+
+
+library(here)
+library(tidyverse); theme_set(theme_bw())
+library(readxl)
+library(geomtextpath)
+library(ggpubr)
+library(zoo)
+
+
+# Load time series data for each CU ---------------------------------------
+
+
+# S-R data
+sr_data <- here(
+  "3. outputs",
+  "Stock-recruit data",
+  "Barkley_Sockeye_stock-recruit_infilled.xlsx"
+) |> 
+  read_xlsx(sheet = "S-R data") |> 
+  mutate(
+    stock = factor(
+      stock,
+      levels = c("GCL", "SPR", "HUC"),
+      labels = c("Great Central", "Sproat", "Hucuktlis")
+    ),
+    ER = H/N,
+    R_S = R/S
+  ) |> 
+  filter(year <= 2024) |> 
+  select(year, stock, H, S, ER, R_S)
+  
+
+# Reference points (from Working Paper)
+ref_pts <- tribble(
+  ~stock, ~refpt, ~q10, ~q50, ~q90,
+  "Great Central", "Smsy", 95382, 118488, 152044,
+  "Great Central", "Umsy", 0.45, 0.58, 0.68,
+  "Great Central", "Sgen", 20667, 33680, 52929,
+  "Sproat", "Smsy", 73018, 89388, 113683,
+  "Sproat", "Umsy", 0.54, 0.67, 0.77,
+  "Sproat", "Sgen", 9426, 17321, 31329,
+  "Hucuktlis", "Smsy", NA, 13948, NA,
+  "Hucuktlis", "Umsy", 0.07, 0.28, 0.57,
+  "Hucuktlis", "Sgen", NA, 9576, NA,
+) |> 
+  mutate(
+    panel = if_else(
+      refpt == "Umsy", 
+      "Taux d’exploitation", 
+      "Échappées (en milliers)"
+    ),
+    across(
+      c(q10, q50, q90),
+      \(x) if_else(
+        refpt == "Umsy",
+        x,
+        x/1000
+      )
+    ),
+    stock = factor(stock, levels = c("Great Central", "Sproat", "Hucuktlis"))
+  ) |> 
+  pivot_wider(
+    names_from = refpt,
+    values_from = c(q10, q50, q90)
+  )
+
+
+# Data for the plots 
+fourpp_data <- sr_data |> 
+  pivot_longer(!c(stock, year)) |> 
+  mutate(
+    value = if_else(name %in% c("H", "S"), value/1000, value),
+    long_name = case_when(
+      name == "ER" ~ "Taux d’exploitation",
+      name == "H" ~ "Prélèvements (en milliers)",
+      name == "S" ~ "Échappées (en milliers)",
+      name == "R_S" ~ "Recrues par géniteur"
+    ) |> 
+      factor(
+        levels = c(
+        "Prélèvements (en milliers)",
+        "Échappées (en milliers)",
+        "Taux d’exploitation",
+        "Recrues par géniteur"
+        )
+      )
+  ) |> 
+  arrange(stock, long_name, year) |> 
+  mutate(
+    .by = c(stock, long_name),
+    # Calculate rolling geometric average of escapement
+    gen_ma = if_else(
+      name == "S", 
+      exp(rollmean(x = log(value), k = 4, fill = NA, align = "right")),
+      NA
+    )
+  )
+  
+
+# Aggregate dataset for the entire SMU
+bs_agg <- fourpp_data |> 
+  filter(year >= 1977) |> #Start the time series at the earliest year with all 3 CUs
+  summarize(
+    .by = c(year, long_name),
+    value = sum(value, na.rm = TRUE)
+  ) |> 
+  pivot_wider(names_from = long_name) |> 
+  mutate(
+    `Taux d’exploitation` = `Prélèvements (en milliers)` / (`Prélèvements (en milliers)` + `Échappées (en milliers)`),
+    `Recrues par géniteur` = if_else(year > max(year) - 6, NA, `Recrues par géniteur`)
+  ) |> 
+  pivot_longer(
+    !year,
+    names_to = "long_name"
+  ) |> 
+  mutate(stock = "Barkley Aggregate")
+
+
+# Make the plots ----------------------------------------------------------
+
+
+# Lengthy code with necessary panel-specific customization to build the plots
+plots <- fourpp_data |> 
+  bind_rows(bs_agg) |> 
+  nest(.by = c(stock, long_name), .key = "line_data") |> 
+  left_join(
+    ref_pts,
+    by = join_by(
+      stock,
+      long_name == panel
+    )
+  ) |> 
+  rowwise() |> 
+  mutate(
+    plot = list(      
+      ggplot(
+        line_data, 
+        aes(
+          x = year, 
+          y = value
+        )
+      ) +
+        # Base time series lines
+        geom_line(
+          aes(colour = "Données annuelles"),
+          linewidth = 0.5
+        ) +
+        # Add additional line for rolling 4-year geometric mean escapement
+        geom_line(
+          aes(
+            y = gen_ma,
+            colour = "Moyenne mobile\ngénérationnelle"
+          ),
+          linewidth = 0.5
+        ) +
+        # Add labelled horizontal reference line for Umsy
+        geom_labelhline(
+          yintercept = q50_Umsy,
+          label = "*U*<sub>RMD</sub>",
+          hjust = 0.1,
+          rich = TRUE,
+          lty = 2,
+          linewidth = 0.2,
+          fill = "white",
+          alpha = 0.8,
+          boxcolour = NA,
+          label.padding = unit(0.01, "lines"),
+          size = 2.5
+        ) +
+        # Add labelled horizontal reference line for Smsy
+        geom_labelhline(
+          yintercept = q50_Smsy,
+          label = if(stock != "Hucuktlis") {
+            "*G*<sub>RMD</sub>"
+          } else {
+            "50<sup>e</sup> percentile"
+          },
+          hjust = 0.1,
+          rich = TRUE,
+          lty = 2,
+          linewidth = 0.2,
+          fill = "white",
+          alpha = 0.8,
+          boxcolour = NA,
+          label.padding = unit(0.01, "lines"),
+          size = 2.5
+        ) +
+        #Add labelled horizontal reference line for Sgen
+        geom_labelhline(
+          yintercept = q50_Sgen,
+          label = if(stock != "Hucuktlis") {
+            "*G*<sub>gén</sub>"
+            } else {
+              "25<sup>e</sup> percentile"
+            },
+          hjust = 0.45,
+          rich = TRUE,
+          lty = 2,
+          linewidth = 0.2,
+          fill = "white",
+          alpha = 0.8,
+          boxcolour = NA,
+          label.padding = unit(0.01, "lines"),
+          size = 2.5
+        ) +
+        # Add inter-quartile confidence band around Umsy 
+        annotate(
+          "rect",
+          xmin = -Inf,
+          xmax = Inf,
+          ymin = q10_Umsy,
+          ymax = q90_Umsy,
+          fill = "black",
+          alpha = 0.10
+        ) +
+        # Add confidence band around Smsy 
+        annotate(
+          "rect",
+          xmin = -Inf,
+          xmax = Inf,
+          ymin = q10_Smsy,
+          ymax = q90_Smsy,
+          fill = "black",
+          alpha = 0.10
+        ) +
+        # Add inter-quartile confidence band around Sgen
+        annotate(
+          "rect",
+          xmin = -Inf,
+          xmax = Inf,
+          ymin = q10_Sgen,
+          ymax = q90_Sgen,
+          fill = "black",
+          alpha = 0.10
+        ) +
+        # Make panel-specific adjustments to y-axis formatting
+        scale_y_continuous(
+          limits = if(long_name == "Taux d’exploitation") {
+            c(0, 1)
+          } else {
+            c(0, NA)
+          },
+          expand = if(long_name == "Taux d’exploitation") {
+            c(0, 0)
+          } else if(long_name == "Échappées (en milliers)") {
+            # Add more white space in escapement panel to make room for legend
+            expansion(mult = (c(0, 0.15))) 
+          } else {
+            expansion(mult = (c(0, 0.07)))
+          },
+          labels = if(long_name == "Taux d’exploitation") {
+            scales::percent
+          } else {
+            scales::label_number()
+          }
+        ) +
+        # Add colour values to escapement time series lines
+        scale_colour_manual(values = c("black", "grey65")) +
+        labs(
+          x = if(long_name == "Recrues par géniteur") {
+            "Année de ponte"
+            } else {
+              "Année de montaison du saumon adulte"
+            },
+          y = long_name
+        ) +
+        # Disable legends in all panels except escapement (panel b)
+        guides(
+          colour = if(long_name != "Échappées (en milliers)" | str_detect(stock, "Barkley")) {
+            "none"
+          } else {
+            guide_legend()
+          }
+        ) +
+        # Customize the theme, including removing x-axis text on top panels
+        theme(
+          panel.grid = element_blank(),
+          panel.border = element_rect(
+            fill = NA, 
+            linewidth = unit(0.3, "lines"),
+            colour = "black"
+          ),
+          legend.title = element_blank(),
+          legend.text = element_text(size = 7),
+          legend.background = element_rect(
+            colour = "black", 
+            fill = alpha("white", 0.8),
+            linewidth = unit(0.1, "lines")
+          ),
+          legend.position = "inside",
+          legend.position.inside = c(0.001, 0.999),
+          legend.justification.inside = c(0, 1),
+          axis.title = element_text(size = 9)
+        ) 
+    ),
+    name = paste0(stock, "_", long_name)
+  ) |> 
+  pull(plot, name = name)
+
+
+# Arrange plots in a 4-panel grid
+(four_panel_plots <- list(
+  GCL = keep_at(plots, \(x) str_detect(x, "Great Central")),
+  SPR = keep_at(plots, \(x) str_detect(x, "Sproat")),
+  HUC = keep_at(plots, \(x) str_detect(x, "Hucuktlis")),
+  BS = keep_at(plots, \(x) str_detect(x, "Barkley"))
+) |> 
+    map(
+      \(x)
+      ggarrange(
+        plotlist = x, 
+        nrow = 2, 
+        ncol = 2, 
+        align = "v", 
+        labels = "auto",
+        label.x = 0.87,
+        label.y = 0.97,
+        heights = c(0.9, 1)
+      )
+    )
+)
+
+  
+# Save the compiled 4-panel grid plots (one per CU/stock)
+four_panel_plots |> 
+  iwalk(
+    \(x, idx) 
+    ggsave(
+      plot = x,
+      filename = here(
+        "3. outputs",
+        "Plots",
+        "Français",
+        paste0("fr_FSAR_4-panel_plot_", idx, ".png")
+      ),
+      height = 4,
+      width = 7,
+      units = "in",
+      dpi = "print"
+    )
+  )
+
